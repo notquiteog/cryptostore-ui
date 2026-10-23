@@ -1,0 +1,1039 @@
+/* ===============================
+   ONBOARDING
+   ===============================
+   The introduction: a full-viewport screen a new account sees once. Sits below
+   the age gate (9000) and above everything else, because a visitor who has not
+   confirmed their age must not be handed a shop tour instead of the gate.
+
+   ── The two problems this sheet exists to solve ─────────────────────────────
+
+   1. **It is the only surface in the app that owns the whole viewport**, so
+      nothing else is there to establish a scroll region. Every other page can
+      let the document scroll; this one must not, because the page behind it is
+      still there and `body { overflow: hidden }` is what stops it showing
+      through. So the screen is a three-row grid — rail, deck, footer — and the
+      DECK is the only thing that scrolls. The footer is therefore always
+      reachable at 320×480 and in landscape on a phone, which is the shape that
+      breaks a naively centred modal: the card grows past the viewport, the
+      buttons go under the fold, and there is no way to finish.
+
+   2. **It must hold from 320px to a multi-monitor span**, and a reading column
+      is exactly the layout that fails at the top end — `DESIGN.md` §1's
+      "centred column, enormous vertical padding". The answer is not a wider
+      column (prose has a legibility limit) but MORE STRUCTURE: the step list
+      becomes a real contents rail on the left, and each page splits its prose
+      from its facts. Both are `@container` queries against the shell, not
+      viewport queries, so the same component would lay out correctly if it
+      were ever mounted inside a panel — §5's rule, and the one a viewport
+      query gets exactly backwards.
+   =============================== */
+
+.onb {
+  position: fixed;
+  inset: 0;
+  /* `inset: 0` is the floor; `dvh` is the correction. On a phone the fixed
+     viewport can be the LARGE viewport — the one with the address bar hidden —
+     so a footer pinned to `bottom: 0` sits under browser chrome that is
+     currently on screen. Engines without `dvh` ignore this line and keep the
+     inset behaviour. */
+  height: 100dvh;
+  z-index: 8500;
+  display: grid;
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  animation: onb-in 0.4s var(--ease-panel);
+  /* Notch and home indicator. Padding rather than margin so the ground still
+     paints edge to edge behind them. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* A drag that overscrolls must not hand the gesture to the page underneath. */
+  overscroll-behavior: contain;
+}
+@keyframes onb-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* The room. Two slow brand orbs, settled once and then still — the age gate's
+   reasoning applies harder here, because this screen is read for a minute
+   rather than glanced at: something moving at the edge of vision while
+   somebody reads about consent is an interface fidgeting. */
+.onb::before,
+.onb::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+.onb::before {
+  width: 46vmax;
+  height: 46vmax;
+  top: -16vmax;
+  left: -14vmax;
+  background: var(--primary-glow);
+  animation: onb-orb-a 1.8s var(--ease-panel) both;
+}
+.onb::after {
+  width: 38vmax;
+  height: 38vmax;
+  bottom: -16vmax;
+  right: -12vmax;
+  background: var(--secondary-glow);
+  animation: onb-orb-b 2.1s var(--ease-panel) both;
+}
+@keyframes onb-orb-a {
+  from { opacity: 0; transform: translate3d(-3vmax, -2vmax, 0) scale(0.88); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes onb-orb-b {
+  from { opacity: 0; transform: translate3d(3vmax, 2vmax, 0) scale(0.9); }
+  to   { opacity: 1; transform: none; }
+}
+
+/*
+ * The composition, in two elements rather than one.
+ *
+ * `.onb-shell` carries the width cap AND declares the size container;
+ * `.onb-frame` is the thing laid out against it. They cannot be the same
+ * element: **an element cannot query the container it declares**, so a single
+ * div holding both would leave every `@container` rule below that targets the
+ * frame — including the one that puts the rail beside the content — silently
+ * never matching. It is `DESIGN.md` §5's trap, and it costs one wrapper.
+ *
+ * The width cap is its own paragraph below.
+ *
+ * `min-height: 0` on a grid child is the line without which none of the
+ * scrolling below works: a grid track sized `1fr` refuses to shrink past its
+ * content's min-content height by default, so the deck would grow to fit the
+ * longest page and push the footer off the bottom instead of scrolling. It is
+ * repeated at each level — shell, frame, main, deck — because the constraint
+ * has to be handed down the whole chain to reach the one box that scrolls.
+ */
+/*
+ * Vertically, the composition is as tall as it needs to be and never taller
+ * than the room.
+ *
+ * `align-self: center` with `max-height: 100%` and an auto height, rather than
+ * stretching to the viewport. Stretching pinned the footer to the bottom edge
+ * and left a short page floating in the middle of a metre of nothing, with the
+ * contents rail stranded at the top of it — three elements at three different
+ * heights on a tall monitor.
+ *
+ * Clamping instead keeps the deck BOUNDED, which is what the whole scroll
+ * design rests on: when the pages are short the shell is short and the
+ * `minmax(0, 1fr)` deck row simply fits them; when they are long the shell
+ * hits 100% and the same row shrinks below its content, which is the moment
+ * the deck starts scrolling. One declaration covers a 1440x2560 monitor in
+ * portrait and a phone in landscape.
+ */
+.onb-shell {
+  position: relative;
+  z-index: 1;
+  container-type: inline-size;
+  container-name: onb;
+  width: 100%;
+  /*
+   * How wide the composition is allowed to be, in the same three-part shape
+   * `--shell` uses in 01-tokens, because "how wide" has the same three
+   * answers here.
+   *
+   *   · 82 type units is the floor and the whole story up to about 1600px:
+   *     the screen is effectively full width, and the cap only stops a
+   *     laptop's line of prose from running the length of the window.
+   *   · 64vw takes over above that, so the room being bigger actually makes
+   *     the composition bigger. Without it a 3840px monitor showed a 1510px
+   *     island — the type unit stops growing at 1.375rem, so the cap stopped
+   *     growing with it, and the introduction became `DESIGN.md` §1's
+   *     "max-width that leaves half the monitor empty".
+   *   · 2200px is the ceiling, because what fills the width is prose. Past
+   *     that the reading column is longer than a line anybody wants to read,
+   *     and an 8K span is better served by a large centred spread on a lit
+   *     ground than by a 4000px paragraph.
+   */
+  max-width: min(100%, max(calc(var(--fs-unit) * 82), min(64vw, 2200px)));
+  margin-inline: auto;
+  align-self: center;
+  max-height: 100%;
+  min-height: 0;
+  display: grid;
+  /* The row has to be told it may be smaller than its content, or the clamp
+     above is cosmetic: the shell stops at 100% and the auto-sized row inside
+     it keeps the frame at its full 1300px, so on a 320x480 phone the footer
+     was laid out below the fold with nothing scrolling to reach it. */
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.onb-frame {
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--gutter) var(--sp-3);
+}
+
+/* ── The step rail ───────────────────────────────────────────────────────────
+ *
+ * One piece of markup, two shapes. Narrow it is a row of segments with the
+ * words in `.sr-only` — hidden from the eye, still announced — and wide it is
+ * a numbered contents list. Two separate markups would have put the same
+ * navigation in the accessibility tree twice.
+ */
+.onb-rail {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.onb-rail-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  min-width: 0;
+  margin: 0;
+  color: var(--primary);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+}
+.onb-rail-brand span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.onb-rail-brand svg { flex-shrink: 0; }
+
+.onb-rail-list {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.onb-rail-item { flex: 1 1 0; min-width: 0; }
+
+.onb-rail-step {
+  display: block;
+  width: 100%;
+  /* The touch floor, spent on padding around a 3px bar rather than on a 44px
+     bar: the target has to be thumb-sized, the mark does not. */
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+.onb-rail-step:disabled { cursor: default; }
+
+/* The segment itself, in the narrow shape. */
+.onb-rail-step::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  transform: translateY(-50%);
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.14);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.onb-rail-item.is-done .onb-rail-step::after { background: var(--primary); opacity: 0.55; }
+.onb-rail-item.is-now  .onb-rail-step::after {
+  background: var(--primary);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+@media (hover: hover) {
+  .onb-rail-item.is-done .onb-rail-step:hover::after { opacity: 1; }
+}
+.onb-rail-step:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* Narrow: the words are announced and not drawn. Same declarations as
+   `.sr-only` (45-cart-and-checkout-flow.css) rather than a class on the
+   element, because the wide shape has to be able to take them back. */
+.onb-rail-num,
+.onb-rail-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.onb-rail-count {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── The deck ────────────────────────────────────────────────────────────── */
+
+.onb-main {
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--sp-3);
+}
+
+.onb-deck {
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  /*
+   * A page shorter than the room sits in the middle of it; a page taller than
+   * the room scrolls from its top.
+   *
+   * `margin-block: auto` on the child rather than `justify-content: center` on
+   * the parent, and the difference is not stylistic: a centred flex container
+   * whose content overflows pushes the overflow out of BOTH ends and the top
+   * of the page becomes unreachable — there is no scroll position that shows
+   * it. Auto margins resolve to zero when there is no free space, so the same
+   * one declaration gives centring on a monitor and a normal top-anchored
+   * scroll on a phone in landscape.
+   */
+  display: flex;
+  flex-direction: column;
+  /* The browser keeps the vertical axis; the component takes the horizontal
+     one. Without this the page-turn drag fights the scroll on every touch
+     device, and the page wins — a long page becomes unreadable because every
+     attempt to scroll it turns the page instead. */
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.onb-sheet {
+  min-width: 0;
+  /* See the deck: centred when there is room, top-anchored when there is not.
+     `flex: 0 0 auto` so a long page keeps its natural height instead of being
+     compressed into the deck and scrolling inside itself. */
+  flex: 0 0 auto;
+  margin-block: auto;
+  padding: var(--sp-5) var(--sp-5) var(--sp-8);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  box-shadow: var(--glass-shadow), 0 0 48px var(--card-glow);
+  /* Pages arrive; they do not blink into existence (DESIGN §2). Keyed on the
+     step id in the component, so a page turn remounts and replays this. */
+  animation: onb-page-in var(--dur-3) var(--ease-settle) both;
+  will-change: transform;
+}
+@keyframes onb-page-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+/* While a finger is on it the sheet follows exactly, with no easing between
+   frames — direct manipulation, not an animation of one. */
+.onb-sheet.is-dragging {
+  animation: none;
+  transition: none;
+}
+
+/* ── The footer ──────────────────────────────────────────────────────────── */
+
+/*
+ * Flex and not a three-column grid.
+ *
+ * The grid version placed Back, an error cell and Next in `auto 1fr auto` —
+ * and the error is only rendered when there IS one, so on every ordinary page
+ * Next landed in the `1fr` middle column and stretched to about eight times
+ * the width of Back. A primary button whose size reports whether a save has
+ * failed is not a design, it is a bug with a layout.
+ *
+ * `margin-inline-start: auto` on Back is what pushes everything else to the
+ * far edge without a spacer element, and it keeps working when Back is the
+ * only child.
+ */
+.onb-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.onb-foot .onb-next { margin-inline-start: auto; }
+/* The ending has one control and it belongs where Next was. */
+.onb-foot-end { justify-content: flex-end; }
+
+.onb-btn-lg {
+  min-height: 44px;
+  padding-inline: var(--sp-5) !important;
+  font-size: var(--fs-base) !important;
+  font-weight: 600;
+  justify-content: center;
+}
+.onb-back:disabled { opacity: 0.35; }
+
+/* Above the buttons, always, on its own line. It is the reason the press did
+   not work, so it must not be a thing that appears between two controls and
+   shifts them sideways under the cursor. */
+.onb-save-error {
+  order: -1;
+  flex: 1 1 100%;
+  margin: 0;
+  min-width: 0;
+  color: var(--danger);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* ── Page content ────────────────────────────────────────────────────────── */
+
+.onb-title {
+  margin: 0 0 var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+/* The heading takes focus on every page turn so the new page is announced.
+   The user agent's ring on a heading is a rectangle around a whole line of
+   display type; light it the way everything else here is lit instead. */
+.onb-title:focus { outline: none; }
+.onb-title:focus-visible {
+  outline: none;
+  text-shadow: var(--text-glow);
+}
+
+.onb-lede {
+  margin: 0 0 var(--sp-5);
+  color: var(--text-secondary);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.onb-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-5);
+  min-width: 0;
+}
+.onb-prose { min-width: 0; }
+
+.onb-block { margin-bottom: var(--sp-5); }
+.onb-block:last-child { margin-bottom: 0; }
+.onb-block h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--text);
+}
+.onb-block h3 svg { flex-shrink: 0; color: var(--primary); }
+.onb-block p {
+  margin: 0 0 var(--sp-25);
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.onb-block p:last-child { margin-bottom: 0; }
+.onb-block strong { color: var(--text); font-weight: 650; }
+.onb-block em { color: var(--text); font-style: italic; }
+
+/* The one block on the whole screen that is allowed to raise its voice: the
+   sentence about there being no password reset. It is lit rather than
+   coloured danger — nothing has gone wrong, this is how the shop works — and
+   it keeps its left edge at `--glow-strength: 0`, where the wash disappears
+   and the border is what is left saying "read this one". */
+.onb-block-loud {
+  padding: var(--sp-4);
+  border: 1px solid var(--primary-border);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  background: rgba(var(--primary-rgb), 0.06);
+  box-shadow: inset 0 0 40px var(--card-glow);
+}
+
+.onb-list {
+  margin: var(--sp-2) 0 0;
+  padding-left: var(--sp-5);
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+}
+.onb-list li { margin-bottom: var(--sp-1); }
+.onb-list-tight { font-size: var(--fs-xs); }
+
+.onb-steps-list {
+  margin: 0;
+  padding-left: var(--sp-5);
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+}
+.onb-steps-list li { margin-bottom: var(--sp-25); }
+.onb-steps-list li:last-child { margin-bottom: 0; }
+.onb-steps-list strong { color: var(--text); }
+
+.onb-aside-note {
+  color: var(--text-muted) !important;
+  font-size: var(--fs-xs) !important;
+}
+
+/* The facts column: short, labelled, and deliberately a different texture from
+   the prose beside it so the two read as two things rather than as one long
+   page (DESIGN §7 — hierarchy, not shrinking). */
+.onb-facts {
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-2);
+  align-content: start;
+}
+.onb-fact,
+.onb-keydone {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-25);
+  align-items: start;
+  padding: var(--sp-3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.onb-fact-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+}
+.onb-fact-body { min-width: 0; }
+.onb-fact-body h4 {
+  margin: 0 0 var(--sp-05);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--text);
+  line-height: 1.3;
+}
+.onb-fact-body p {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.onb-warn {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  padding: var(--sp-3);
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--text-secondary) !important;
+  font-size: var(--fs-xs) !important;
+  line-height: 1.55;
+}
+.onb-warn svg { flex-shrink: 0; color: var(--warning); }
+
+/* ── The switches page ───────────────────────────────────────────────────── */
+
+.onb-switches { min-width: 0; }
+
+.onb-master {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color var(--transition), background var(--transition),
+              box-shadow var(--transition);
+}
+.onb-master.is-on {
+  border-color: var(--primary-border);
+  background: var(--btn-bg);
+  box-shadow: 0 0 26px var(--card-glow);
+}
+.onb-master-text { min-width: 0; display: grid; gap: var(--sp-05); }
+.onb-master-text strong { font-size: var(--fs-md); font-weight: 650; color: var(--text); }
+.onb-master-text span { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
+
+.onb-caps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-15);
+}
+.onb-cap {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.02);
+  transition: border-color var(--transition), background var(--transition);
+}
+.onb-cap.is-on {
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.05);
+}
+.onb-cap > label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-3);
+  align-items: center;
+  /* Touch floor: the whole row is the target, so it has to be one. */
+  min-height: 44px;
+  padding: var(--sp-25) var(--sp-3);
+  cursor: pointer;
+}
+.onb-cap-text { min-width: 0; display: grid; gap: var(--sp-05); }
+.onb-cap-title { font-size: var(--fs-base); font-weight: 600; color: var(--text); }
+.onb-cap-what {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.onb-cap-holds {
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.onb-foot-note {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  margin: var(--sp-4) 0 0;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+.onb-foot-note svg { flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+
+/* ── The key box ─────────────────────────────────────────────────────────── */
+
+.onb-keybox {
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--primary-border);
+  background: rgba(var(--tint-rgb), 0.03);
+  min-width: 0;
+}
+.onb-keybox > label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--text);
+}
+.onb-keybox > label svg { color: var(--primary); flex-shrink: 0; }
+.onb-keybox > label em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+}
+
+.onb-key-input {
+  width: 100%;
+  /* An armored block is one long unbroken token per line. Without an explicit
+     wrap it stretches the textarea's scroll width and, on a phone, the whole
+     page scrolls sideways behind it. */
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.onb-key-error {
+  margin: var(--sp-2) 0 0;
+  color: var(--danger);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+.onb-key-hint {
+  margin: var(--sp-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+}
+
+/* ── The ending ──────────────────────────────────────────────────────────── */
+
+.onb-finale {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--sp-3);
+  padding-block: var(--sp-4);
+  min-width: 0;
+}
+
+/*
+ * The floor the companion walks in on.
+ *
+ * A fixed height so the page does not jump when the animal changes state — a
+ * `greet` pose is a pixel or two taller than a `rest` one, and a container
+ * that shrink-wrapped it would nudge every line below on each transition.
+ */
+.onb-stagefloor {
+  position: relative;
+  width: 100%;
+  height: 108px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/*
+ * The walk-on. One style write: the animal starts off the left edge and the
+ * transition carries it to centre at a constant rate, exactly the way the
+ * navbar roam moves (see `.buddy-roam-body`, 100-ai-buddy.css). `linear`
+ * because a walk cycle at a constant frame tick over an eased path slides —
+ * the feet stop matching the ground.
+ */
+.onb-walker {
+  transform: translate3d(-50vw, 0, 0);
+  transition: transform var(--onb-walk-dur, 1500ms) linear;
+  image-rendering: pixelated;
+}
+.onb-stagefloor.is-walk .onb-walker,
+.onb-stagefloor.is-greet .onb-walker,
+.onb-stagefloor.is-idle .onb-walker { transform: none; }
+
+/* No companion on this shop: the other true ending of the flow. */
+.onb-seal {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  color: var(--primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+  box-shadow: 0 0 34px var(--primary-glow);
+  animation: onb-seal-in 0.5s var(--ease-spring) both;
+}
+@keyframes onb-seal-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: none; }
+}
+
+.onb-finale-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* The speech bubble. It has a tail, and the tail points at the animal — which
+   is why it only exists when there IS an animal: a tail pointing at nothing is
+   decoration pretending to be a mechanism. */
+.onb-say {
+  position: relative;
+  max-width: var(--shell-prose);
+  margin: var(--sp-1) 0 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--primary-border);
+  background: var(--btn-bg);
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  text-wrap: pretty;
+  animation: onb-say-in 0.45s var(--ease-spring) 0.15s both;
+}
+.onb-say::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  border-left: 1px solid var(--primary-border);
+  border-top: 1px solid var(--primary-border);
+  background: var(--btn-bg);
+}
+@keyframes onb-say-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.onb-finale-note {
+  max-width: var(--shell-prose);
+  margin: var(--sp-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.onb-recap {
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-15);
+  max-width: var(--shell-prose);
+  text-align: left;
+  min-width: 0;
+}
+.onb-recap li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-2);
+  align-items: start;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+.onb-recap svg { margin-top: 3px; color: var(--primary); }
+
+.onb-finale-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  min-width: 0;
+}
+.onb-finale-actions .glass-btn { flex: 1 1 auto; max-width: 100%; }
+
+/* ── Wider: the page splits ──────────────────────────────────────────────────
+ *
+ * A container query against `.onb-shell`, which declares the container. Every
+ * selector below therefore targets a DESCENDANT of the shell and never the
+ * shell itself — an element cannot query the container it declares, and a rule
+ * written on the declaring element silently never matches.
+ */
+@container onb (min-width: 46rem) {
+  .onb-cols {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: var(--sp-6);
+  }
+  .onb-sheet { padding: var(--sp-8) var(--sp-8) var(--sp-10); }
+  .onb-facts-wide { grid-column: span 1; }
+}
+
+/*
+ * Wide: the segments become a contents list down the left.
+ *
+ * This is what stops the top end being `DESIGN.md` §1's stranded column. The
+ * width goes to navigation — which step you are on, what is coming, and a way
+ * back to any of it — rather than to stretching a line of prose past the
+ * length at which it is readable.
+ */
+@container onb (min-width: 64rem) {
+  .onb-frame {
+    /* The rail in TYPE units, not a fixed 15rem. `rem` is the root's 16px
+       whatever the room is, so a fixed track gave a 4K monitor the same
+       240px column it gives a laptop — with type a third larger inside it,
+       which is where the step ledes started wrapping to four lines. */
+    grid-template-columns: minmax(0, calc(var(--fs-unit) * 16)) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: var(--sp-8);
+    padding-block: var(--sp-8) var(--sp-6);
+    align-items: stretch;
+  }
+
+  .onb-rail {
+    grid-template-columns: 1fr;
+    /* Auto rows and `align-content: start`, NOT `auto 1fr auto` — that
+       stretched the middle row and stranded the step count alone at the
+       bottom of a 1200px-tall column, a metre away from the list it counts. */
+    grid-template-rows: none;
+    align-items: start;
+    align-content: start;
+    gap: var(--sp-5);
+    padding-top: var(--sp-2);
+  }
+  .onb-rail-brand { font-size: var(--fs-xs); }
+  .onb-rail-brand span { white-space: normal; }
+
+  .onb-rail-list {
+    display: grid;
+    grid-auto-flow: row;
+    align-content: start;
+    gap: var(--sp-1);
+  }
+  .onb-rail-item { flex: none; }
+
+  .onb-rail-step {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sp-25);
+    align-items: start;
+    padding: var(--sp-25);
+    border-radius: var(--radius);
+    transition: background var(--transition);
+  }
+  /* The segment mark is the narrow shape's whole affordance and would be a
+     stripe through the middle of a list row here. */
+  .onb-rail-step::after { content: none; }
+
+  .onb-rail-num,
+  .onb-rail-text {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    clip-path: none;
+    white-space: normal;
+    overflow: visible;
+  }
+  .onb-rail-num {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    color: var(--text-muted);
+    transition: color var(--transition), border-color var(--transition),
+                background var(--transition), box-shadow var(--transition);
+  }
+  .onb-rail-text { display: grid; gap: 1px; min-width: 0; }
+  .onb-rail-title {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1.3;
+  }
+  .onb-rail-lede {
+    font-size: var(--fs-2xs);
+    color: var(--text-muted);
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+
+  .onb-rail-item.is-now .onb-rail-step { background: rgba(var(--primary-rgb), 0.08); }
+  .onb-rail-item.is-now .onb-rail-num {
+    color: var(--btn-text);
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 0 14px var(--primary-glow);
+  }
+  .onb-rail-item.is-now .onb-rail-title { color: var(--text); }
+  .onb-rail-item.is-done .onb-rail-num { color: var(--primary); border-color: var(--primary-border); }
+  .onb-rail-item.is-next .onb-rail-title { color: var(--text-muted); }
+  @media (hover: hover) {
+    .onb-rail-item.is-done .onb-rail-step:hover { background: rgba(var(--tint-rgb), 0.05); }
+  }
+
+  .onb-rail-count { justify-self: start; }
+}
+
+/* An 8K span, or a monitor turned sideways. The composition is already capped;
+   what is left is stopping the two content columns from becoming three
+   metres of text. */
+@container onb (min-width: 96rem) {
+  .onb-cols { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+  .onb-sheet { padding: var(--sp-10) var(--sp-12) var(--sp-12); }
+}
+
+/* ── Short viewports ─────────────────────────────────────────────────────────
+ *
+ * A phone in landscape is ~360px tall, and a 320×480 phone with the keyboard
+ * up is less. The deck already scrolls, so nothing is unreachable; this only
+ * takes back the vertical padding that was spent on making a tall screen
+ * breathe, so the reading area is not a two-line slot between two paddings.
+ */
+@media (max-height: 560px) {
+  .onb-frame { gap: var(--sp-2); padding-block: var(--sp-2); }
+  .onb-sheet { padding: var(--sp-4) var(--sp-4) var(--sp-5); }
+  .onb-stagefloor { height: 72px; }
+  .onb-title { font-size: var(--fs-xl); }
+  .onb-lede { margin-bottom: var(--sp-3); }
+}
+
+/* ── Narrow ──────────────────────────────────────────────────────────────────
+ *
+ * 320px, with the frame's own gutter taken off, leaves about 264px of content.
+ * The two things that break there are a three-column footer whose middle cell
+ * is an error message, and buttons whose labels stop fitting side by side.
+ */
+@media (max-width: 26rem) {
+  .onb-foot { gap: var(--sp-2); }
+  /* Two equal halves rather than one small Back and one wide Next: at 320px
+     the label is what runs out of room, not the button. */
+  .onb-foot .glass-btn { flex: 1 1 0; min-width: 0; }
+  .onb-btn-lg { padding-inline: var(--sp-3) !important; }
+  .onb-finale-actions { flex-direction: column; }
+  .onb-finale-actions .glass-btn { width: 100%; }
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────────
+ *
+ * Every arrival and the whole walk-on. The sprite's own frame animation is
+ * paused by 100-ai-buddy.css, and `Finale.jsx` additionally declines to START
+ * the journey — so the animal is already standing where it was walking to
+ * rather than frozen half way across, which is what a paused transition would
+ * have produced.
+ *
+ * The drag transform is NOT removed. It is direct manipulation — the sheet
+ * under a finger — and freezing it would leave a control that does not follow
+ * the thing moving it.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .onb,
+  .onb::before,
+  .onb::after,
+  .onb-sheet,
+  .onb-say,
+  .onb-seal { animation: none !important; }
+  .onb-walker { transition: none !important; }
+}

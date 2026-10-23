@@ -1,0 +1,419 @@
+/* ===============================
+   STORE PAGES (privacy / about / lab results)
+   ===============================
+   Operator-authored pages, rendered from markdown by a React-only renderer
+   (utils/microMarkdown.jsx) — these rules style semantic tags, because that
+   is all the renderer can emit. */
+
+.store-page {
+  /* A reading measure, and deliberately still a reading measure on a 4K
+     monitor: a privacy policy set 3000px wide is unreadable no matter how
+     much room there is. `--shell-prose` grows with the type rather than with
+     the window, so the line length in characters stays put while the text
+     itself gets bigger on a large screen. */
+  max-width: var(--shell-prose);
+}
+.store-page-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--sp-5);
+}
+.store-page-title svg { color: var(--primary); flex-shrink: 0; }
+.store-page-card { padding: var(--sp-6) var(--sp-8); }
+
+.store-page-body {
+  font-size: var(--fs-md);
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+.store-page-body h2,
+.store-page-body h3,
+.store-page-body h4,
+.store-page-body h5 {
+  font-family: var(--font-display);
+  color: var(--text);
+  letter-spacing: -0.01em;
+  margin: 1.6em 0 0.5em;
+}
+.store-page-body > :first-child { margin-top: 0; }
+.store-page-body h2 { font-size: var(--fs-xl); }
+.store-page-body h3 { font-size: var(--fs-lg); }
+.store-page-body h4, .store-page-body h5 { font-size: var(--fs-md); }
+.store-page-body p { margin: 0 0 1em; }
+.store-page-body ul, .store-page-body ol { margin: 0 0 1em; padding-left: var(--sp-6); }
+.store-page-body li { margin-bottom: 0.35em; }
+.store-page-body a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.store-page-body code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--well);
+  padding: 0.1em 0.4em;
+  border-radius: var(--radius-sm);
+}
+.store-page-body pre {
+  background: var(--well);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-4) var(--sp-4);
+  overflow-x: auto;
+  margin: 0 0 1em;
+}
+.store-page-body pre code { background: none; padding: 0; }
+.store-page-body blockquote {
+  margin: 0 0 1em;
+  padding: var(--sp-2) var(--sp-4);
+  border-left: 3px solid var(--primary-border);
+  background: rgba(var(--tint-rgb), 0.03);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.store-page-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+.store-page-intro { margin-bottom: var(--sp-6); }
+
+/* ── Certificates of analysis: the kinetic drawers ──
+   The open/close ride grid-template-rows through a SPRING easing, so the
+   drawer overshoots and settles like something with mass instead of a rigid
+   drop-down. linear() carries the real spring; the cubic-bezier before it is
+   the overshoot approximation for engines that don't parse linear() yet —
+   the later declaration wins wherever it is understood. */
+:root {
+  --coa-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --coa-spring: linear(
+    0, 0.01, 0.035 2.1%, 0.141 4.4%, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%,
+    1.017 19.4%, 1.077 22.2%, 1.121 24.9%, 1.149 27.7%, 1.159, 1.163, 1.161,
+    1.154 33.2%, 1.129 36.1%, 1.051 42.9%, 1.017 46.4%, 0.991, 0.977 54.3%,
+    0.975 57.2%, 0.997 69.8%, 1.003 76.9%, 1
+  );
+}
+
+.coa-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.coa-item {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-saturate));
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  animation: coa-in 0.5s var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes coa-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.coa-item:hover { border-color: var(--border-hover); }
+.coa-item.open {
+  border-color: var(--primary-border);
+  box-shadow: 0 0 24px var(--card-glow);
+}
+.coa-item.is-failed.open { border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+
+.coa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  width: 100%;
+  padding: var(--sp-4) var(--sp-5);
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.coa-head-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-25);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.coa-product {
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: var(--fs-md);
+}
+.coa-batch {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  border: 1px dashed var(--border-hover);
+  border-radius: var(--pill);
+  padding: 0.05rem var(--sp-2);
+  white-space: nowrap;
+}
+.coa-head-side { display: flex; align-items: center; gap: var(--sp-3); flex-shrink: 0; }
+.coa-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: var(--pill);
+  padding: var(--sp-1) var(--sp-25);
+}
+.coa-verdict.is-pass {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+.coa-verdict.is-fail {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+.coa-chevron {
+  color: var(--text-muted);
+  transition: transform 0.6s var(--coa-spring);
+}
+.coa-item.open .coa-chevron { transform: rotate(180deg); }
+
+/* The drawer itself. 0fr -> 1fr is what the spring animates; the inner
+   wrapper's overflow keeps the overshoot from spilling content mid-bounce. */
+.coa-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.6s var(--coa-spring);
+}
+.coa-item.open .coa-body { grid-template-rows: 1fr; }
+.coa-body-inner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 var(--sp-5);
+  /* A touch of parallax: the content lags the drawer by riding its own
+     spring from a slight lift, which is what sells the physicality. */
+  transform: translateY(-6px);
+  opacity: 0;
+  transition: transform 0.6s var(--coa-spring), opacity 0.35s ease;
+}
+.coa-item.open .coa-body-inner {
+  transform: none;
+  opacity: 1;
+  padding-bottom: var(--sp-4);
+}
+
+.coa-meta {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  padding-top: var(--sp-05);
+  margin-bottom: var(--sp-3);
+}
+.coa-meta span { display: inline-flex; align-items: center; gap: var(--sp-15); }
+
+.coa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-base);
+}
+.coa-table th {
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  padding: var(--sp-15) var(--sp-25) var(--sp-15) 0;
+  border-bottom: 1px solid var(--border);
+}
+.coa-table td {
+  padding: var(--sp-2) var(--sp-25) var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.coa-table tr:last-child td { border-bottom: none; }
+.coa-result {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum";
+  color: var(--text);
+}
+.coa-limit { color: var(--text-muted); font-size: var(--fs-sm); }
+.coa-note {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* Reduced motion: the drawers still open — instantly. The information was
+   never in the bounce. */
+@media (prefers-reduced-motion: reduce) {
+  .coa-item { animation: none; }
+  .coa-body, .coa-body-inner, .coa-chevron { transition: none; }
+}
+
+/* ── Admin editor ── */
+/* `.pages-tabbar` used to sit here. The editor's tab bar became the Pages
+   section of the sidebar, so the rule had nothing left to style. */
+.pages-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sp-5);
+}
+@media (max-width: 860px) {
+  .pages-editor-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.pages-md-input {
+  width: 100%;
+  min-height: 320px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  line-height: 1.65;
+}
+.pages-preview {
+  border: 1px dashed var(--border-hover);
+  border-radius: var(--radius);
+  padding: var(--sp-4) var(--sp-5);
+  min-height: 320px;
+  overflow-y: auto;
+  max-height: 560px;
+}
+.pages-preview-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-25);
+}
+.coa-editor-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-4) var(--sp-4);
+  margin-bottom: var(--sp-3);
+  background: rgba(var(--tint-rgb), 0.02);
+}
+.coa-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.coa-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 0 var(--sp-3);
+}
+.coa-row-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 1fr) auto;
+  gap: var(--sp-2);
+  align-items: center;
+  margin-bottom: var(--sp-2);
+}
+@media (max-width: 640px) {
+  .coa-row-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+/* ── Storefront footer ──
+   Enabled by the operator on Settings; StoreFooter.jsx renders nothing
+   otherwise. */
+.store-footer {
+  margin-top: var(--sp-12);
+  border-top: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.02);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+}
+.store-footer-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  padding-top: var(--sp-8);
+  padding-bottom: var(--sp-8);
+  text-align: center;
+}
+.store-footer-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-05);
+}
+.store-footer-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-md);
+  letter-spacing: -0.01em;
+}
+.store-footer-tagline {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.store-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-15) var(--sp-6);
+}
+.store-footer-links a {
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.store-footer-links a:hover { color: var(--primary); }
+.store-footer-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  max-width: 560px;
+  line-height: 1.6;
+}
+/* The mobile tab bar is fixed; the footer is the new last thing in flow and
+   needs the same clearance the pages carry, or the bar sits on its links. */
+@media (max-width: 768px) {
+  .store-footer { margin-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ── The mirror strip ──────────────────────────────────────────────────────
+   Which address the visitor is on and whether it is in the store's signed
+   list. Three tones, each carried by an icon and a word as well as colour
+   (DESIGN §3): listed, local, and not listed. Sits at the foot of the footer,
+   or alone when the footer's links are off. */
+.store-footer.is-strip-only { padding-top: 0; }
+.store-footer.is-strip-only .store-footer-inner:empty { display: none; }
+.mirror-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  width: 100%;
+  margin-top: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.03);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.mirror-strip svg { flex-shrink: 0; margin-top: 2px; }
+.mirror-strip.is-ok { color: var(--success); border-color: rgba(var(--success-rgb), 0.35); }
+.mirror-strip.is-ok .mirror-strip-text { color: var(--text-secondary); }
+.mirror-strip.is-warn { color: var(--warning); border-color: rgba(var(--warning-rgb), 0.5); background: rgba(var(--warning-rgb), 0.06); }
+.mirror-strip.is-warn .mirror-strip-text { color: var(--text); }
+.mirror-strip.is-quiet { color: var(--text-muted); }
+.mirror-strip b { font-family: var(--font-mono); font-weight: 600; color: var(--text); }
+.mirror-strip a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.mirror-strip-unsigned { color: var(--text-muted); }

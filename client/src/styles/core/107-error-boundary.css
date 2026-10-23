@@ -1,0 +1,157 @@
+/* ===============================
+   ERROR BOUNDARY
+   ===============================
+   The fallback a layout draws when a page component throws
+   (components/ErrorBoundary.jsx). Before it existed the client had no boundary
+   at all: React unmounted the whole tree on any uncaught render error, so one
+   bad line emptied <body> — nav, footer and page together — and the store
+   looked seized rather than buggy.
+
+   Deliberately quieter than the 404 next door in 99-not-found.css. That page
+   is a dead end being made friendly; this one is a recoverable stumble with a
+   retry sitting under it, and a stage that pulses and sweeps would dress a
+   two-second interruption as an outage.
+
+   Toned with `--warning`, not `--danger`. Nothing was destroyed and nothing was
+   lost — the retry usually works — and spending the destructive colour here
+   leaves it meaning less where it guards a refund or a delete.
+
+   Alpha is composed from the channel triples (DESIGN §11) so the surface holds
+   in both modes; at `--glow-strength: 0` the mark keeps its border and the
+   figure is ordinary text. */
+
+.eb-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.eb-admin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 62vh;
+  padding: var(--sp-4);
+}
+
+.eb-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: min(560px, 100%);
+  padding: var(--sp-6) 0 var(--sp-8);
+  /* Arrives like every page (DESIGN §2): a fade without travel. */
+  animation: fade-in 0.45s var(--ease-panel) both;
+}
+.eb-stage > *:not(.eb-halo) { position: relative; z-index: 1; }
+
+/* A still wash, not a breathing one — see the header. `min()` clamps it to the
+   column so it cannot hang off a phone's edge and grow a sideways scroll. */
+.eb-halo {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(460px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  /* Scaled by `--glow-strength` so the operator's "no glow" actually means it.
+     A fixed alpha here would leave a lit wash on a store that turned lighting
+     off — glow is the lighting, not the meaning (DESIGN §11). */
+  background: radial-gradient(circle, rgba(var(--warning-rgb), calc(0.2 * var(--glow-strength, 1))) 0%, transparent 68%);
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.eb-mark {
+  display: grid;
+  place-items: center;
+  margin-bottom: var(--sp-4);
+}
+.eb-mark-core {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  color: var(--warning);
+  background: var(--btn-bg);
+  /* The border does NOT scale: at `--glow-strength: 0` the mark must still be
+     a bordered disc rather than a floating icon. Only the cast light goes. */
+  border: 1px solid rgba(var(--warning-rgb), 0.38);
+  box-shadow: 0 0 22px -6px rgba(var(--warning-rgb), calc(0.7 * var(--glow-strength, 1))), var(--rim-inset);
+}
+.is-compact .eb-mark-core { width: 62px; height: 62px; }
+
+.eb-title {
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.eb-lede {
+  max-width: 46ch;
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+/* DEV-only panel (the component gates it), so this is an operator's surface,
+   not a buyer's: the ledger face, and a stack that scrolls inside its own box
+   rather than stretching the column. */
+.eb-detail {
+  width: 100%;
+  margin-top: var(--sp-4);
+  text-align: left;
+}
+.eb-detail summary {
+  cursor: pointer;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.eb-detail pre {
+  max-height: 40vh;
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-3);
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.eb-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-6);
+}
+.eb-links .glass-btn { display: inline-flex; align-items: center; gap: var(--sp-2); }
+
+@media (max-width: 480px) {
+  .eb-stage { padding-top: var(--sp-2); }
+  /* `align-self` is the one that matters: the stage centres its children, so
+     without it this row shrinks to its content and the buttons below stretch
+     to a 138px column in the middle of a 375px phone. Stretching the row first
+     is what makes them full-width targets rather than a narrow stack. */
+  .eb-links { flex-direction: column; align-items: stretch; align-self: stretch; }
+  .eb-links .glass-btn { justify-content: center; min-height: 44px; }
+}
+
+/* The entrance is the only motion here, so this is the whole of it. */
+@media (prefers-reduced-motion: reduce) {
+  .eb-stage { animation: none; }
+}

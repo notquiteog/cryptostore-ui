@@ -1,0 +1,98 @@
+/* Companion movement and voice feedback. The listening indicator stays above
+ * the finger; its border and icon remain legible when the operator removes glow.
+ * Pixel-sized potter offsets follow the sprite grid, not page layout. */
+/*
+ * The potter: the companion walks a few pixels off its button and back.
+ *
+ * This is the ONLY travel a store gets with `ai_buddy_roam` off, and it
+ * replaced an animation called `buddy-shuffle` that translated the sprite five
+ * pixels each way and rotated it four degrees. That read as an egg rocking,
+ * for a reason worth writing down: the sprite's own frames were a walk cycle,
+ * a walk cycle rotates nothing, and a body that tips while its feet march is
+ * the one combination that cannot be an animal walking. It is now a plain
+ * translation and a flip, which is exactly what the roaming layer does over a
+ * longer distance.
+ *
+ * The distance is deliberately smaller than the button. `--sp-` units are page
+ * layout; this follows the sprite grid, so the animal stops with its feet
+ * where the perch ring can still explain what the empty button is for.
+ *
+ * The duration comes from the component as `--potter-dur`, because it is the
+ * ANIMAL's: an owl potters at two-thirds an axolotl's pace and one fixed
+ * number would have the slow ones sliding home with their feet still.
+ */
+.buddy-sprite-potter {
+  animation: buddy-potter var(--potter-dur, 1.1s) linear;
+}
+
+/*
+ * `--potter-dir` is 1 for a walk to the left and -1 for one to the right, and
+ * the caller picks a side per outing. A keyframe cannot roll a die, and an
+ * animal that always went the same way read as a mechanism rather than as an
+ * animal — which is the whole difference this state is trying to make.
+ */
+@keyframes buddy-potter {
+  /* Out. It turns first, so it is facing the way it is about to walk. */
+  0%, 6% { transform: translateX(0) scaleX(calc(-1 * var(--potter-dir, 1))); }
+  42%, 50% {
+    transform: translateX(calc(-9px * var(--potter-dir, 1)))
+               scaleX(calc(-1 * var(--potter-dir, 1)));
+  }
+  /* A beat at the far end, then the turn home. */
+  56% { transform: translateX(calc(-9px * var(--potter-dir, 1))) scaleX(var(--potter-dir, 1)); }
+  92%, 100%, 6% { transform: translateX(0) scaleX(calc(-1 * var(--potter-dir, 1))); }
+}
+
+.buddy-listening-orb {
+  position: absolute;
+  inset-inline-start: 50%;
+  bottom: calc(100% + var(--sp-5));
+  transform: translateX(-50%);
+  width: calc(var(--sp-4) * 4);
+  height: calc(var(--sp-4) * 4);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--overlay-bg);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  box-shadow: var(--rim-inset), var(--glow-md);
+  pointer-events: none;
+  z-index: 3;
+}
+.buddy-listening-orb::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--sp-2));
+  border: 1px solid var(--primary);
+  border-radius: 50%;
+  animation: buddy-listening-radiate 1.6s var(--ease-out) infinite;
+}
+@keyframes buddy-listening-radiate {
+  from { transform: scale(.85); opacity: .65; }
+  to { transform: scale(1.35); opacity: 0; }
+}
+.buddy-mic { position: relative; touch-action: none; user-select: none; -webkit-touch-callout: none; }
+/* `.buddy-suggestions` used to be declared here as well as in
+   100-ai-buddy.css — two files with two different opinions about the same
+   list, which is how it ended up as a wrapped bag of pills of unequal width.
+   It now lives with the rest of the panel, next to the rows it shares a shape
+   with. */
+.aic-row:target { outline: 2px solid var(--primary); scroll-margin-top: 100px; }
+@media (prefers-reduced-motion: reduce) {
+  .buddy-sprite-potter, .buddy-listening-orb::before { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .buddy-sprite-sniff .buddy-strip,
+  .buddy-sprite-stretch .buddy-strip,
+  .buddy-sprite-groom .buddy-strip,
+  .buddy-sprite-look .buddy-strip,
+  .buddy-sprite-potter .buddy-strip,
+  .buddy-sprite-flutter .buddy-strip,
+  .buddy-sprite-fly .buddy-strip,
+  .buddy-sprite-yawn .buddy-strip { animation-play-state: paused !important; }
+}
+.ai-test-result { padding-block: var(--sp-3); border-top: 1px solid var(--border); }
+/* SVG frames can be replaced between pointer-down and pointer-up. Keep the
+   hit target on the button so an animated face cannot swallow its click. */
+.buddy-button .buddy-sprite { pointer-events: none; }

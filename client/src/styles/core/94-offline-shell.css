@@ -1,0 +1,38 @@
+/* ── Offline ──
+   components/OfflineBar.jsx: one line under the navbar while the browser
+   reports no connection. Warm rather than red — nothing is broken, the
+   store is deliberately showing what it kept — and the wording carries the
+   caveat, so the colour does not have to. */
+.offline-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  color: var(--text);
+  background: color-mix(in srgb, var(--warning) 16%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+}
+.offline-bar > svg { flex-shrink: 0; color: var(--warning); }
+.offline-bar b { font-weight: 700; }
+
+/* ── Paused ──
+   components/StorePausedBar.jsx: the same one line, while the operator has
+   paused new orders. Deliberately the offline bar's shape and the same warm
+   tone — nothing is broken here either, and the two can stack (a buyer
+   offline on a paused store) so they must read as siblings, not as a
+   warning under an error. The operator's own words carry the message. */
+.store-paused-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  color: var(--text);
+  background: color-mix(in srgb, var(--warning) 16%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+}
+.store-paused-bar > svg { flex-shrink: 0; color: var(--warning); }
+.store-paused-bar b { font-weight: 700; }

@@ -1,0 +1,57 @@
+/* ── Where to go next ───────────────────────────────────────────────────────
+ *
+ * The outbound strip at the foot of an admin page — see
+ * `components/admin/NextStops.jsx` for the audit that produced it.
+ *
+ * A quiet row, deliberately. These are not the page's actions and must not
+ * compete with them: DESIGN §7 asks every control to justify its pixels, and
+ * the thing an operator came here to press is above. Muted until hovered, one
+ * line, no card frame — a card would be a claim that "next" is an object on
+ * this page, which is the "cards inside cards" tell from §1.
+ */
+.nextstops {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--glass-border);
+}
+
+.nextstops-label {
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.nextstops-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--dur-1) var(--ease-out);
+}
+.nextstops-link:hover,
+.nextstops-link:focus-visible { color: var(--primary); }
+/* The arrow leans out on hover, in the direction the link goes. Transform
+   only, and it does not reflow — the gap is already reserved. */
+.nextstops-link svg { transition: transform var(--dur-1) var(--ease-out); }
+.nextstops-link:hover svg { transform: translate(1px, -1px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .nextstops-link svg { transition: none; }
+  .nextstops-link:hover svg { transform: none; }
+}
+
+/* Touch has no hover, so the muted resting state is the only state these ever
+   have there. Lift it to the working text colour — a row of links nobody can
+   ever light is a row that reads as disabled. */
+@media (hover: none) {
+  .nextstops-link { color: var(--text); }
+  .nextstops { gap: var(--sp-2) var(--sp-3); }
+}

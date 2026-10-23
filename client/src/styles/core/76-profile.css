@@ -1,0 +1,466 @@
+/* ===============================
+   THE ACCOUNT PAGE
+   ===============================
+   Replaces a 700px centred column of nine identical cards — DESIGN §1's
+   "centred column, enormous vertical padding" plus "one elevation for
+   everything", which between them meant nothing on the page said which of nine
+   settings mattered.
+
+   The layout is asymmetric on purpose (§1: "if one column matters more, give
+   it more"). Security is the wide column because those cards are long, are
+   dangerous, and are why the page gets opened; the bots, notifications and the
+   sound switch are a rail of short rows nobody reads twice.
+
+   ── Container query, not viewport ──
+   §5 is explicit about this and it is not theoretical here: the page renders
+   inside the storefront shell today, and the admin shell wraps its content in
+   a narrower box. A `@media (min-width: 900px)` would fire on a 1400px desktop
+   even when this page is sitting in a 380px panel — the wide rules in the
+   narrowest place they appear, which is the exact inversion §5 names. */
+
+.prof-page {
+  container-type: inline-size;
+  container-name: profile;
+  /* Wide, but not edge-to-edge on a 32" monitor: past about 1200px the
+     security column's forms stop being readable as forms and start being
+     a line of text with a box on the end. */
+  max-width: var(--shell);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* ── Identity banner ───────────────────────────────────────────────────── */
+
+.prof-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-5);
+  /* One tier above the cards below it (§3: three depths, one meaning). This
+     is the page's subject; everything under it is a setting. */
+  box-shadow: var(--rim-inset), var(--shadow-md), 0 0 32px var(--card-glow);
+}
+
+.prof-identity-meta {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.prof-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  /* Usernames are whatever people typed and some of them have no spaces at
+     all. Break rather than push the banner wider than the page. */
+  word-break: break-word;
+}
+
+.prof-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+}
+
+.prof-credit {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.prof-credit svg { color: var(--success); }
+
+/* Where this page leads (§9). A row of links, not a row of three equal cards
+   — they are peers and they are small, which is what a button row is for. */
+.prof-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-content: flex-start;
+}
+
+@container profile (max-width: 560px) {
+  .prof-identity { gap: var(--sp-4); }
+  /* The jump row goes full width and its buttons split the space, rather than
+     wrapping into a ragged two-and-two. */
+  .prof-jump { flex: 1 0 100%; }
+  .prof-jump .glass-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* ── The two columns ───────────────────────────────────────────────────── */
+
+.prof-columns {
+  display: grid;
+  gap: var(--sp-5);
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+@container profile (min-width: 900px) {
+  /* 1.55fr : 1fr — the security column carries forms and a table, the rail
+     carries switch rows. An even split would leave the rail half empty and
+     the table cramped. */
+  .prof-columns { grid-template-columns: 1.55fr 1fr; }
+  /* Sticky rail — but only when it FITS. The security column is several
+     screens long, and the notification switches scrolling away forever is
+     what makes someone think they are on a different page; pinning the rail
+     fixes that on a tall monitor.
+
+     This used to be unconditional, with `max-height: calc(100vh - 32px)` and
+     `overflow-y: auto` so a tall rail "could still scroll". It could not, in
+     effect: the rail is a column flexbox, so capping its height made its
+     cards flex-SHRINK to fit instead of overflowing — each card lost a fifth
+     of its height, `.glass-card`'s overflow: hidden clipped the bottom off,
+     and "Your data" lost its erase button while "This device" lost its
+     switch. Four cards is taller than most laptop viewports, so that was the
+     common case, not the edge.
+
+     Now Profile.jsx measures the rail and adds `is-pinned` only when the
+     whole rail fits under the top offset; otherwise it flows with the page
+     and every card is its natural height. No max-height, no inner scroll. */
+  .prof-rail.is-pinned {
+    position: sticky;
+    top: var(--sp-5);
+  }
+}
+
+.prof-main,
+.prof-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  min-width: 0;
+}
+
+/* ── Card furniture ────────────────────────────────────────────────────── */
+
+.prof-card { min-width: 0; }
+
+.prof-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+
+.prof-card-title { min-width: 0; }
+.prof-card-title h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-lg);
+}
+.prof-card-title h3 svg { color: var(--primary); flex-shrink: 0; }
+.prof-card-title p {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 60ch;
+}
+
+.prof-card-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+/* A count riding its own button — how many devices "sign out all others"
+   actually means, without a second line of text. */
+.prof-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(var(--primary-rgb), 0.18);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.prof-form { display: flex; flex-direction: column; gap: var(--sp-1); }
+/* Same reasoning as `.form-group` in 07-layout: the password fields on this
+   page are not wrapped in a `.form-group`, so they need saying again here. */
+.prof-form > .glass-input:not(textarea) { max-width: var(--field-max); }
+.prof-mono-input { font-family: var(--font-mono); }
+
+/* ── Switch rows ───────────────────────────────────────────────────────── */
+
+.prof-switches { display: flex; flex-direction: column; }
+
+.prof-switch {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+.prof-switches .prof-switch:last-child { border-bottom: none; }
+.prof-switch.is-disabled { opacity: 0.55; }
+
+.prof-switch-text { min-width: 0; }
+.prof-switch-title {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.35;
+}
+.prof-switch-hint {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* The one switch on this card whose consequence lives outside this store.
+   Marked with an edge rather than a colour fill: §3 reserves glow for live,
+   focused or dangerous, and a permanently-lit row would spend that signal on
+   something that is merely worth reading carefully. */
+.prof-switch-danger {
+  margin-top: var(--sp-3);
+  padding-left: var(--sp-3);
+  border-left: 2px solid rgba(var(--warning-rgb), 0.5);
+}
+.prof-switch-danger .prof-switch { border-bottom: none; padding-bottom: 0; }
+
+.prof-staff-block {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+.prof-subhead {
+  margin: 0 0 var(--sp-2);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* ── Bot channels ──────────────────────────────────────────────────────── */
+
+.prof-channels { display: flex; flex-direction: column; }
+
+.prof-channel {
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+.prof-channel:last-child { border-bottom: none; }
+
+.prof-channel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.prof-channel-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.prof-channel-name svg { color: var(--text-muted); }
+
+.prof-channel-pending {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  align-items: flex-start;
+}
+
+.prof-code {
+  display: block;
+  width: 100%;
+  padding: var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  word-break: break-all;
+  /* One click takes the whole command. The clipboard API is unavailable on an
+     insecure origin — a `.onion` over plain HTTP is exactly that — so a copy
+     button alone would not be a path on the deployment that needs it most. */
+  user-select: all;
+}
+
+/* ── Signed-in devices ─────────────────────────────────────────────────── */
+
+.prof-device {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.prof-device svg { color: var(--text-muted); flex-shrink: 0; }
+.prof-device-name { word-break: break-word; }
+
+.prof-here {
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+
+.prof-when { display: inline-flex; flex-direction: column; }
+.prof-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.prof-when .prof-dim { font-size: var(--fs-2xs); white-space: nowrap; }
+.prof-dim { color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* A row mid-request. Dimmed rather than replaced by a skeleton: the row's
+   content is still true until the server says otherwise, and swapping it for a
+   placeholder would make a failed revoke look like the row came back. */
+.prof-sessions tr.is-busy { opacity: 0.6; }
+
+.prof-foot-note {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ── Inline confirmation ───────────────────────────────────────────────
+   This is what replaced `window.confirm()`. A browser that has been told to
+   suppress dialogs returns false from confirm() forever, so the handler behind
+   it returned early with no request and nothing on screen — the button simply
+   stopped working, permanently and invisibly. A destructive step must not
+   depend on a dialog the user agent may decline to draw.
+
+   It also reads better: the question appears in the row it belongs to, so
+   "sign out this device" cannot be confused with "sign out all of them", which
+   is precisely the mistake a modal covering the list invites. */
+.prof-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  animation: prof-confirm-in var(--dur-1) var(--ease-out) both;
+}
+.prof-confirm-q {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+@keyframes prof-confirm-in {
+  from { opacity: 0; transform: translateX(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Danger as a text colour on an ordinary button, not a filled red block.
+   §7: every control justifies its pixels — a solid red button beside four
+   neutral ones on a settings page shouts at someone who is only reading. */
+.prof-danger-text { color: var(--danger); }
+.prof-danger-text:hover { border-color: rgba(var(--danger-rgb), 0.5); }
+
+.glass-btn-danger {
+  color: var(--danger);
+  border-color: rgba(var(--danger-rgb), 0.45);
+  background: rgba(var(--danger-rgb), 0.12);
+}
+.glass-btn-danger:hover {
+  border-color: var(--danger);
+  box-shadow: 0 0 14px rgba(var(--danger-rgb), 0.28);
+}
+
+/* The refresh icon spins only while a read is in flight. `.spin` is defined
+   here rather than globally because this is the only place that needs an icon
+   to rotate — and a loader must keep animating under reduced motion (§2), so
+   it is deliberately absent from the block below. */
+.prof-card-tools .spin { animation: prof-spin 0.9s linear infinite; }
+@keyframes prof-spin { to { transform: rotate(360deg); } }
+
+@container profile (max-width: 560px) {
+  /* The tool row's labels go, the icons stay: at this width "Refresh" and
+     "Sign out all others" together push the card head onto three lines. */
+  .prof-tool-label { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prof-confirm { animation: none; }
+}
+
+/* Touch: DESIGN §5's 44px floor. The session table's buttons were 30px, which
+   on a phone is a mis-tap next to a control that signs a device out. */
+/* The sessions table becomes label/value cards at 720px (38-responsive-admin-
+   tables.css), which hands the value half of each row roughly half the card.
+   Two `nowrap` timestamps stacked in that half ran past the card on anything
+   narrower than 400px and were clipped at the section edge. Once the row is a
+   card the dates may break; there is no column left to keep them on one line
+   for. */
+@media (max-width: 720px) {
+  .prof-sessions .prof-when { min-width: 0; align-items: flex-end; }
+  .prof-sessions .prof-mono,
+  .prof-sessions .prof-when .prof-dim { white-space: normal; }
+}
+
+@media (hover: none) {
+  .prof-sessions .glass-btn,
+  .prof-confirm .glass-btn {
+    min-height: 44px;
+  }
+}
+
+/* ── Redeem a voucher ─────────────────────────────────────────────────────── */
+.prof-voucher-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prof-voucher { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
+.prof-voucher .glass-input { width: 15rem; max-width: 100%; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; height: var(--control-h-sm); }
+.prof-voucher .glass-input::placeholder { font-family: var(--font); letter-spacing: 0; text-transform: none; }
+
+/* ── Your data ─────────────────────────────────────────────────────────────── */
+.prof-data-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-3); }
+.prof-erase {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--danger-rgb), 0.45);
+  background: rgba(var(--danger-rgb), 0.05);
+}
+.prof-erase .glass-input { max-width: 20rem; }

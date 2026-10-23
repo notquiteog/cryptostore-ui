@@ -1,0 +1,109 @@
+/* ===============================
+   SELF-HOSTED FONTS
+   ===============================
+   Every face ships from /public/fonts — nothing may load from a CDN, because a
+   buyer on a filtered network must render identically to one who is not. All
+   faces are OFL-licensed, subset to latin, and variable where the family ships
+   one (IBM Plex Mono is the exception: two static weights).
+
+   This is a ROSTER, not a load list: a browser only downloads a declared face
+   when something actually renders with it, so declaring eleven files costs a
+   visitor exactly the three their store has selected. The selection lives in
+   the admin's theme settings (theme_font_ui / _display / _mono) and lands on
+   --font / --font-display / --font-mono via the derivation; the Ledger
+   defaults are Hanken Grotesk (working UI), Archivo (voice), IBM Plex Mono
+   (the ledger: prices, ids, hashes — one width per glyph so money columns
+   line up; pair with font-variant-numeric). */
+
+/* ── Default trio (preloaded in index.html) ── */
+@font-face {
+  font-family: 'Hanken Grotesk';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/hanken-grotesk-variable.woff2') format('woff2-variations'),
+       url('/fonts/hanken-grotesk-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/archivo-variable.woff2') format('woff2-variations'),
+       url('/fonts/archivo-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-mono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  /* The 600 file serves the whole medium-to-bold band: Plex Mono ships no
+     variable axis, and a synthetic bold on a mono face breaks glyph widths —
+     the one property a ledger face exists to keep. */
+  font-weight: 500 800;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-mono-600.woff2') format('woff2');
+}
+
+/* ── Selectable alternates ── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-variable.woff2') format('woff2-variations'),
+       url('/fonts/inter-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/geist-variable.woff2') format('woff2-variations'),
+       url('/fonts/geist-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-variable.woff2') format('woff2-variations'),
+       url('/fonts/instrument-sans-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/space-grotesk-variable.woff2') format('woff2-variations'),
+       url('/fonts/space-grotesk-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/schibsted-grotesk-variable.woff2') format('woff2-variations'),
+       url('/fonts/schibsted-grotesk-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-variable.woff2') format('woff2-variations'),
+       url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/geist-mono-variable.woff2') format('woff2-variations'),
+       url('/fonts/geist-mono-variable.woff2') format('woff2');
+}

@@ -1,0 +1,118 @@
+/* ===============================
+   TAG SUGGESTIONS — the category's vocabulary, offered as chips
+   ===============================
+   pages/admin/ProductEdit.jsx, directly under the Tags field. Each chip is
+   a tag that OTHER products in the same category already carry, with the
+   number that carry it, and pressing one appends it to the field. A chip
+   leaves the row the moment its tag is on the product, so the row is always
+   "what you have not used yet".
+
+   Chips are buttons, not spans: a tag that can be pressed must be reachable
+   from the keyboard and read as a control by a screen reader. They sit at
+   the same size as .apedit-tag so the two rows — what this product has,
+   what its neighbours have — are visibly the same kind of thing, and only
+   the leading plus and the count say which is which.
+
+   They arrive with --ease-spring on a short ladder (DESIGN §2: small
+   objects), capped at the tenth so a category with thirty tags does not
+   keep the last chip waiting most of a second. */
+
+.apedit-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+
+.apedit-suggest-label,
+.apedit-suggest-empty {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.apedit-suggest-empty { margin-top: var(--sp-2); max-width: 72ch; }
+.apedit-suggest-label strong,
+.apedit-suggest-empty strong { font-weight: 600; color: var(--text-secondary); }
+
+.apedit-suggest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.apedit-suggest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-15) var(--sp-05) var(--sp-15);
+  min-height: 0;
+  border-radius: var(--pill);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.04);
+  /* Dashed on purpose: a solid border is what a tag that IS on the product
+     wears, one row up. Dashed reads as "could be", and it survives a theme
+     where the two tints are close and --glow-strength is 0. */
+  border: 1px dashed var(--border);
+  cursor: pointer;
+  animation: apedit-suggest-in var(--dur-2) var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+  transition:
+    color var(--transition),
+    border-color var(--transition),
+    background var(--transition),
+    box-shadow var(--transition),
+    transform var(--dur-1) var(--ease-spring);
+}
+.apedit-suggest-chip:hover,
+.apedit-suggest-chip:focus-visible {
+  color: var(--text);
+  border-style: solid;
+  border-color: rgba(var(--primary-rgb), 0.55);
+  background: rgba(var(--primary-rgb), 0.1);
+  box-shadow: var(--glow-sm);
+  transform: translateY(-1px);
+  outline: none;
+}
+.apedit-suggest-chip:active { transform: translateY(0); }
+
+.apedit-suggest-tag { white-space: nowrap; }
+
+/* How many of the category's products carry it. A numeral, so mono; muted,
+   so the word stays the thing you read. */
+.apedit-suggest-uses {
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  line-height: 1;
+  padding: var(--sp-05) var(--sp-1);
+  border-radius: var(--pill);
+  color: var(--text-muted);
+  background: rgba(var(--tint-rgb), 0.08);
+}
+.apedit-suggest-chip:hover .apedit-suggest-uses,
+.apedit-suggest-chip:focus-visible .apedit-suggest-uses {
+  color: var(--text-secondary);
+}
+
+/* Touch: a 0.7rem chip is a hard target for a thumb. Step the hit area up
+   without changing the type size (DESIGN §5). */
+@media (pointer: coarse) {
+  .apedit-suggest-chip { padding: var(--sp-15) var(--sp-25) var(--sp-15) var(--sp-2); }
+}
+
+@keyframes apedit-suggest-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apedit-suggest-chip {
+    animation: none;
+    transition: none;
+  }
+  .apedit-suggest-chip:hover,
+  .apedit-suggest-chip:focus-visible { transform: none; }
+}

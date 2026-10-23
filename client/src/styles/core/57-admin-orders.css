@@ -1,0 +1,211 @@
+/* ===============================
+   ADMIN ORDERS
+   ===============================
+   Everything particular to the order queue. `--aord-` on every custom
+   property; the shared card family above supplies the rest. */
+
+/* The lifecycle track across the top of a card: where this order is, and what
+   it has already been through. Reads left to right, scrolls if the viewport is
+   too narrow rather than compressing into unreadable stubs. */
+.aord-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.aord-track::-webkit-scrollbar { display: none; }
+
+.aord-step {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+}
+.aord-step-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.aord-step.is-done .aord-step-dot {
+  background: var(--success);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--success) 45%, transparent);
+}
+.aord-step.is-current .aord-step-dot {
+  background: var(--acard-tone, var(--primary));
+  box-shadow: 0 0 10px var(--acard-tone, var(--primary));
+  transform: scale(1.2);
+}
+/* A ring on the step the order is actually sitting at, so the eye lands there
+   first on a grid of twenty cards.
+
+   It used to ping outward on a 2s loop — and because this sits on a *card*,
+   a screen of twenty in-flight orders meant twenty rings expanding out of
+   phase, permanently. DESIGN §2: arrive, respond to the pointer, then hold
+   still. The ring is drawn once and stays: held at the radius the ping used
+   to start from, at full opacity rather than the 0.65 it faded from, so the
+   current step is if anything more findable than it was mid-cycle. */
+.aord-step.is-current .aord-step-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid var(--acard-tone, var(--primary));
+}
+.aord-step-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.aord-step.is-current .aord-step-label { color: var(--text); }
+.aord-step.is-done .aord-step-label { color: var(--text-secondary); }
+.aord-step-line {
+  width: 18px;
+  height: 2px;
+  flex-shrink: 0;
+  margin: 0 var(--sp-1);
+  background: var(--border);
+  transition: background 0.5s var(--ease-panel);
+}
+.aord-step-line.is-done {
+  background: linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 55%, transparent));
+}
+
+/* An order that ended somewhere the track does not describe — cancelled or
+   refunded — says so instead of drawing a journey that did not happen. */
+.aord-track-ended {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--acard-tone, var(--text-muted));
+}
+
+/* The item list on a card: enough to recognise the order, not the whole box. */
+.aord-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.aord-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-25);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  min-width: 0;
+}
+.aord-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.aord-item-qty {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.aord-item-more {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Selection checkbox, sized as a real target rather than the 13px default. */
+.aord-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: -6px 0 -6px -6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition);
+}
+.aord-select:hover { background: var(--surface-hover); }
+.aord-select input { width: 15px; height: 15px; cursor: pointer; }
+
+/* The bulk bar. Sticky to the top of the scroll area so it stays reachable
+   while an operator works down a long grid — and deliberately NOT inside a
+   `.glass-card`, whose `overflow: hidden` makes it its own scroll container and
+   kills `position: sticky` outright. `top` clears the 56px fixed admin topbar,
+   and the stacking stays under that bar's z-index of 200 so it can never paint
+   over the topbar or an open drawer. */
+.aord-bulk {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--primary-border);
+  background: color-mix(in srgb, var(--primary) 10%, var(--glass-bg));
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-shadow), 0 0 24px var(--card-glow);
+  animation: admin-panel-in 0.26s var(--ease-panel) both;
+}
+.aord-bulk-count {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--fs-base);
+  color: var(--primary);
+  white-space: nowrap;
+}
+.aord-bulk select.glass-input {
+  width: auto;
+  min-width: 8rem;
+  padding: var(--sp-15) var(--sp-8) var(--sp-15) var(--sp-25);
+  font-size: var(--fs-sm);
+}
+
+@media (max-width: 900px) {
+  /* Below the shell's sidebar breakpoint the topbar is fixed at 56px and the
+     page gets 5rem of top padding, so a sticky bar has to clear the bar itself
+     rather than the page's own gutter. */
+  .aord-bulk { top: 3.75rem; }
+}
+
+@media (max-width: 640px) {
+  /* 30px is a mis-tap waiting to happen, and this one silently adds an order
+     to a bulk action. Declared here rather than in the shared block's own
+     640px query: that query appears earlier in the file than `.aord-select`,
+     and at equal specificity the later rule wins — the override was being
+     silently discarded. */
+  .aord-select { width: 38px; height: 38px; margin: -8px 0 -8px -9px; }
+  .aord-select input { width: 17px; height: 17px; }
+
+  .aord-bulk { padding: var(--sp-25) var(--sp-3); gap: var(--sp-2); }
+  .aord-bulk > .glass-btn { flex: 1 1 auto; justify-content: center; }
+  .aord-bulk select.glass-input { flex: 1 1 100%; min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The current-step ring is drawn static now, so it needs no opt-out. */
+  .aord-step-line { transition: none; }
+  .aord-bulk { animation: none; }
+}
+

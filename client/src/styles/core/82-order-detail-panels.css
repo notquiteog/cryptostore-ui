@@ -1,0 +1,1596 @@
+/* ===============================
+   ORDER DETAIL — the furniture on the page
+
+   73-order-detail.css owns the page's skeleton: the shell, the header block
+   and the two-column split. This file owns everything standing on it — the
+   panels, the fact strip, the payment instruction, the parcel list, the staff
+   desk, the dispute cards and the QR lightbox.
+
+   It exists because all of that used to be `style={{ … }}` objects inside
+   OrderDetail.jsx. Roughly four hundred lines of them, carrying about ninety
+   hand-picked rem and pixel literals, six hard-coded colours (`#00c77a`,
+   `#f97316`, `#555`, `#888`, `rgba(0,0,0,0.15)` and a bare `#fff`), four
+   invented easing curves and a `z-index: 1000`. Three separate consequences,
+   none of them visible in a diff:
+
+     - `rgba(0,0,0,0.15)` behind the tracking rows is ink. In light mode the
+       parcel list was the one dark strip on a white page.
+     - `#00c77a` and `#f97316` were the ends of two progress gradients. They
+       predate the theme system entirely, so a re-themed store drew its
+       payment bar in a palette it had never been given.
+     - An inline style cannot express `:hover`, `:focus-within`, a container
+       query or `prefers-reduced-motion`, which between them are most of what
+       DESIGN.md asks of a surface. The page had none of the four.
+
+   ── Elevation (DESIGN §3) ─────────────────────────────────────────────────
+   Every panel on this page used to be the same glass, the same border, the
+   same radius, so the eye had no path through it and the thing the person
+   actually came to do sat at the same depth as the reference facts. Three
+   depths here, and they mean something:
+
+     .od-panel.is-lead   what this order is waiting on — the unpaid address,
+                         the arrived-parcel question, the refund to claim.
+                         One per page at most. Lifted, lit, accent-edged.
+     .od-panel           a record: the payment as settled, where it ships,
+                         which parcels carry it. Ordinary card depth.
+     .od-facts / .od-kv  reference rows. No card at all — a card is a claim
+                         that something is a discrete object, and "placed on
+                         the 12th" is a fact, not an object.
+   =============================== */
+
+/* ── Panels ─────────────────────────────────────────────────────────────── */
+
+.od-panel {
+  position: relative;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-md);
+  backdrop-filter: var(--glass-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--rim-inset), var(--shadow-sm);
+  padding: var(--sp-5);
+  min-width: 0;
+  /* Panels fade rather than travel. The page is a stack of unrelated answers
+     to "what is this order", not a grid of peers, so a staggered ladder would
+     imply an order of reading that is not there. */
+  animation: od-panel-in var(--dur-3) var(--ease-panel) both;
+}
+
+@keyframes od-panel-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* The one panel the person is here for. Lifted a tier, edged in the brand,
+   and given the only card glow on the page — DESIGN §3: glow means live,
+   focused or dangerous, so exactly one thing may carry it.
+
+   The lift survives `--glow-strength: 0`: the accent border and the heavier
+   shadow are both still there when the glow token resolves to nothing, which
+   is the second channel §3 asks for. */
+.od-panel.is-lead {
+  border-color: rgba(var(--primary-rgb), 0.34);
+  box-shadow: var(--rim-inset), var(--shadow-md), 0 0 30px -6px var(--card-glow);
+}
+/* Tone variants for a lead panel that is not about the brand: an order in
+   dispute leads in danger, a refund waiting to be claimed leads in warning. */
+.od-panel.is-lead.is-warn {
+  border-color: rgba(var(--warning-rgb), 0.38);
+  box-shadow: var(--rim-inset), var(--shadow-md),
+              0 0 30px -6px rgba(var(--warning-rgb), 0.22);
+}
+.od-panel.is-lead.is-danger {
+  border-color: rgba(var(--danger-rgb), 0.38);
+  box-shadow: var(--rim-inset), var(--shadow-md),
+              0 0 30px -6px rgba(var(--danger-rgb), 0.22);
+}
+
+.od-panel-head {
+  display: flex;
+  align-items: center;
+  /* Whatever sits at the trailing edge may drop under the title on a
+     cover-screen phone rather than push the title out of the panel. */
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  min-width: 0;
+}
+.od-panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  min-width: 0;
+}
+.od-panel-title > svg { color: var(--primary); flex-shrink: 0; }
+.is-warn > .od-panel-head > .od-panel-title > svg { color: var(--warning); }
+.is-danger > .od-panel-head > .od-panel-title > svg { color: var(--danger); }
+
+/* Pushed to the trailing edge of a panel head: a count, an Edit button, a
+   state word. Its own class rather than `margin-left:auto` at each call site,
+   because three of them had drifted to three different values. */
+.od-panel-aside {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.od-panel-note {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.od-panel-note + .od-panel-note { margin-top: var(--sp-2); }
+
+/* ── Notes: one strip, four tones ───────────────────────────────────────────
+   Testnet warnings, "waiting for staff to verify", "paid in full", "no address
+   on this order" — six near-identical inline boxes, each with its own alpha
+   and its own padding. One shape, and the tone says which kind it is. The
+   icon is a real icon: the old copies opened with a bare `⚠` or `✓`
+   character, which DESIGN §1 names as a tell and which a screen reader reads
+   out as "warning sign". */
+.od-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  --od-note-rgb: var(--primary-rgb);
+  --od-note: var(--primary);
+  color: var(--od-note);
+  background: rgba(var(--od-note-rgb), 0.08);
+  border: 1px solid rgba(var(--od-note-rgb), 0.25);
+}
+.od-note.is-warn    { --od-note-rgb: var(--warning-rgb); --od-note: var(--warning); }
+.od-note.is-success { --od-note-rgb: var(--success-rgb); --od-note: var(--success); }
+.od-note.is-danger  { --od-note-rgb: var(--danger-rgb);  --od-note: var(--danger); }
+.od-note.is-quiet {
+  --od-note-rgb: var(--text-rgb);
+  --od-note: var(--text-muted);
+  background: rgba(var(--od-note-rgb), 0.05);
+}
+.od-note > svg { flex-shrink: 0; margin-top: 1px; }
+.od-note strong { font-weight: 700; }
+.od-note p { margin-top: var(--sp-1); color: var(--text-secondary); }
+.od-note + * { margin-top: var(--sp-3); }
+
+/* ── The fact strip ─────────────────────────────────────────────────────────
+   The reference facts used to be a glass card in the rail holding two rows:
+   payment method, and the date. A whole panel — border, blur, shadow, 20px of
+   padding — for eleven words, while the header above it had room to spare.
+   DESIGN §7: fill the screen with the record, not with chrome.
+
+   They are a strip under the title now, and it carries more than the card did:
+   the total, the buyer (staff only), the rail, the reference, when it was
+   placed. Values are `--font-mono` so a column of them lines up and so a UUID
+   reads as an identifier rather than as prose. */
+.od-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-5);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+.od-fact {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.od-fact-k {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.od-fact-v {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* The total is the one fact on the strip that is money, so it is the one that
+   gets weight. Everything at one weight is noise (DESIGN §7). */
+.od-fact.is-money .od-fact-v { font-size: var(--fs-md); font-weight: 700; }
+.od-fact-v.is-muted { color: var(--text-muted); font-weight: 500; }
+/* Staff following the buyer through to their record; a field that names
+   another record is a link (DESIGN §9). */
+a.od-fact-v {
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--transition), color var(--transition);
+}
+a.od-fact-v:hover { border-bottom-color: currentColor; }
+
+/* ── Key/value rows inside a panel ──────────────────────────────────────────
+   The settled-payment summary and the Zelle recipient block. A definition
+   list, not a stack of flexed divs: these are literally terms and their
+   values, and the assistive tree should say so. */
+.od-kv { display: grid; gap: var(--sp-2); margin: 0; }
+.od-kv-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  font-size: var(--fs-base);
+}
+.od-kv-row > dt { color: var(--text-muted); flex-shrink: 0; }
+.od-kv-row > dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.od-kv-row.is-num > dd { font-family: var(--font-mono); font-size: var(--fs-sm); }
+.od-kv-row.is-good > dd { color: var(--success); }
+.od-kv-row.is-warn > dd { color: var(--warning); }
+
+/* ── Copyable values ────────────────────────────────────────────────────────
+   A payment address, a memo code, a shipping address, a refund txid. All four
+   are strings whose only use is being copied somewhere else, and the longest
+   realistic one is a 95-character Monero subaddress — so the box wraps rather
+   than scrolls, and the value is mono at every size.
+
+   The copy button is hover-disclosed on a mouse and permanently visible on a
+   touch screen (DESIGN §4: touch has no hover, and this is the only path to
+   the action on a phone where there is no right-click "copy" worth the name).
+   Space is reserved either way, so nothing reflows under the cursor. */
+.od-copy { min-width: 0; }
+.od-copy + .od-copy { margin-top: var(--sp-3); }
+
+.od-copy-label {
+  display: block;
+  margin-bottom: var(--sp-1);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.od-copy-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  border: 1px solid var(--border);
+  transition: border-color var(--transition), background var(--transition);
+}
+.od-copy-box:hover,
+.od-copy-box:focus-within { border-color: var(--border-hover); }
+
+.od-copy-val {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.65;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  /* Preserved so a four-line postal address stays four lines. */
+  white-space: pre-wrap;
+}
+.od-copy-val.is-lg {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.od-copy-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: opacity var(--dur-2) var(--ease-out),
+              background var(--transition), color var(--transition),
+              border-color var(--transition);
+}
+.od-copy-btn:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border-hover); }
+.od-copy-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+/* Gated on the pointer, never on width: a laptop at 700px still has a mouse,
+   and a 1024px tablet does not. */
+@media (hover: hover) and (pointer: fine) {
+  .od-copy-btn { opacity: 0; }
+  .od-copy-box:hover .od-copy-btn,
+  .od-copy-box:focus-within .od-copy-btn { opacity: 1; }
+}
+@media (pointer: coarse) {
+  .od-copy-btn { width: 44px; height: 44px; }
+}
+
+/* ── Payment instruction (unpaid crypto) ────────────────────────────────────
+   Lays itself out against its own box, not the window. This panel is the
+   full width of the page while the order is unpaid and drops into the main
+   column the moment it is not, and a viewport query gets that backwards —
+   see DESIGN §5 and 66-order-line-actions.css, which hit the same thing. */
+.od-pay { container-type: inline-size; padding: 0; overflow: hidden; }
+
+/* The coin's own colours, handed in from the JSX as `--coin-a`/`--coin-b`.
+   These are the one place on the page where a fixed colour is correct:
+   Bitcoin orange is not the operator's to theme, and a buyer scanning for the
+   Monero panel is looking for that orange. They are confined to this hairline
+   and the coin chip — no text is ever set in them, so no contrast pair
+   depends on a value the theme cannot solve. */
+.od-pay-edge {
+  height: 3px;
+  background: linear-gradient(90deg, var(--coin-a), var(--coin-b));
+}
+.od-pay-body { padding: var(--sp-5); }
+
+.od-pay-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-5);
+  align-items: start;
+}
+/* The QR leads in the narrow case: on a phone, scanning it with a wallet on
+   another device is the whole interaction, and the address underneath is the
+   fallback. Declared BEFORE the container query, not after — both rules are
+   one class deep, so the later one wins on source order regardless of which
+   is inside the query. Written the other way round it rendered QR-first at
+   every width, and the container query looked like it was not firing at all
+   when in fact only the `order` declaration it was fighting had lost. */
+.od-pay-qr {
+  order: -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+}
+/* Wide enough for the QR to sit beside the instruction rather than above it,
+   and for the address and amount — the things a desktop reader copies — to
+   come first. */
+@container (min-width: 620px) {
+  .od-pay-split { grid-template-columns: minmax(0, 1fr) auto; }
+  .od-pay-qr { order: 0; }
+}
+
+.od-pay-coin {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.od-pay-coin-mark {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--coin-a), var(--coin-b));
+  /* White on the coin gradients, all three of which are mid-to-dark brand
+     oranges and greys — this is a fixed pair, not a themed one. */
+  color: #fff;
+}
+.od-pay-coin-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-md);
+  line-height: 1.2;
+}
+.od-pay-coin-sub { font-size: var(--fs-xs); color: var(--text-muted); }
+
+.od-pay-ask { margin-bottom: var(--sp-4); }
+.od-pay-ask-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.od-pay-amount {
+  /* An XMR amount runs to twelve decimals. Mono, tabular, and allowed to wrap
+     at a character rather than pushing the copy button off the panel. */
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.od-pay-ticker {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.od-pay-usd { margin-top: var(--sp-1); font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* ── The settle track ───────────────────────────────────────────────────────
+   DESIGN §10: animate the mechanism, and the mechanism here is money settling.
+
+   This replaces two separate progress bars stacked one above the other —
+   "total received" and "confirmed received" — which hid the single most
+   important relationship between them: confirmed can never exceed received,
+   because it IS the received money, once it has stopped being reversible. Two
+   bars drew them as unrelated quantities racing each other.
+
+   One track now. The pale fill is what has arrived; the solid fill is the part
+   of it that has settled, rising through the pale one as blocks land on it.
+   The end of the track is the amount owed, so "full" is unambiguous and a
+   partial payment reads as a partial payment instead of as a stalled bar.
+
+   Widths are animated, which is a layout property and normally forbidden —
+   but this is one element, two nodes deep, transitioning at most every fifteen
+   seconds when the poll returns. A transform-scaled fill would need the fill's
+   own children (there are none) unscaled, and would round its lit end to a
+   sub-pixel at low percentages. */
+.od-track {
+  position: relative;
+  height: 10px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.09);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.od-track-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  transition: width 0.7s var(--ease-settle);
+}
+/* Arrived but still reversible: the coin's own colour at low alpha, so it is
+   visibly the same money as the solid fill rather than a second quantity. */
+.od-track-recv {
+  width: var(--recv, 0%);
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--coin-a) 38%, transparent),
+    color-mix(in srgb, var(--coin-b) 38%, transparent));
+  overflow: hidden;
+}
+/* Seen, not settled: money in motion.
+
+   While any of the arrived amount is still unconfirmed, the pale fill carries
+   a diagonal hatch that drifts along the track — the network has this money
+   and it has not stopped moving yet. The solid fill rises over it as blocks
+   land and the hatch is gone the moment it is covered, so the moment the
+   store will act on the payment is visibly the moment the motion stops.
+
+   The hatch is a pseudo-element twice the fill's width translated by half of
+   itself, so the animation is a transform and never a background-position
+   (DESIGN §2: transform and opacity only). Under reduced motion the hatch
+   still draws, still — the pattern carries the distinction, the drift only
+   emphasises it. Survives --glow-strength: 0 for the same reason. */
+.od-track.is-settling .od-track-recv::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 200%;
+  background: repeating-linear-gradient(
+    -55deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--coin-b) 45%, transparent) 5px 8px);
+  animation: od-seen-drift 1.6s linear infinite;
+}
+@keyframes od-seen-drift {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+/* The key beside the figure: a swatch of the same hatch, so the number and
+   the bar are visibly talking about the same money. */
+.od-seen-key {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  vertical-align: -1px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    -55deg,
+    color-mix(in srgb, var(--coin-a) 25%, transparent) 0 3px,
+    color-mix(in srgb, var(--coin-b) 55%, transparent) 3px 5px);
+}
+.od-track-cap b.od-seen { color: var(--text-secondary); }
+/* Settled. Sits on top of the pale fill and is always the shorter of the two.
+   Success green once the whole ask has confirmed, warning while it is short —
+   the same two states the panel's wording uses, so the colour is never the
+   only thing carrying the meaning (DESIGN §3). */
+.od-track-conf {
+  width: var(--conf, 0%);
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--warning) 70%, transparent), var(--warning));
+  box-shadow: 0 0 10px -2px rgba(var(--warning-rgb), 0.6);
+}
+.od-track.is-full .od-track-conf {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--success) 70%, transparent), var(--success));
+  box-shadow: 0 0 12px -2px rgba(var(--success-rgb), 0.7);
+}
+
+.od-track-cap {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.od-track-cap b {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.od-track-cap b.is-idle { color: var(--text-muted); }
+.od-track-cap b.is-good { color: var(--success); }
+.od-track-cap b.is-warn { color: var(--warning); }
+
+/* ── The confirmation stack ─────────────────────────────────────────────────
+   The payment is the block at the bottom; each confirmation lands on top; the
+   dashed line is `required_confirmations`. Depth is carried by POSITION and by
+   the count — at `--glow-strength: 0` the blocks are solid squares with a
+   border and the picture is complete. The bloom is the last line of each
+   rule, scaled by the glow strength, so it can go to zero without a second
+   set of rules. Capped in JS at eight drawn rows; past that the middle folds
+   into the hatched band below, which states what it stands for. */
+/* ── The monitor well ───────────────────────────────────────────────────── */
+.od-monitor {
+  margin-top: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  border: 1px solid var(--border);
+}
+.od-monitor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  flex-wrap: wrap;
+}
+.od-monitor-live {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+/* The only looping motion on the page, and it earns it: it is the answer to
+   "is this page still watching, or has it given up?" on a screen a buyer
+   leaves open for an hour. It stops the moment the order is not pending, and
+   the reduced-motion block below replaces it with a static lit dot. */
+.od-monitor-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(var(--success-rgb), 0.8);
+  animation: od-monitor-breathe 2.4s var(--ease-panel) infinite;
+}
+@keyframes od-monitor-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+.od-monitor-when {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* ── Payments seen ──────────────────────────────────────────────────────────
+   PaymentLedger in OrderDetail.jsx. DESIGN §6, answered the same way as
+   before: not a table and not a card/list toggle, but purpose-built line
+   items — one per transaction — because the facts have wildly different
+   shapes (a 12-decimal amount, a block count, a 64-character hash) and the
+   list is one to five rows long.
+
+   Each row is its own small monitor: a ring that fills as blocks land, the
+   amount in the coin and at the order's rate, a segmented bar of blocks
+   landed over blocks required, the usual wait for the rest, and the hash to
+   copy. State is carried three ways at once — the ring's fill, the words in
+   the pill, the bar — so colour and glow are never the only signal.
+
+   `--p` is the depth as 0–1 and is registered so the ring's conic fill can
+   TWEEN when the poll returns a deeper transaction; browsers without
+   @property draw the new value at once, which is still correct. */
+@property --p {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+.od-txs { margin-top: var(--sp-4); }
+.od-txs-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.od-txs-count {
+  padding: 0 var(--sp-2);
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.12);
+  color: var(--text);
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+/* Nothing seen yet: said, with a ring that turns slowly — the same "still
+   watching" answer the monitor dot gives, for the part of the panel a buyer
+   is actually staring at while they wait. */
+.od-txs-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.od-txs-empty-dot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-top: 3px;
+  border-radius: 50%;
+  border: 2px dashed rgba(var(--tint-rgb), 0.45);
+  animation: od-txs-turn 6s linear infinite;
+}
+@keyframes od-txs-turn { to { transform: rotate(1turn); } }
+
+.od-tx-list { display: flex; flex-direction: column; gap: var(--sp-2); list-style: none; margin: 0; padding: 0; }
+
+.od-tx {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  /* Seen and settling share the coin's colour: it is the same money the
+     track paints pale. Settled turns the success colour, as the track does. */
+  --od-tx-rgb: var(--primary-rgb);
+  --od-tx: var(--coin-b, var(--primary));
+  background: rgba(var(--od-tx-rgb), 0.05);
+  border: 1px solid rgba(var(--od-tx-rgb), 0.18);
+  animation: od-tx-arrive var(--dur-3) var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+.od-tx.is-settled { --od-tx-rgb: var(--success-rgb); --od-tx: var(--success); }
+@keyframes od-tx-arrive {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The ring: conic fill = depth. The inner disc carries the count (or the
+   glyph), so the fact survives without the fill. */
+.od-tx-ring {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--od-tx) calc(var(--p, 0) * 1turn), rgba(var(--tint-rgb), 0.12) 0);
+  transition: --p 0.7s var(--ease-settle);
+  box-shadow: 0 0 calc(10px * var(--glow-strength, 1)) -3px rgba(var(--od-tx-rgb), 0.6);
+}
+.od-tx-ring-in {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--well);
+  color: var(--od-tx);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.od-tx.is-mempool .od-tx-ring-in { color: var(--text-secondary); }
+
+.od-tx-body { display: grid; gap: 5px; min-width: 0; }
+.od-tx-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-1) var(--sp-2);
+  min-width: 0;
+  /* On a phone the state pill drops under the amount rather than the amount
+     giving way: a twelve-decimal Monero figure broken across two lines reads
+     as two numbers, so the number is never allowed to break inside itself. */
+  flex-wrap: wrap;
+}
+.od-tx-amt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: normal;
+  word-break: keep-all;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.od-tx-amt small {
+  margin-left: 2px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.od-tx-state {
+  flex-shrink: 0;
+  padding: 1px var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--od-tx);
+  background: rgba(var(--od-tx-rgb), 0.14);
+}
+.od-tx.is-mempool .od-tx-state { color: var(--text-secondary); background: rgba(var(--tint-rgb), 0.1); }
+
+.od-tx-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--sp-2);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+}
+.od-tx-facts > span + span::before { content: '·'; margin-right: var(--sp-2); color: var(--text-muted); }
+
+/* Blocks landed over blocks required. `--segs` cuts the bar into that many
+   cells when they can be counted; a Monero depth of sixty is continuous. The
+   gaps are painted OVER the fill in the well's colour so the fill can stay
+   one element with one animated width. */
+.od-tx-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(var(--tint-rgb), 0.10);
+  overflow: hidden;
+}
+.od-tx-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--p, 0) * 100%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--od-tx) 65%, transparent), var(--od-tx));
+  transition: width 0.7s var(--ease-settle);
+}
+.od-tx-bar.is-segmented::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg,
+    transparent 0 calc(100% / var(--segs, 1) - 2px),
+    var(--well) calc(100% / var(--segs, 1) - 2px) calc(100% / var(--segs, 1)));
+}
+/* Zero blocks: the whole bar carries the track's drifting hatch — the same
+   "money in motion" mark, for the same money — and it goes solid the block
+   the first confirmation lands. */
+.od-tx.is-mempool .od-tx-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 200%;
+  background: repeating-linear-gradient(-55deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--od-tx) 45%, transparent) 5px 8px);
+  animation: od-seen-drift 1.6s linear infinite;
+}
+
+.od-tx-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-1) var(--sp-3);
+  flex-wrap: wrap;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.od-tx-eta { color: var(--text-secondary); }
+
+/* The hash is a button because its only purpose is being copied. Truncated in
+   the middle by the JSX rather than by `text-overflow`, so the tail — the part
+   a person actually eyeballs against their wallet — survives; the full value
+   is on the title and on the clipboard. Revealing it in place on hover would
+   reflow the row under the cursor, which DESIGN §4 forbids. */
+.od-tx-hash {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.od-tx-hash:hover { color: var(--text); }
+.od-tx-hash:focus-visible {
+  outline: none;
+  color: var(--text);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  border-radius: 3px;
+}
+.od-tx-hash > svg { opacity: 0; transition: opacity var(--dur-2) var(--ease-out); }
+.od-tx:hover .od-tx-hash > svg,
+.od-tx-hash:focus-visible > svg { opacity: 1; }
+/* Touch has no hover: the copy glyph is always there. */
+@media (hover: none) { .od-tx-hash > svg { opacity: 1; } }
+
+/* ── Parcel tracking ────────────────────────────────────────────────────────
+   DESIGN §6, answered: line items. One to eight rows of number + carrier +
+   date, in a 320px rail on a desktop and full width on a phone — so it lays
+   out against the rail's box (see `.od-rail` below), not the viewport.
+
+   The remove button is hover-disclosed, and it is the one control on this
+   page where that needed care: deleting a tracking number is destructive and
+   irreversible, and it used to be drawn permanently on every row, at full
+   size, in danger red, next to nothing else. Forty rows of standing red is
+   both a wall of chrome and a mis-click waiting to happen. It appears on
+   `:hover` and on `:focus-within` — always both, or the row stops being
+   reachable from a keyboard — and stays permanently visible on a coarse
+   pointer, which has no hover to reveal it with. */
+.od-parcels { display: flex; flex-direction: column; gap: var(--sp-2); list-style: none; }
+
+.od-parcel {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  /* A tint, not ink. This row was `rgba(0,0,0,0.15)`, which is the one value
+     that cannot follow a mode flip: on a light page the parcel list was a
+     black strip. `--tint-rgb` inverts with the mode, so the same alpha reads
+     as a lift in dark and an edge in light. */
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px solid var(--border);
+  transition: border-color var(--transition), background var(--transition);
+}
+.od-parcel:hover,
+.od-parcel:focus-within { background: rgba(var(--tint-rgb), 0.07); border-color: var(--border-hover); }
+
+.od-parcel-text { flex: 1; min-width: 0; }
+.od-parcel-no {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.od-parcel-meta {
+  margin-top: 1px;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.od-parcel-drop {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border-radius: var(--radius-sm);
+  background: none;
+  border: 1px solid transparent;
+  color: var(--danger);
+  cursor: pointer;
+  transition: opacity var(--dur-2) var(--ease-out),
+              background var(--transition), border-color var(--transition);
+}
+.od-parcel-drop:hover {
+  background: rgba(var(--danger-rgb), 0.12);
+  border-color: rgba(var(--danger-rgb), 0.35);
+}
+.od-parcel-drop:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--danger-rgb), 0.35); }
+@media (hover: hover) and (pointer: fine) {
+  .od-parcel-drop { opacity: 0; }
+  .od-parcel:hover .od-parcel-drop,
+  .od-parcel:focus-within .od-parcel-drop { opacity: 1; }
+}
+@media (pointer: coarse) {
+  .od-parcel-drop { width: 44px; height: 44px; }
+}
+
+/* Adding one. Three controls that have to share a baseline, which is what
+   `--control-h-sm` is for — the old inline version gave the inputs 0.35rem of
+   padding and the button 0.6rem, so they sat a couple of pixels apart and the
+   row looked hand-assembled (DESIGN §7). */
+.od-parcel-add {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+.od-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.od-field > label {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.od-field.is-grow { flex: 1; min-width: 130px; }
+.od-field > .glass-input {
+  min-height: var(--control-h-sm);
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+}
+.od-parcel-add > .glass-btn { min-height: var(--control-h-sm); }
+@media (pointer: coarse) {
+  .od-field > .glass-input,
+  .od-parcel-add > .glass-btn { min-height: 44px; }
+}
+
+/* ── The staff desk ─────────────────────────────────────────────────────────
+   Called "Admin Actions" and drawn as an undifferentiated row of eight
+   identical small buttons at the very bottom of the page, under the disputes.
+   Two things wrong with that, both named in DESIGN §1 and §7:
+
+     - Accepting an order, opening the packing bench and refunding it are not
+       peers. A row that draws them identically has not decided which one the
+       person is here for.
+     - Staff open this page to do something to the order. Putting the controls
+       below every panel on it meant scrolling past the buyer's dispute thread
+       to reach "Mark Paid".
+
+   So: it sits directly under whatever the order is waiting on, the advancing
+   action leads, the routes into the fulfilment screens follow as links, and
+   anything that destroys or moves money is separated by a rule and drawn in
+   danger. */
+.od-desk-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+/* The lead control. Slightly larger than the ones beside it, so the row has a
+   subject rather than eight equal claims on the eye. */
+.od-desk-row > .glass-btn.is-lead {
+  min-height: var(--control-h);
+  padding-inline: var(--sp-4);
+  font-weight: 700;
+}
+/* Everything past this point takes money back or ends the order. The rule is
+   the separation; the tone is the warning. On a narrow panel the margin
+   collapses and the divider becomes a full-width rule instead. */
+.od-desk-danger {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-left: auto;
+  padding-left: var(--sp-3);
+  border-left: 1px solid var(--border);
+}
+@container (max-width: 520px) {
+  .od-desk-danger {
+    margin-left: 0;
+    padding-left: 0;
+    padding-top: var(--sp-3);
+    border-left: none;
+    border-top: 1px solid var(--border);
+    width: 100%;
+  }
+}
+.od-desk { container-type: inline-size; }
+
+/* Staff on their own order get the reason rather than buttons that 400. */
+.od-desk-note {
+  width: 100%;
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+/* ── Inline confirms ────────────────────────────────────────────────────────
+   Every dangerous action on this page used to go through `window.confirm()`,
+   and the refund amount went through `window.prompt()` — a modal that cannot
+   show the order's total, cannot validate the number, cannot be styled, is
+   suppressible by the browser, and hands back a string that went to
+   `parseFloat` unchecked. On a page whose whole subject is money that is not
+   a confirmation, it is a guess with an OK button.
+
+   These take its place: the panel expands in situ, states the amount and what
+   the action does that cannot be undone, and puts the commit and the way out
+   side by side. Modelled on the payment-confirm block that was already here
+   and already right — it is now the shape all of them use. */
+.od-confirm {
+  width: 100%;
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--od-confirm-rgb, var(--danger-rgb)), 0.07);
+  border: 1px solid rgba(var(--od-confirm-rgb, var(--danger-rgb)), 0.28);
+  animation: od-confirm-in var(--dur-2) var(--ease-spring) both;
+}
+.od-confirm.is-success { --od-confirm-rgb: var(--success-rgb); }
+.od-confirm.is-warn { --od-confirm-rgb: var(--warning-rgb); }
+@keyframes od-confirm-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+.od-confirm-lede {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.od-confirm-lede > svg { flex-shrink: 0; margin-top: 2px; color: var(--text); }
+.od-confirm-lede strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.od-confirm-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.od-confirm .od-field { margin-bottom: var(--sp-3); }
+/* A money field is read digit by digit against a maximum, so it is set in the
+   ledger face and sized up from the ordinary control text. */
+.od-confirm .glass-input.is-money {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  font-variant-numeric: tabular-nums;
+  max-width: 12ch;
+}
+
+/* ── Disputes ───────────────────────────────────────────────────────────────
+   DESIGN §6, answered: cards, and not a toggle. Each row carries a paragraph
+   of the buyer's prose and possibly a paragraph of the store's reply, and
+   prose does not go in a column. */
+.od-disputes { display: flex; flex-direction: column; gap: var(--sp-3); list-style: none; }
+.od-dispute {
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--danger-rgb), 0.05);
+  border: 1px solid rgba(var(--danger-rgb), 0.16);
+}
+/* A settled dispute is history and steps back, the way a closed swap offer
+   does in 66-order-line-actions.css. */
+.od-dispute.is-closed {
+  background: rgba(var(--tint-rgb), 0.03);
+  border-color: var(--border);
+}
+.od-dispute-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+.od-dispute-when { font-size: var(--fs-2xs); color: var(--text-muted); }
+.od-dispute-body {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.od-dispute-reply {
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--info);
+  background: rgba(var(--secondary-rgb), 0.07);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.od-dispute-reply strong { color: var(--info); }
+/* The way to the thread that can hold a photograph. A link drawn as a link:
+   the panel is a record, and its one action should not read as a button
+   beside the badge. */
+.od-dispute-ticket {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--primary);
+}
+.od-dispute-ticket:hover { text-decoration: underline; }
+.od-dispute-offer {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--warning);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── QR lightbox ────────────────────────────────────────────────────────────
+   `--z-modal`, not the `z-index: 1000` this carried — a literal is how a toast
+   ends up under a dialog. */
+.od-qr-veil {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: blur(var(--overlay-blur));
+  backdrop-filter: blur(var(--overlay-blur));
+  cursor: zoom-out;
+  animation: od-panel-in var(--dur-2) var(--ease-panel) both;
+}
+/* The plate stays white in both modes, deliberately and as the only fixed
+   colour on this page that carries meaning. A QR code is read by a camera
+   looking for dark modules on a light field with a quiet zone around them;
+   inverted, a good many wallet scanners simply will not lock on. This is not a
+   surface the theme gets to own, and a themed one would be a payment address
+   that silently stops scanning on a light preset. */
+.od-qr-plate {
+  --qr-plate: #fff;
+  background: var(--qr-plate);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-6);
+  max-width: min(100%, 340px);
+  cursor: auto;
+  box-shadow: var(--shadow-lg);
+  animation: od-qr-in var(--dur-3) var(--ease-settle) both;
+}
+@keyframes od-qr-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+/* Set against the white plate, so these two greys are pinned for the same
+   reason the plate is. */
+.od-qr-addr {
+  margin-top: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  text-align: center;
+  color: #4a4a4a;
+  overflow-wrap: anywhere;
+}
+.od-qr-hint {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  text-align: center;
+  color: #7a7a7a;
+}
+
+/* The QR on the panel itself, at rest. Same reasoning as the plate. */
+.od-qr-thumb {
+  --qr-plate: #fff;
+  display: block;
+  padding: var(--sp-3);
+  border-radius: var(--radius);
+  background: var(--qr-plate);
+  border: none;
+  cursor: zoom-in;
+  box-shadow: 0 0 26px -6px color-mix(in srgb, var(--coin-a) 60%, transparent);
+  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease-out);
+}
+.od-qr-thumb:hover { transform: translateY(-2px) scale(1.02); }
+.od-qr-thumb:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.od-qr-cap {
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ── Light mode ─────────────────────────────────────────────────────────────
+   Light is not a filter (DESIGN §11). The two places on this page that need
+   saying explicitly: the well behind a copyable value is ink-on-white rather
+   than a hole punched in dark glass, and the lead panel's glow has to come
+   down or it reads as a smudge around the one thing the eye should go to. */
+:root[data-theme="light"] .od-panel.is-lead {
+  box-shadow: var(--rim-inset), var(--shadow-md), 0 0 22px -10px var(--card-glow);
+}
+:root[data-theme="light"] .od-track { background: rgba(var(--tint-rgb), 0.07); }
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+   Everything decorative stops and its end state is restored — `animation: …
+   both` holds the `from` frame, so cancelling without restoring would leave
+   the panels invisible.
+
+   The monitor dot is the exception, and it is deliberate: it is a loader, and
+   DESIGN §2 says leave loaders alone because a frozen one reads as a hung
+   page. It is not frozen here, it is replaced — the breathing stops and it
+   holds lit, which still says "watching" without anything moving. The two
+   width transitions on the settle track stop too: the bar snaps to the amount
+   received instead of animating to it, which is the same information. */
+@media (prefers-reduced-motion: reduce) {
+  .od-panel,
+  .od-confirm,
+  .od-qr-veil,
+  .od-qr-plate {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .od-monitor-dot { animation: none; opacity: 1; }
+  .od-track-fill,
+  .od-qr-thumb { transition: none; }
+  .od-qr-thumb:hover { transform: none; }
+}
+
+/* ── Odds and ends the panels above share ─────────────────────────────────── */
+
+/* A value the server withheld. Never an empty cell: "we are not telling you"
+   and "there is nothing here" are opposite facts that look identical as a
+   blank, and on this page they are the difference between a permissions
+   boundary and an order somebody forgot to give an address. */
+.od-withheld {
+  font-style: italic;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+}
+
+/* Textareas inside a rail panel: the address and the buyer's notes. Mono for
+   the address specifically — it is transcribed onto a label by hand, and a
+   proportional 1/l/0/O is how a parcel goes to the wrong street. */
+.od-field > textarea.glass-input {
+  min-height: 0;
+  padding: var(--sp-2);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+.od-field > textarea.glass-input.is-address {
+  font-family: var(--font-mono);
+  line-height: 1.65;
+}
+.od-field-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.od-field-actions > .glass-btn.is-grow { flex: 1; justify-content: center; }
+
+/* In a narrow rail the add-a-parcel row is three controls in about 280px of
+   usable width, which is two too many. Stack them, and let the button take the
+   full width so its target is not a 60px sliver. Against the rail's box, not
+   the window — on a 1400px desktop the rail is still 320px. */
+@container (max-width: 380px) {
+  .od-parcel-add { flex-direction: column; align-items: stretch; }
+  .od-parcel-add > .glass-btn { width: 100%; justify-content: center; }
+  .od-field.is-grow { min-width: 0; }
+}
+
+/* ── Where this order goes next ─────────────────────────────────────────────
+   DESIGN §9: every screen is a waypoint, and this one was a terminus. Its only
+   outbound paths were the breadcrumb and — for staff with the right grants —
+   the pack bench and the ship desk. The printable receipt at
+   /orders/:uuid/receipt was reachable from nowhere in the entire application;
+   the route existed and nothing linked to it.
+
+   The strip is the page's list of onward moves, drawn as a strip rather than
+   as buttons because none of them act on the order: they are all somewhere
+   else to be. Which of them render depends on who is looking — the buyer gets
+   the receipt, the catalogue and the support desk; staff get the queue they
+   came from and this buyer's history. */
+.od-ways {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-5);
+  flex-wrap: wrap;
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+.od-ways-lede {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.od-way {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-block: var(--sp-1);
+  transition: color var(--transition), border-color var(--transition);
+}
+.od-way > svg { color: var(--text-muted); transition: color var(--transition); }
+.od-way:hover { color: var(--text); border-bottom-color: rgba(var(--primary-rgb), 0.5); }
+.od-way:hover > svg { color: var(--primary); }
+.od-way:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); border-radius: 3px; }
+@media (pointer: coarse) {
+  .od-way { min-height: 44px; }
+}
+
+/* ── Loading ────────────────────────────────────────────────────────────────
+   A spinner in the middle of an empty viewport told the reader nothing except
+   that something was happening. This holds the shape the page is about to
+   have — head, stepper, wide column, rail — so the layout does not jump when
+   the order lands, and so a slow network reads as a page arriving rather than
+   as a blank screen. The pulse is a loader and stays animated under
+   reduced motion, per DESIGN §2. */
+.od-skeleton { display: grid; gap: var(--sp-5); }
+.od-skeleton-bar {
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.05);
+  border: 1px solid var(--border);
+  animation: od-skeleton-pulse 1.5s var(--ease-panel) infinite;
+}
+.od-skeleton-bar.is-title { height: 34px; max-width: 220px; border-radius: var(--radius-sm); }
+.od-skeleton-bar.is-strip { height: 22px; max-width: 460px; margin-top: var(--sp-3); border-radius: var(--radius-sm); }
+.od-skeleton-bar.is-step { height: 96px; }
+.od-skeleton-split { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--sp-5); }
+.od-skeleton-bar.is-main { height: 300px; }
+.od-skeleton-bar.is-rail { height: 190px; }
+.od-skeleton-say {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+@keyframes od-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+@media (max-width: 900px) {
+  .od-skeleton-split { grid-template-columns: minmax(0, 1fr); }
+  .od-skeleton-bar.is-rail { height: 120px; }
+}
+
+
+/* ── Modifiers the panels above share ─────────────────────────────────────── */
+
+/* A second caption under the settle track: what has arrived but not yet
+   settled. Reads as a footnote to the bar rather than as a second bar's
+   heading, which is the whole point of there being one bar. */
+.od-track-cap.is-under { margin-top: var(--sp-2); margin-bottom: 0; }
+.od-monitor-head.is-under { margin-top: var(--sp-3); margin-bottom: 0; }
+
+/* The inline spinner already carries a trailing margin for the case where it
+   precedes bare text; here it is a flex child and the row's gap does that job,
+   so the margin would double it. */
+.od-monitor-live > .spinner-inline { margin-right: 0; }
+
+/* Icon rotation while a request is in flight. `spin` is declared once in
+   07-layout.css; this is the class that borrows it, rather than an
+   `animation:` string assembled inline on every render. */
+.is-spinning { animation: spin 1s linear infinite; }
+
+.od-desk-row.is-centred { justify-content: center; }
+.od-desk-row.is-spaced { margin-top: var(--sp-4); }
+.od-field.is-spaced { margin-top: var(--sp-4); }
+/* An input row that is already inside a panel section, so it does not need the
+   rule and the air the standalone add-a-parcel form uses to separate itself. */
+.od-parcel-add.is-bare { margin-top: 0; padding-top: 0; border-top: none; }
+/* A panel that sits outside the two-column grid and has to make its own gap. */
+.od-panel.is-apart { margin-top: var(--sp-5); }
+.od-customer-slot { margin-bottom: var(--sp-5); }
+
+/* ── The quiet row ──────────────────────────────────────────────────────────
+   "You can still cancel this" is a condition of the panel above it, not a
+   discrete object, so it does not get a card — DESIGN §1: cards inside cards
+   inside cards, and every level of nesting that is not a real object is a
+   claim that is not true. A sentence, a low-key button, and the confirm that
+   opens under them when the button is pressed. */
+.od-quiet {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-inline: var(--sp-1);
+}
+.od-quiet-say {
+  flex: 1;
+  min-width: 220px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+/* No reduced-motion override for `.is-spinning`: it only exists while a
+   request is actually in flight, which makes it a loader, and DESIGN §2 is
+   explicit that loaders keep moving — a frozen one reads as a hung page. */
+
+/* ── The delivery estimate under the stepper ────────────────────────────────
+   One line, muted, from the store's own history — see services/fulfilmentStats.
+   `is-late` warms it: the order is past the slow end of "usually", and the
+   sentence now offers support rather than a number. */
+.od-eta {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.od-eta svg { flex-shrink: 0; margin-top: 2px; }
+.od-eta b { font-weight: 600; color: var(--text-secondary); }
+.od-eta.is-late { color: var(--warning); }
+.od-eta.is-late b { color: var(--warning); }
+.od-eta a { color: inherit; text-decoration: underline; }
+
+/* ── Pay another way ────────────────────────────────────────────────────────
+   Under the lead panel of an unpaid order: the quote's window, and the other
+   rails as a row of quiet options behind one disclosure. Quiet on purpose —
+   the panel above is the thing to act on; this is the exit for when it
+   cannot be. The window line warms as it runs out and turns to an offer once
+   it has closed. */
+.od-rail {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--glass-border);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.od-rail-window {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  line-height: 1.5;
+}
+.od-rail-window svg { flex-shrink: 0; margin-top: 2px; }
+.od-rail.is-soon .od-rail-window { color: var(--warning); }
+.od-rail.is-expired .od-rail-window { color: var(--text); }
+.od-rail-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.od-rail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.od-rail-toggle:hover { color: var(--text); }
+.od-rail-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.od-rail-opt {
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.04);
+  color: var(--text);
+  border-radius: var(--pill);
+  padding: var(--sp-1) var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.od-rail-opt:hover:not(:disabled) { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.08); }
+.od-rail-opt.is-quiet { color: var(--text-secondary); border-style: dashed; }
+.od-rail-opt:disabled { opacity: 0.6; cursor: default; }
+.od-rail-hint { font-style: italic; }
+
+/* ── What the order is waiting on ──────────────────────────────────────────
+   Under the stepper, above the ETA note. Deliberately quieter than EtaNote:
+   this is a plain fact about the order, and the ETA below it is the part that
+   sets an expectation. Same visual weight for both would make the page argue
+   with itself. */
+.od-waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.od-waiting b {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.od-waiting svg { flex: none; opacity: 0.7; }
+
+/* ── The shop's own note on an order ────────────────────────────────────────
+   A reading first and a form second, which is why the two states are drawn
+   differently rather than as one always-editable textarea: the panel is passed
+   over on nearly every load and opened on very few, and an open input on every
+   order invites somebody to type into the wrong one. Same reasoning as the
+   inline confirms above — the panel changes shape where it stands.
+
+   Named `od-staffnote`, not `od-note`: `.od-note` was already the inline
+   callout box further up this file — a flex ROW with a leading icon — and
+   reusing it laid this panel's heading beside its textarea instead of above
+   it, and restyled its paragraph through `.od-note p`. */
+.od-staffnote-read {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+/* The note itself is the subject of the panel, so it is body text rather than
+   the muted aside the metadata line above it uses. `pre-wrap` because a note is
+   typed, and the server collapses runs of whitespace but keeps the sentence. */
+.od-staffnote-text {
+  flex: 1 1 18rem;
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+.od-staffnote-empty {
+  flex: 1 1 18rem;
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.od-staffnote-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.od-staffnote-edit textarea { resize: vertical; min-height: 4.5rem; }
+.od-staffnote-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+/* The character count sits at the far left of the action row and pushes the
+   buttons right, so the commit stays where every other panel puts it. */
+.od-staffnote-actions small {
+  margin-right: auto;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.od-staffnote-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}

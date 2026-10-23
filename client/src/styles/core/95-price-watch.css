@@ -1,0 +1,89 @@
+/* ── Price watches ──
+   pages/Wishlist.jsx (PriceWatches) and the watch toggle in
+   components/product/BuyBox.jsx. A dropped row is lit in the success colour
+   and ALSO carries the arrow glyph and the "now" figure, so the drop reads
+   at `--glow-strength: 0` and without colour. */
+
+.pw { margin-top: var(--sp-8); }
+.pw-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.pw-count {
+  padding: 0.05rem var(--sp-2);
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.1);
+  color: var(--text-secondary);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0;
+}
+.pw-lede { margin: 0 0 var(--sp-4); font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.5; }
+.pw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.pw-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-3) var(--sp-4);
+  padding: var(--sp-25) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.pw-row.is-dropped {
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  box-shadow: 0 0 calc(18px * var(--glow-strength, 1)) -8px rgba(var(--success-rgb), 0.6);
+}
+.pw-row.is-gone { opacity: 0.7; }
+.pw-what { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-2); min-width: 0; }
+.pw-name { font-weight: 600; color: var(--text); text-decoration: none; }
+.pw-name:hover { color: var(--primary); }
+.pw-variant { font-size: var(--fs-sm); color: var(--text-secondary); }
+.pw-flag {
+  font-size: var(--fs-3xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.pw-flag.is-sale { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 50%, transparent); }
+.pw-prices { display: flex; gap: var(--sp-4); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-md); }
+.pw-prices small {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pw-was { color: var(--text-secondary); }
+.pw-now { display: inline-flex; flex-direction: column; color: var(--text); }
+.pw-row.is-dropped .pw-now { color: var(--success); font-weight: 700; }
+.pw-now svg { display: inline; vertical-align: -2px; margin-left: var(--sp-1); }
+.pw-stop { white-space: nowrap; }
+
+/* The toggle on the product page, styled like the heart beside it. */
+.pd-watch-btn.on { color: var(--success); border-color: color-mix(in srgb, var(--success) 50%, transparent); }
+
+/* Two lines on a phone, not three — the same collapse
+   106-restock-watch.css uses, and for the same reason. The two panels sit one
+   above the other on this page, so a watch that costs three lines beside a
+   subscription that costs two reads as two different components rather than
+   one system. The name takes the full width because it is the long part; the
+   figures and the stop button share the second line. */
+@media (max-width: 560px) {
+  .pw-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--sp-2); }
+  .pw-what { grid-column: 1 / -1; }
+  .pw-prices { grid-column: 1; }
+  .pw-stop { grid-column: 2; }
+}

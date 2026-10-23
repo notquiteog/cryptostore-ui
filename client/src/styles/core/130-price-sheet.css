@@ -1,0 +1,232 @@
+/* ── 130 · The price sheet ───────────────────────────────────────────────────
+ *
+ * What: the panel the products grid's picked-set bar opens for "Change
+ * prices" — every live variant under the picked products, with its list price
+ * and its volume ladder, edited as numbers (components/admin/PriceSheet.jsx).
+ *
+ * Why this shape: it replaced a percentage box that could move forty list
+ * prices at once and could not set one of them, or reach a tier at all. The
+ * sheet has to hold forty rows without pushing the grid it belongs to off the
+ * screen, so it scrolls inside itself like the preview list it replaced, and
+ * it has to work at the width of the bar it sits in rather than the window —
+ * on a wide monitor the bar is wide, on a phone it is the phone — so the
+ * narrow layout is a CONTAINER query on `.psh`, which declares itself the
+ * container. (A `@container` with no container ancestor never matches; that
+ * mistake is documented in 50-admin-products-grid.css.)
+ *
+ * Two real views (DESIGN.md §6): wide, one line per variant with aligned
+ * columns and tabular numerals; narrow, one dense card per variant with the
+ * same three fields stacked and labelled. Nothing is hidden on the phone.
+ *
+ * State is carried by a lit edge, not by a thicker border (§3): a changed row
+ * is edged in the accent, a row with a problem in danger, a row a colleague
+ * moved in warning. The edge survives `--glow-strength: 0` because it is a
+ * box-shadow inset, not a glow.
+ */
+
+.psh { container-type: inline-size; }
+
+.psh-title { font-size: var(--fs-sm); font-weight: 600; }
+.psh-lede { font-size: var(--fs-2xs); color: var(--text-muted); line-height: 1.5; }
+.psh-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+/* ── The fill row ── */
+.psh-fill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.psh-fill-icon { flex: none; color: var(--text-muted); }
+.psh-fill-mode { flex: 0 1 15rem; min-width: 0; }
+/* A number, not a name — see .apr-price-value for the same argument. */
+.psh-fill-value { flex: 0 1 7rem; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.psh-fill > small {
+  flex: 1 1 100%;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── The sheet ── */
+.psh-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  /* Bounded and scrolled inside itself: five hundred rows is the server's cap,
+     and a bar that grows to five hundred rows pushes the grid off screen. */
+  max-height: min(60vh, 48rem);
+  overflow-y: auto;
+  padding-right: var(--sp-1);
+  scrollbar-gutter: stable;
+}
+
+.psh-product { display: flex; flex-direction: column; gap: var(--sp-1); }
+.psh-product-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-05) var(--sp-2);
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--glass-border);
+}
+.psh-product-name { font-size: var(--fs-sm); font-weight: 600; }
+.psh-product-meta { font-size: var(--fs-2xs); color: var(--text-muted); }
+.psh-product-link {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.psh-product-link:hover,
+.psh-product-link:focus-visible { color: var(--primary); text-decoration: underline; }
+.psh-empty { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+
+.psh-rows { display: flex; flex-direction: column; gap: var(--sp-05); }
+
+/* One line per variant. The ladder column is the widest because it is the
+   only one that grows: a row with four bands is four small pairs of boxes,
+   and giving them room is what keeps a long ladder from wrapping under the
+   price it belongs to. */
+.psh-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) minmax(8rem, 0.8fr) minmax(17rem, 2.4fr);
+  gap: var(--sp-1) var(--sp-3);
+  align-items: start;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-sm, 6px);
+}
+.psh-row-head {
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.psh-row.is-changed { background: rgba(var(--primary-rgb), 0.06); box-shadow: inset 2px 0 0 var(--primary); }
+.psh-row.is-below { box-shadow: inset 2px 0 0 var(--warning); }
+.psh-row.is-moved { box-shadow: inset 2px 0 0 var(--warning); background: color-mix(in srgb, var(--warning) 7%, transparent); }
+.psh-row.is-invalid { box-shadow: inset 2px 0 0 var(--danger); }
+
+.psh-cell { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; }
+.psh-cell-label { display: none; }
+.psh-variant { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: var(--sp-05) var(--sp-15); }
+.psh-variant-name {
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+.psh-variant-name em { color: var(--text-muted); font-style: italic; }
+
+/* The undo on a row: a word, not a button-shaped button. It is the one
+   per-row control, it is only present while there is something to undo, and
+   a full button on forty rows would be forty pieces of chrome for one verb. */
+.psh-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.psh-reset:hover,
+.psh-reset:focus-visible { color: var(--primary); text-decoration-style: solid; }
+
+.psh-flag { font-size: var(--fs-2xs); }
+.psh-flag.is-warning { color: var(--warning); font-weight: 600; }
+
+/* A money box: the sign sits inside the field's frame, and the digits are
+   tabular so a column of prices lines up (DESIGN.md §6). */
+.psh-money {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-05);
+  width: 100%;
+}
+.psh-money-sign { flex: none; font-size: var(--fs-sm); color: var(--text-muted); }
+.psh-money .glass-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.psh-was,
+.psh-cost,
+.psh-muted { font-size: var(--fs-2xs); color: var(--text-muted); }
+.psh-was { text-decoration: line-through; }
+.psh-cost.is-below { color: var(--warning); font-weight: 600; text-decoration: none; }
+
+/* A ladder: one band per line, quantity then price, and a remove that is only
+   as big as its icon because there is one per band. */
+.psh-tiers { gap: var(--sp-1); }
+.psh-tier { display: flex; align-items: center; gap: var(--sp-1); }
+.psh-tier-label { flex: 0 1 6rem; min-width: 4rem; }
+.psh-tier-price { flex: 0 1 8rem; min-width: 6rem; width: auto; }
+.psh-tier-remove { flex: none; padding-inline: var(--sp-15); }
+.psh-tier-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-05) var(--sp-2); }
+.psh-tier-add { align-self: flex-start; }
+
+/* The refusal, under the row it belongs to and across all three columns. */
+.psh-problem {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  margin: 0;
+  font-size: var(--fs-2xs);
+  color: var(--danger);
+}
+.psh-problem svg { flex: none; margin-top: 2px; }
+
+/* ── The foot ── */
+.psh-foot { display: flex; flex-direction: column; gap: var(--sp-15); }
+.psh-summary { margin: 0; font-size: var(--fs-sm); font-weight: 600; }
+.psh-summary-bad { color: var(--danger); font-weight: 600; }
+.psh-acts { align-items: center; }
+
+/* ── Narrow: the card view ──
+   Below the width where three columns can each hold their content, each
+   variant is a card: name, then price, then ladder, each labelled — because a
+   phone shows one at a time and a bare number box under a bare number box
+   does not say which is the price. */
+@container (max-width: 46rem) {
+  .psh-row { grid-template-columns: 1fr; gap: var(--sp-15); padding: var(--sp-2); border: 1px solid var(--glass-border); }
+  .psh-row-head { display: none; }
+  .psh-cell-label {
+    display: block;
+    font-size: var(--fs-3xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .psh-money { max-width: 12rem; }
+  .psh-tier { flex-wrap: wrap; }
+  .psh-tier-label { flex: 1 1 5rem; }
+  .psh-tier-price { flex: 1 1 7rem; }
+  /* Touch targets on the one control that is only an icon. */
+  .psh-tier-remove { min-height: 44px; min-width: 44px; }
+  .psh-sheet { max-height: none; overflow: visible; padding-right: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .psh-reset, .psh-product-link { transition: none; }
+}

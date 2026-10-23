@@ -1,0 +1,191 @@
+/* ===============================
+   ORDER DETAIL — page shell and two-column split
+
+   The stepper lives in 29-order-progress-stepper.css, the line items in
+   66-order-line-actions.css, the boxes in 71-order-boxes.css, and the panels
+   standing on the page — payment, parcels, the staff desk, the disputes, the
+   QR lightbox — in 82-order-detail-panels.css. This file owns the skeleton
+   they stand on: the shell, the header block and the two-column split.
+
+   It exists because the page had no stylesheet at all: the shell, the header
+   and the grid were inline `style={{ … }}` objects carrying hard-coded pixel
+   and rem literals, and a `<style>` element at the bottom of the JSX held the
+   only media query. Inline styles cannot express a media query, a container
+   query, `:hover` or `:focus-within`, which is most of what this page needed
+   and none of what it had.
+
+   The split it fixes: the grid was `1fr 300px` with the LINE ITEMS, their
+   prices and the order total in the 300px rail, and a single payment panel in
+   the wide column followed by several hundred pixels of nothing. Product names
+   wrapped to three lines beside an empty half-page. The money and the goods
+   are the wide column now; the rail carries reference facts.
+   =============================== */
+
+.od-page {
+  /* Wider than the old inline 900px. That cap was what forced the items into a
+     300px sidebar in the first place — at 900px there was no second column
+     worth having. */
+  /* `--shell`, the shared record measure (01-tokens), rather than the private
+     1180px that used to sit here. The reasoning above still holds — this page
+     is a record and not a shelf, so it stops growing well before the edge of a
+     4K monitor — but the number is now the same one the cart, the profile and
+     the checkout use, instead of four surfaces each having quietly picked
+     their own idea of "wide but not too wide". */
+  width: 100%;
+  max-width: var(--shell);
+  margin-inline: auto;
+  /* Top from the shared token, not --sp-6: this page carries its own wrapper
+     instead of `.page`, and its 24px was the one storefront title that sat
+     8px higher than every other. */
+  padding: var(--page-top) var(--sp-4) var(--sp-8);
+  overflow-x: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.od-head { margin-bottom: var(--sp-5); }
+
+/* A page reached from an email, a bot message or a deep link needs a way back
+   to the list it belongs to; "back" in the browser is not a screen element. */
+.od-crumb { margin-bottom: var(--sp-3); }
+.od-crumb-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.od-crumb-link:hover { color: var(--text); }
+
+.od-head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+.od-head-id { min-width: 0; }
+
+.od-title {
+  /* The reference IS the title — it is what a buyer quotes in a support ticket
+     and what a packer reads off a label — so it is set in the ledger face at
+     full size rather than being a caption under the word "Order". Type is
+     picked by role: --font-mono is this app's ledger voice. */
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  margin: 0;
+  color: var(--text);
+}
+.od-uuid {
+  margin-top: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+/* Actions only. "Placed on the 12th" used to sit here beside the Reorder
+   button, mixing a fact in with the controls; it is on the fact strip now
+   (`.od-facts`, 82-order-detail-panels.css) with the rest of the reference
+   data, which is where somebody looking for it would go. */
+.od-head-side {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+/* Trailing edge on a wide head, so the actions sit at the far side of the row
+   from the reference rather than crowding it. */
+@media (min-width: 641px) {
+  .od-head-side { justify-content: flex-end; }
+}
+
+/* ── The split ──────────────────────────────────────────────────────────── */
+
+.order-detail-grid {
+  display: grid;
+  /* The rail grows with the room instead of being pinned at 320px. On a
+     2560px monitor a 320px rail beside a 1400px main column reads as an
+     afterthought stuck to the edge; on a 1100px laptop 320px is right. The
+     clamp keeps the same 320 at the size it was designed for and lets it
+     reach 420 where there is room to spare. */
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 20vw, 420px);
+  gap: var(--sp-5);
+  align-items: start;
+}
+/* Two children, not a placement puzzle.
+ *
+ * The wide column is a real thing — it holds a variable number of panels whose
+ * presence depends on the order's status and the viewer's grants — so it gets
+ * an element, `.od-main`, and the grid has exactly two cells.
+ *
+ * What it replaces, and why the replacement is not cosmetic: every panel was a
+ * direct child of the grid, placed into column 1 by hand, with the rail pinned
+ * across `grid-row: 1 / span 99` so it would not be row-aligned against them.
+ * `span 99` really does create ninety-nine rows. Ninety-six of them were
+ * empty, but a row gap applies between every pair of adjacent rows whether
+ * they have content or not — so the grid carried 98 × 20px = 1960px of gap it
+ * never drew anything in. Measured on a staff view of a paid order: 1006px of
+ * content inside a 2926px grid, and a screen and a half of blank page between
+ * the last line item and the boxes card underneath it.
+ *
+ * The earlier `1 / -1` the comment there recorded as broken was broken for a
+ * real reason — line -1 counts back from the end of the EXPLICIT grid, and
+ * this grid declares no rows — but the fix for "the rail must not be row-
+ * aligned with the main column" is for the main column to be one grid item,
+ * not for the rail to span a number somebody picked as large enough. */
+.od-main {
+  grid-column: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+.order-detail-grid > .od-rail { grid-column: 2; }
+
+/* An unpaid crypto order is one instruction — an address, an amount and a
+   clock — and nothing on the page outranks it until it is paid. */
+.order-detail-grid.is-single { grid-template-columns: minmax(0, 1fr); }
+.order-detail-grid.is-single > .od-rail { grid-column: 1; }
+
+.od-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+  /* Everything inside the rail sizes against the RAIL, not the window. It is
+     320px wide on a 1400px desktop and full width on a phone, which is the
+     case a viewport query gets exactly backwards — the "wide" rules would fire
+     in the narrowest place the panels appear. The `@container` rules that
+     consume this are in 82-order-detail-panels.css, next to the panels they
+     govern; the declaration lives here because this is where the rail's
+     layout is decided. */
+  container-type: inline-size;
+}
+
+/* Below this the rail is not a rail. Its cards stack under the main column
+   rather than beside it, in the order someone reads them: what this order is
+   waiting on, what is in it, then where it goes. */
+@media (max-width: 900px) {
+  .order-detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .order-detail-grid > .od-rail { grid-column: 1; }
+}
+
+@media (max-width: 640px) {
+  .od-page { padding: var(--page-top) var(--sp-3) var(--sp-8); }
+  .od-title { font-size: var(--fs-xl); }
+  .od-head-row { flex-direction: column; align-items: stretch; }
+}
+
+/* The unpaid-crypto panel's QR-leads-on-a-phone rule used to live here, as a
+   viewport media query reaching into the panel with `!important` and a
+   `> div:last-child` structural selector. It is a container query on the panel
+   itself now (`.od-pay-split`, 82-order-detail-panels.css), which is what it
+   always wanted to be: the panel is full width while the order is unpaid and
+   in the main column when it is not, so the question is how much room the
+   PANEL has, not how much room the window has. */

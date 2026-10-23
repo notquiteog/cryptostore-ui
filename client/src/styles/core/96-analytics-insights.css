@@ -1,0 +1,264 @@
+/* ===============================
+   ANALYTICS — who buys, and what
+   ===============================
+   The band on the Analytics page that answers where accounts come from, what
+   kind of thing sells, which storefront takes the order and whether buyers
+   come back (pages/admin/Analytics.jsx, BuyerInsights).
+
+   What this shape prevents: five cards of identical weight. The category mix
+   is the widest card — a donut beside a brand list — because "what sells" is
+   the question this band was asked for; the rest are peers to it. Every card
+   has a real empty state that points at the window control, since the most
+   common reason one is empty is a window that is too short, not a store with
+   nothing in it. Tokens only; every proportion is also printed as a number,
+   so the band survives an operator flattening every glow. */
+
+.anx { margin-bottom: var(--sp-6); }
+
+.anx-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+.anx-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.anx-lede {
+  margin: var(--sp-1) 0 0;
+  max-width: 62ch;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.anx-window { display: flex; gap: var(--sp-1); }
+.anx-window .glass-btn { min-width: 42px; }
+
+/* A fetch that failed — most often the reports limiter — said in words above
+   the cards, which then show their empty states honestly labelled by it. */
+.anx-error {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--warning-rgb), 0.45);
+  background: rgba(var(--warning-rgb), 0.08);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+/* The grid. Auto-fill so a viewer without one of the endpoints (a grant
+   withheld, a fetch that failed) leaves no hole; the wide card spans two
+   tracks only when two tracks exist. */
+.anx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: var(--sp-5);
+}
+/* Span two tracks only when the grid HAS two. This was a viewport query at
+   900px, and between 900 and ~1000px the grid (main column ~592px, 320px
+   minimum per track) had one explicit column — so `span 2` conjured a second,
+   implicit, 50px column, and whichever card followed the wide one was laid out
+   inside it: a 205px table in a 50px card, clipped at the edge. The section is
+   the grid's container; two tracks exist from 660px (2 × 320 + the gap). */
+#analytics-insights { container-type: inline-size; }
+@container (min-width: 660px) {
+  .anx-card-wide { grid-column: span 2; }
+}
+
+/* A container, so the table below can ask how wide its own card is rather
+   than how wide the window is — the insight grid runs one to four across. */
+.anx-card { min-width: 0; container-type: inline-size; }
+.anx-card h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+.anx-card h3 svg { color: var(--primary); flex-shrink: 0; }
+.anx-card h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.anx-card h4 svg { color: var(--text-muted); }
+
+/* The stat strip inside the loyalty card sits flush with the card's own
+   padding rather than inheriting the page-level bottom margin. */
+.anx-card .admin-stats { margin-bottom: var(--sp-3); }
+
+.anx-empty {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.anx-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.anx-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-1);
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.anx-foot svg { flex-shrink: 0; }
+.anx-foot a { color: var(--text-secondary); }
+
+/* ── Category mix: donut beside the brand list ── */
+.anx-mix {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4) var(--sp-6);
+  align-items: start;
+}
+@container (min-width: 640px) {
+  .anx-mix { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.anx-card-wide { container-type: inline-size; }
+.anx-mix-brands { min-width: 0; }
+
+/* ── Bought together ── */
+.anx-pairs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.anx-pairs li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: var(--sp-2);
+  align-items: baseline;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+.anx-pairs li:last-child { border-bottom: none; }
+.anx-pair-count {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--primary);
+  font-feature-settings: "tnum";
+}
+.anx-pair-names {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--sp-2);
+  min-width: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.anx-pair-names small { color: var(--text-muted); font-size: var(--fs-2xs); }
+.anx-pair-plus { color: var(--text-muted); }
+
+/* ── Sign-up routes: a small real table ── */
+.anx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+/* Two classes deep so this outranks 07-layout's `.glass-card > table th`
+   (0,1,2): that rule sets `nowrap` for the wide admin queues, and this table
+   lives in a 325px card where "WENT ON TO BUY" on one line made it 367px,
+   clipped at the card edge on every viewport where the insight grid runs
+   three or four across (1024–1680) and on every phone. */
+.anx-card .anx-table th {
+  text-align: left;
+  vertical-align: bottom;
+  white-space: normal;
+  padding: 0 var(--sp-2) var(--sp-1) 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+/* Two classes deep for the same reason as the heading rule: 07-layout's
+   `.glass-card > table td` (0,1,2) was winning with its 12/16px queue
+   padding, which alone cost this three-column table 48px it did not have. */
+.anx-card .anx-table td {
+  padding: var(--sp-1) var(--sp-2) var(--sp-1) 0;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+}
+/* The route name stays on one line: three columns fit a third-of-the-row
+   card, and "Open sign-up" broken across three lines is what the table
+   looked like before the fourth column was folded away. */
+.anx-card .anx-table td:first-child { white-space: nowrap; }
+/* In a card under 300px — a phone, or a four-across grid on a 912px tablet —
+   the route name is allowed its second line after all: the alternative is a
+   table wider than the card, cut off at the edge. The last column stays on
+   one line because the figure is what the row exists to show. */
+@container (max-width: 300px) {
+  .anx-card .anx-table td:first-child { white-space: normal; }
+  .anx-card .anx-table th { letter-spacing: 0.04em; }
+  .anx-card .anx-table th:last-child,
+  .anx-card .anx-table td:last-child { padding-right: 0; }
+}
+.anx-table tfoot td { color: var(--text-secondary); font-weight: 600; }
+.anx-table th:not(:first-child),
+.anx-table td.anx-num { text-align: right; }
+.anx-num { font-family: var(--font-mono); font-feature-settings: "tnum"; white-space: nowrap; }
+
+/* Conversion as a figure with a short bar beneath it; `--p` is 0..1. */
+.anx-convert {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 5px;
+  min-width: 4.5rem;
+  text-align: right;
+  white-space: nowrap;
+}
+.anx-convert small,
+.anx-table tfoot small { color: var(--text-muted); font-size: 0.85em; }
+.anx-convert i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+}
+.anx-convert i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: calc(var(--p, 0) * 100%);
+  background: var(--success);
+  border-radius: var(--pill);
+}
+
+.anx-links { margin-top: var(--sp-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .anx-window .glass-btn { transition: none; }
+}

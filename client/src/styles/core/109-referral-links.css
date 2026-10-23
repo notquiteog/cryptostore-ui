@@ -1,0 +1,229 @@
+/* ===============================
+   REFERRAL LINKS — the vouched signup, and the shareable URL
+   ===============================
+   Two small surfaces that belong together because they are two ends of the
+   same object: `pages/Register.jsx` when it already knows who sent somebody,
+   and the copyable `?ref=` row shared by the buyer's sub-user panel and the
+   admin marketing console.
+
+   What these shapes prevent:
+
+   · **A disabled input where a sentence belongs.** The first draft of the
+     vouched state was the ordinary invite field, filled in and `disabled`.
+     A greyed box with a code in it invites the reader to try to edit it and
+     then refuses them, and it asks somebody to read a 16-character base64url
+     string that means nothing to them. DESIGN §7 — a control nobody can press
+     is not a control. It is a statement now: who invited you, and what that
+     costs. The field comes back, live and editable, the moment the store
+     cannot vouch for the tag.
+
+   · **A URL row that wraps into four lines on a phone.** A tracking URL is
+     long, is never read, and is only ever copied. It gets one line, ellipsis,
+     the full string in `title`, and a copy button that confirms in place —
+     the same argument the invite-links console makes for its code cell, and
+     the same reason a toast is wrong here: it fires in a corner the eye is
+     not on.
+
+   Tokens only, and every state carries a border as well as a background, so
+   the whole file survives `--glow-strength: 0` and an opaque non-glass preset.
+   =============================== */
+
+/* ── The vouched signup ──────────────────────────────────────────────────── */
+
+.invite-vouched {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-25);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--success-rgb), 0.32);
+  background: rgba(var(--success-rgb), 0.08);
+  /* Arrives with the card rather than after it: this replaces a form field, and
+     a panel that fades in a beat late reads as something that went wrong. */
+  animation: invite-vouched-in 0.32s var(--ease-settle) both;
+}
+@keyframes invite-vouched-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .invite-vouched { animation: none; }
+}
+
+.invite-vouched-badge {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(var(--success-rgb), 0.16);
+  color: var(--success);
+}
+
+.invite-vouched-body { min-width: 0; }
+
+.invite-vouched-line {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+/* The username is the one word in the block worth finding at a glance — it is
+   the fact the reader is checking. */
+.invite-vouched-line strong {
+  color: var(--success);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.invite-vouched-note {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+/* The markup, inline in the sentence. A price the reader is about to accept
+   should not be a number in the middle of a grey paragraph. */
+.invite-vouched-markup {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 var(--sp-1);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--primary-rgb), 0.12);
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── Form hints ──────────────────────────────────────────────────────────── */
+
+/* Under a field, for the thing that is true about what is currently in it.
+   `--fs-xs` and muted so it never competes with the label above it. */
+.form-hint {
+  margin: var(--sp-15) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+/* Something did not work and the person can still proceed. Deliberately not
+   `--danger`: nothing has been rejected, and colouring a recoverable notice as
+   an error makes a signup form look broken to somebody it is working for. */
+.form-hint-warn {
+  color: var(--warning);
+}
+
+/* ── The shareable URL row ───────────────────────────────────────────────── */
+
+.ref-url {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: var(--sp-15) var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+
+.ref-url code {
+  /* A flex row rather than one run of text, so the two halves can truncate
+     differently. One line, always: a tracking URL is long by construction and
+     wrapping it turns a row into a paragraph nobody reads. */
+  display: flex;
+  align-items: baseline;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+
+/* The landing path gives up its characters first. It is the predictable half
+   — `/products`, `/register` — and losing its tail costs nothing. */
+.ref-url code .ref-url-lead {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The tag itself, picked out of the URL around it: it is the half a person
+   chose, the half they will type back in if the query string is lost, and the
+   only part of the string that tells one campaign row from another. It never
+   truncates — a column of `…?ref=reddit-priva…` identifies nothing, which is
+   what the first draft shipped when both halves shared one ellipsis. */
+.ref-url code .ref-url-tag {
+  flex-shrink: 0;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.ref-url .glass-btn { flex-shrink: 0; }
+
+/* ── The tag field ───────────────────────────────────────────────────────── */
+
+/* `store.example/register?ref=` printed as a prefix so the person naming a tag
+   can see the thing they are naming. A label saying "referral tag" and an empty
+   box does not tell somebody what will be built out of what they type. */
+.ref-tag-field {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+  background: var(--glass-bg);
+}
+.ref-tag-prefix {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 45%;
+  padding: 0 var(--sp-15);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-right: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.05);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+.ref-tag-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  padding: var(--sp-15) var(--sp-2);
+}
+.ref-tag-field input:focus { outline: none; }
+/* Focus moves to the whole control, not to the input inside it — the border is
+   on the wrapper, so lighting the input alone draws a ring in the middle of a
+   box. */
+.ref-tag-field:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.18);
+}
+
+/* On a phone the prefix eats the field it is explaining. It stacks above
+   instead, which keeps the explanation and loses nothing. */
+@media (max-width: 520px) {
+  .ref-tag-field { flex-direction: column; }
+  .ref-tag-prefix {
+    max-width: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--glass-border);
+    padding: var(--sp-1) var(--sp-15);
+  }
+}

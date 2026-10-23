@@ -1,0 +1,132 @@
+/* ===============================
+   RESET
+   =============================== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* The one UA margin that is load-bearing: a modal <dialog> centres itself
+   with `margin: auto` from the browser stylesheet, and the universal reset
+   above silently pinned every dialog (swap composer, release note) to the
+   top-left corner of the viewport. Restore exactly that. */
+dialog { margin: auto; }
+
+html {
+  /* `100%`, not a hard `16px`. The fluid ladder in 01-tokens is expressed in
+     rem so that a reader who has raised their browser's default text size
+     gets a bigger interface — pinning the root to 16px silently threw that
+     preference away on every page. For everyone else this is byte-identical:
+     16px is the default. */
+  font-size: 100%;
+  scroll-behavior: smooth;
+  /* Mobile Safari inflates text in landscape unless told not to, which
+     un-does the display ladder's whole point on the one viewport where
+     fitting a title matters most. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font);
+  /* background-color, not the `background` shorthand: ThemeContext writes the
+     page colour inline and the shorthand would wipe the gradient layer. */
+  background-color: var(--bg);
+  background-image: var(--bg-gradient);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ── The room ──────────────────────────────────────────────────────────────
+   Two fixed layers behind everything: a mesh of ambient washes, then grain.
+   Fixed pseudo-elements rather than background-attachment: fixed, which
+   repaints the full viewport on every scrolled frame on most mobile engines —
+   these composite once and stay put while content slides over them.
+
+   Every wash draws from `--bg-glow-1/2`, whose alpha is the admin's
+   background-tint knob × glow colours. At tint 0 both are transparent and the
+   page is exactly the colour the operator picked — the mesh must never have an
+   opinion of its own. */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(ellipse at 15% 40%, var(--bg-glow-1) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 10%, var(--bg-glow-2) 0%, transparent 50%),
+    radial-gradient(ellipse at 55% 90%, var(--bg-glow-1) 0%, transparent 55%),
+    radial-gradient(ellipse 130% 90% at 50% -20%, var(--bg-glow-2) 0%, transparent 62%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Grain. One 180px SVG turbulence tile, repeated — not an image asset, so
+   nothing is fetched and nothing can be fingerprinted from a request. White
+   speckle for dark grounds, ink for light: the same tile cannot serve both
+   polarities, exactly like `--select-chevron`. Its opacity is the admin's
+   grain knob (ThemeContext damps it 50% in light mode); at 0 the layer is
+   invisible and costs one composited quad. */
+:root {
+  --noise-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.8 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+:root[data-theme="light"] {
+  --noise-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.06 0 0 0 0 0.07 0 0 0 0 0.1 0 0 0 0.8 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: var(--noise-img);
+  background-size: 180px 180px;
+  opacity: var(--noise-opacity, 0.06);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Paper gets neither wash nor grain: the receipt printer learnt this the hard
+   way — texture on a printed page reads as a corner-shop till roll. */
+@media print {
+  body::before,
+  body::after { display: none; }
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+a:hover { color: var(--accent); }
+
+img { max-width: 100%; height: auto; display: block; }
+
+input, textarea, select, button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--tint-rgb), 0.12);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-border);
+}
+
+/* Selection */
+::selection { background: var(--focus-ring); color: var(--text); }
+

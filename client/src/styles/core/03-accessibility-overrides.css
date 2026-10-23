@@ -1,0 +1,141 @@
+/* ===============================
+   ACCESSIBILITY OVERRIDES
+   ===============================
+   Placed here rather than at the end of the file, so `!important` is doing the
+   work instead of cascade position. These are exceptional display states, and
+   `!important` inside a `forced-colors` block is the documented way to opt out
+   of decoration — it does not fight anything in normal rendering. */
+
+/* Windows High Contrast and similar. The UA forces its own colours onto text
+   and backgrounds but leaves decorative layers alive, so a glass wash, a rim
+   and a blur all survive on top of the forced palette and muddy it. Strip the
+   decoration and let the system colours through cleanly. */
+@media (forced-colors: active) {
+  .glass,
+  .glass-card,
+  .glass-input,
+  .glass-btn,
+  .navbar,
+  .modal,
+  .admin-drawer {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: Canvas !important;
+    color: CanvasText !important;
+    border: 1px solid CanvasText !important;
+    box-shadow: none !important;
+  }
+  .glass-card::before,
+  .glass-card::after,
+  /* The container-glass backing layer (06-glass-primitives.css). The rule
+     above strips `backdrop-filter` from `.navbar` and friends, but those
+     surfaces no longer carry the blur themselves — it is on this plate, which
+     the rule above cannot reach. Without this line the navbar and the admin
+     bar keep a 33px blur over the forced palette, which is the exact muddying
+     this block exists to prevent. */
+  .glass-plate::before,
+  body::before {
+    display: none !important;
+  }
+  .glass-btn:focus-visible,
+  .glass-input:focus-visible,
+  a:focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+  .badge {
+    border-color: CanvasText !important;
+    color: CanvasText !important;
+  }
+}
+
+/* Flattening every translucent surface onto the page ground.
+ *
+ * Shared by the two queries below because they want the same thing for
+ * different reasons, and keeping one copy is what stops them drifting — which
+ * they had: the contrast block zeroed `--glass-blur` and left `--glass-blur-sm`
+ * and `--glass-blur-lg` frosted, and those two are what 01-tokens.css composes
+ * `--glass-sm` and `--glass-lg` from. So cards flattened while every button,
+ * chip, dropdown, the navbar and the whole modal layer stayed blurred: 52
+ * consumers of the sm tier and 26 of the lg tier carried on as before.
+ *
+ * These are FLOORS. ThemeContext lands the solved theme as inline custom
+ * properties on <html>, which outrank any selector here, so this only governs
+ * the frames before the derivation runs and the case where settings never
+ * arrive. computeVars.js holds the real versions of both branches, and the two
+ * have to be edited together. */
+@media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-bg: var(--bg);
+    --surface: var(--bg);
+    /* Hover and active as well as rest. Left alone, a card reverted to a
+       translucent wash the instant the pointer landed on it. */
+    --surface-hover: var(--bg);
+    --surface-active: var(--bg);
+    /* Surfaces that float over *scrolling* content. With the blur gone these
+       have nothing left to stop scrolled text bleeding through their own. */
+    --nav-bg: var(--bg);
+    --overlay-bg: var(--bg);
+    --surface-raised: var(--bg);
+    --glass-blur: 0px;
+    --glass-blur-sm: 0px;
+    --glass-blur-lg: 0px;
+    /* `--glass-blur-scrim` is deliberately absent: 01-tokens.css derives it
+       from `--glass-blur` with a multiplier, so it lands at 0 here on its own.
+       That is the point of deriving it — it is the one tier that cannot be
+       forgotten the way sm and lg were above. */
+    --glass-saturate: 100%;
+    /* The grain is `body::after` in 04-reset.css, not the `body::before` the
+       contrast block below hides — so killing one left the other rendering. */
+    --noise-opacity: 0;
+  }
+}
+
+/* The visitor has asked for more contrast than the store's palette provides.
+   On top of the flattening above: the ambient washes and glows switch off, and
+   every edge becomes explicit. */
+@media (prefers-contrast: more) {
+  :root {
+    --glow-strength: 0;
+    --primary-glow: transparent;
+    --secondary-glow: transparent;
+    --card-glow: transparent;
+    --bg-glow-1: transparent;
+    --bg-glow-2: transparent;
+    --text-glow: none;
+    /* All three tiers, not just the wash tokens. 15 consumers across
+       styles/features/ read these and stayed fully lit without them. */
+    --glow-sm: none;
+    --glow-md: none;
+    --glow-lg: none;
+    /* `--rim-strength` is informational — the multiplier is already baked into
+       the two alphas below, and nothing reads it. The two `transparent`
+       declarations beside it are what actually turns the specular edge off;
+       do not delete them as redundant. */
+    --rim-strength: 0;
+    --rim-light: transparent;
+    --rim-dark: transparent;
+    --text-secondary: var(--text);
+    --text-muted: var(--text);
+    --glass-border: rgba(var(--tint-rgb), 0.6);
+    --border: rgba(var(--tint-rgb), 0.6);
+    --border-hover: rgba(var(--tint-rgb), 0.85);
+    /* A well is a boundary drawn as fill rather than stroke, and several
+       surfaces paint it with no edge beside it. At its resting 5% ink on a
+       now-opaque light card it is about 1.01:1 — invisible, to the one visitor
+       who asked for the opposite. */
+    --well: rgba(var(--tint-rgb), 0.16);
+  }
+  body::before { display: none !important; }
+  .glass-card::before { display: none !important; }
+}
+
+/* The two canvas effects are full-screen, permanently-animating fields. They
+   pause themselves in JS, but this covers the window before the hook resolves
+   and any case where the canvas is mounted by something else. */
+@media (prefers-reduced-motion: reduce) {
+  canvas[aria-hidden="true"] {
+    opacity: 0.55;
+  }
+}
+

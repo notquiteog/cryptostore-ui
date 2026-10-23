@@ -1,0 +1,725 @@
+/* stock-alerts — feature styles.
+   Loaded after global.css, so every custom property defined there is in scope.
+   Colours must come from tokens (--primary, --surface, --text, --glow-md, …)
+   so both :root and :root[data-theme="light"] resolve correctly.
+
+   Everything here is prefixed `sa-`. The settings page is one long column of
+   `.glass-card`s and an unprefixed `.field` or `.row` in a shared 15k-line
+   stylesheet is a collision waiting for whoever builds the next card.
+
+   Every animation below is switched off wholesale in the
+   `prefers-reduced-motion` block at the foot of the file. The live-state pulse
+   in particular is the sort of thing that is pleasant for one reader and
+   genuinely unusable for another. Where an animation was the only thing
+   drawing a ring, that block draws the ring statically — switching the motion
+   off must not switch the *state* off with it.
+
+   Two traps this file has already fallen into, recorded so the next author does
+   not fall into them again:
+
+   - `--surface` and `--glass-bg` are ALIASES. computeVars.js sets both from one
+     computed value (`set('--glass-bg', surface); set('--surface', surface)`),
+     measured identical in both modes — rgba(255,255,255,0.05) dark,
+     rgba(243,248,249,0.2) light. A light-mode override that swaps one for the
+     other is a provable no-op, and the version of `.sa-preview` below that did
+     exactly that shipped with a comment asserting a fix it never made, which is
+     worse than no override at all. To give a panel real body on the pale
+     ground, change the material: an ink tint `rgba(var(--text-rgb), α)`, or
+     `color-mix(… var(--surface) 82%, var(--bg))`. Then measure it.
+   - Do not dim live UI with `opacity`. `--text-muted` is solved by
+     computeVars.js to land *exactly* on 4.5:1 against `--bg`, so any group
+     opacity below 1 multiplies straight through the text and drops it under AA.
+     See `.sa-fields`. */
+
+/* ── The card ───────────────────────────────────────────────── */
+
+.sa-card {
+  /* A left edge in the accent colour so the section reads as one unit as the
+     eye travels down a page of otherwise identical cards. Inset rather than a
+     border so it does not fight the glass card's own rounded edge. */
+  position: relative;
+  overflow: hidden;
+}
+
+.sa-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    rgba(var(--primary-rgb), 0.85) 0%,
+    rgba(var(--accent-rgb), 0.55) 55%,
+    rgba(var(--primary-rgb), 0) 100%
+  );
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.sa-lede {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 62ch;
+}
+
+.sa-lede strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ── The three number fields ────────────────────────────────── */
+
+.sa-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+
+/* Switched off, and deliberately NOT dimmed.
+   This block used to be `opacity: 0.62`, carrying a comment that the fields
+   "stay editable" while the feature is off — which is the argument *against*
+   the dim, not for it. These are three number inputs an operator is expected
+   to read and type into before ever turning the feature on, so they are live
+   UI, and group opacity multiplies into every colour inside them.
+   The text tokens have no headroom to give: computeVars.js solves
+   `--text-secondary` and `--text-muted` with `solveAlphaForContrast` to land on
+   7:1 and 4.5:1 against `--bg` — they arrive already at their floor. Measured
+   through the 0.62, `.sa-field small` came out at 2.49:1 dark / 2.31:1 light
+   and `.sa-field > label` at 3.32:1 / 2.90:1, against a 4.5:1 AA floor.
+   "Off" is still said three times without touching a character of text: the
+   switch sits immediately above these fields, the `.sa-dot` in the preview
+   below is grey rather than green, and the accent drains out of the field
+   icons here. Do not reintroduce a group opacity to say it a fourth time. */
+.sa-fields:not(.is-live) .sa-field > label svg {
+  color: var(--text-muted);
+}
+
+.sa-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition:
+    border-color 200ms var(--ease-panel),
+    background 200ms var(--ease-panel),
+    box-shadow 200ms var(--ease-panel),
+    transform 200ms var(--ease-panel);
+}
+
+.sa-field:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+/* The whole field lights up when the input inside it has keyboard focus, so
+   the focus ring is never the only thing carrying that information. */
+.sa-field:focus-within {
+  border-color: rgba(var(--primary-rgb), 0.55);
+  box-shadow: var(--glow-md);
+  transform: translateY(-1px);
+}
+
+.sa-field > label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* The accent that the off-state rule above drains away. Transitioned, because
+   this is now the thing that animates when the switch is flipped — it replaces
+   the group `opacity` fade that used to do it. */
+.sa-field > label svg {
+  color: var(--primary);
+  flex-shrink: 0;
+  transition: color 260ms var(--ease-panel);
+}
+
+/* `--text-secondary`, not `--text-muted`. `--text-muted` is solved to hit
+   exactly 4.5:1 against `--bg`, but this text is not on `--bg`: it sits on
+   `.sa-field`'s `--surface`, which sits on the `.glass-card`'s, and each
+   translucent layer lifts the ground a little and eats the margin. Measured on
+   that real stack `--text-muted` gives 4.24:1 dark / 4.48:1 light — under AA
+   even with the old group dim removed. `--text-secondary` measures 6.21:1 /
+   7.03:1 there. Same reasoning for `.sa-unit` below, which labels these inputs
+   and is not decoration either. */
+.sa-field small {
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.sa-input-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.sa-input.glass-input {
+  width: 5.5rem;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Keyboard focus has to stay visible even though the parent is already
+   glowing — the glow is ambience, this is the actual focus indicator. */
+.sa-input.glass-input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.sa-unit {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Live preview ───────────────────────────────────────────── */
+
+.sa-preview {
+  margin-top: var(--sp-5);
+  padding: var(--sp-4) var(--sp-4) var(--sp-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  animation: sa-rise 320ms var(--ease-panel) both;
+}
+
+/* An ink tint, because the obvious version of this override does nothing.
+   This rule used to read `background: var(--surface)` over the base rule's
+   `var(--glass-bg)`, with a comment about borrowing "the solid surface instead
+   of the glass" — but `--surface` and `--glass-bg` are the same computed value
+   (computeVars.js sets both from one `surface` local), measured identical in
+   both modes. It repainted rgba(243,248,249,0.2) over rgba(243,248,249,0.2).
+   Nor is `--surface` solid in light mode: it is a near-white at 20% alpha, and
+   stacking more near-white on a pale card is what made the panel vanish in the
+   first place. Tinting with the text colour pushes the panel the other way —
+   the same move totp.css makes for its enrollment panels — so the preview
+   reads as a recessed well instead of a slightly different white. Verify any
+   replacement by measuring the computed background, not by reading the token
+   name. */
+:root[data-theme="light"] .sa-preview {
+  background: rgba(var(--text-rgb), 0.045);
+  border-color: var(--border-hover);
+}
+
+/* A refresh in flight. Deliberately a whole-panel dim rather than a spinner
+   that replaces the numbers: the previous answer stays readable while the new
+   one is being fetched, so a threshold change never blanks the thing the
+   operator is looking at. */
+.sa-preview.is-busy {
+  opacity: 0.55;
+  transition: opacity 160ms var(--ease-panel);
+}
+
+.sa-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.sa-preview-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* The armed/disarmed indicator. It pulses only when alerts are actually
+   switched on, which makes "is this thing live?" answerable at a glance from
+   the other side of the room. */
+.sa-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+  transition: background 220ms var(--ease-panel), box-shadow 220ms var(--ease-panel);
+}
+
+.sa-dot.is-live {
+  background: var(--success);
+  box-shadow: 0 0 0 0 rgba(var(--success-rgb), 0.55);
+  animation: sa-pulse 2.4s var(--ease-panel) infinite;
+}
+
+.sa-recalc {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  animation: sa-breathe 1.1s var(--ease-panel) infinite;
+}
+
+.sa-figures {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+
+.sa-figure {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-25);
+  min-width: 0;
+}
+
+.sa-figure-value {
+  font-size: var(--fs-3xl);
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary);
+  text-shadow: var(--glow-sm);
+  animation: sa-count-in 340ms var(--ease-panel) both;
+}
+
+.sa-figure-label {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.sa-figure-label em {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.sa-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+}
+
+.sa-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-1) var(--sp-25);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.sa-chip-danger {
+  border-color: rgba(var(--danger-rgb), 0.35);
+  background: rgba(var(--danger-rgb), 0.12);
+  color: var(--danger);
+}
+
+.sa-chip-warn {
+  border-color: rgba(var(--warning-rgb), 0.35);
+  background: rgba(var(--warning-rgb), 0.12);
+  color: var(--warning);
+}
+
+/* ── First-load placeholder ─────────────────────────────────── */
+
+.sa-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.sa-skeleton-figure,
+.sa-skeleton-line {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--surface) 0%,
+    var(--surface-hover) 50%,
+    var(--surface) 100%
+  );
+  background-size: 220% 100%;
+  animation: sa-shimmer 1.4s linear infinite;
+}
+
+.sa-skeleton-figure { height: 2.4rem; width: 42%; }
+.sa-skeleton-line { height: 1.55rem; width: 100%; }
+.sa-skeleton-line-short { width: 68%; }
+
+/* ── The sample list ────────────────────────────────────────── */
+
+.sa-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.sa-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-15) var(--sp-25);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--border);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  transition: background 180ms var(--ease-panel), border-color 180ms var(--ease-panel);
+  /* Staggered entrance. The delay is capped by only ever rendering a handful
+     of rows — a long list with per-row delays turns into a slideshow. */
+  animation: sa-rise 300ms var(--ease-panel) both;
+}
+
+.sa-row:hover {
+  background: var(--surface-hover);
+}
+
+.sa-row:nth-child(1) { animation-delay: 0ms; }
+.sa-row:nth-child(2) { animation-delay: 30ms; }
+.sa-row:nth-child(3) { animation-delay: 60ms; }
+.sa-row:nth-child(4) { animation-delay: 90ms; }
+.sa-row:nth-child(5) { animation-delay: 120ms; }
+.sa-row:nth-child(6) { animation-delay: 150ms; }
+.sa-row:nth-child(7) { animation-delay: 180ms; }
+.sa-row:nth-child(8) { animation-delay: 210ms; }
+
+.sa-row-out {
+  border-left-color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.07);
+}
+
+.sa-row-low {
+  border-left-color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.06);
+}
+
+.sa-row-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sa-row-name strong {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sa-row-variant {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sa-row-cover {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.sa-row-out .sa-row-cover { color: var(--danger); }
+.sa-row-low .sa-row-cover { color: var(--warning); }
+
+.sa-row-qty {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Notes ──────────────────────────────────────────────────── */
+
+.sa-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: var(--sp-25) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.sa-note code {
+  padding: 0.05rem var(--sp-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-active);
+  border: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+
+.sa-note-ok { color: var(--success); }
+.sa-note-warn { color: var(--warning); }
+
+.sa-more {
+  margin: var(--sp-25) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ── Keyframes ──────────────────────────────────────────────── */
+
+@keyframes sa-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sa-count-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes sa-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--success-rgb), 0.5); }
+  70%  { box-shadow: 0 0 0 7px rgba(var(--success-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--success-rgb), 0); }
+}
+
+@keyframes sa-breathe {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+@keyframes sa-shimmer {
+  from { background-position: 120% 0; }
+  to   { background-position: -120% 0; }
+}
+
+/* Established convention in this codebase: every animation is switched off
+   here, not merely slowed. `!important` because the staggered `animation-delay`
+   rules above are more specific than this block. */
+@media (prefers-reduced-motion: reduce) {
+  .sa-preview,
+  .sa-figure-value,
+  .sa-dot.is-live,
+  .sa-recalc,
+  .sa-row,
+  .sa-skeleton-figure,
+  .sa-skeleton-line {
+    animation: none !important;
+  }
+
+  /* The skeleton is a shimmer and nothing else, so with the animation gone it
+     needs a flat fill or it reads as an empty gap where content should be. */
+  .sa-skeleton-figure,
+  .sa-skeleton-line {
+    background: var(--surface);
+  }
+
+  /* Same failure as the skeleton, and the one that matters more: `sa-pulse` was
+     the only thing that ever gave `.sa-dot.is-live` a ring, because the base
+     rule's `box-shadow` is `0 0 0 0` — a zero-spread placeholder for the
+     keyframes to grow from. Switch the animation off and the ring is not
+     slowed, it is gone, leaving green-vs-grey as the sole difference between
+     armed and disarmed for exactly the readers most likely to also be reading
+     at low colour discrimination. Drawn statically here instead, which is what
+     orders.css already does for `.orderx-demo-pulse`. This rule has to stay
+     after the `animation: none` block above to win on source order. */
+  .sa-dot.is-live {
+    box-shadow: 0 0 0 4px rgba(var(--success-rgb), 0.25);
+  }
+
+  .sa-field,
+  .sa-field > label svg,
+  .sa-preview,
+  .sa-dot,
+  .sa-row {
+    transition: none !important;
+  }
+
+  .sa-field:hover,
+  .sa-field:focus-within {
+    transform: none;
+  }
+}
+
+/* ── Operations alert thresholds ────────────────────────────────────────────
+ *
+ * Fourteen numbers, rendered from the server's own threshold list. A grid
+ * rather than a stack of form-groups: every row is the same shape — a sentence
+ * fragment and one small number — and stacking them full-width would make a
+ * card that is mostly whitespace and needs scrolling to compare two related
+ * queues.
+ *
+ * Shares the `.sa-*` field vocabulary with Stock alerts on purpose. They are
+ * the same kind of control (a number that decides when staff get messaged), and
+ * a second set of classes would drift from the first at the next responsive fix.
+ */
+.ops-thresholds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(clamp(15rem, 28vw, 19rem), 1fr));
+  gap: var(--sp-3) var(--sp-4);
+  margin-top: var(--sp-4);
+  /* Dimmed until the switch above is on, exactly as `.sa-fields` is. The
+     controls stay live — an operator setting thresholds before switching the
+     feature on is doing it in the sensible order. */
+  opacity: 0.55;
+  transition: opacity var(--dur-2, 160ms) ease;
+}
+.ops-thresholds.is-live { opacity: 1; }
+
+.ops-threshold {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.ops-threshold > label {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* "more than 25" reads as the sentence the threshold actually is. Without it
+   the card is a column of bare numbers whose comparison direction the reader
+   has to assume — and assuming "fewer than" is the wrong way round. */
+.ops-threshold-more {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* The note under the grid spans it rather than sitting in a column. */
+.ops-thresholds .sa-note { grid-column: 1 / -1; margin-top: var(--sp-1); }
+
+/* ── Bundle recipe ──────────────────────────────────────────────────────────
+ *
+ * The panel on a bundle's edit page: what goes in the box, and the control that
+ * assembles some. Lives beside the stock-alert styles because it is the same
+ * kind of object — a staff panel of small numeric controls over stock — and
+ * shares their field vocabulary rather than growing a parallel one.
+ */
+.bundle-card { margin-bottom: var(--sp-6); }
+.bundle-lede { margin: 0 0 var(--sp-3); line-height: 1.5; }
+.bundle-empty {
+  margin: var(--sp-2) 0 var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.bundle-list {
+  list-style: none;
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* A component is a name, a per-bundle count, what that means for stock, and a
+   way out. Wrapping rather than scrolling — on a phone these stack, and the
+   stock column is the one a horizontal scroller would hide. */
+.bundle-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--glass-border);
+}
+.bundle-row:last-child { padding-bottom: 0; border-bottom: 0; }
+
+/* A component whose product has been switched off cannot be picked, so the row
+   says so rather than quietly contributing a zero to the buildable count. */
+.bundle-row.is-off { opacity: 0.6; }
+
+.bundle-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+.bundle-name small { color: var(--text-secondary); font-size: var(--fs-xs); }
+
+.bundle-qty { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.bundle-qty .glass-input { width: 5.5rem; }
+.bundle-qty em { font-style: normal; font-size: var(--fs-2xs); color: var(--text-muted); }
+
+.bundle-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.bundle-row.is-off .bundle-stock { color: var(--warning); }
+
+.bundle-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+}
+
+/* How many boxes the shelves allow, and which component decides it. The second
+   half is the whole value of the line: "enough for 6" is a number, "enough for
+   6, limited by the batteries" is what to go and order. */
+.bundle-can {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+
+.bundle-picker {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--glass-border);
+}
+
+.bundle-build {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--glass-border);
+}
+.bundle-build .glass-input[type="number"] { width: 6rem; }
+.bundle-build > label { font-weight: 600; font-size: var(--fs-sm); }
+/* The irreversibility note takes the full width under the controls — it is a
+   sentence, not a suffix. */
+.bundle-build > small { flex: 1 0 100%; line-height: 1.5; }
+
+.bundle-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-3);
+}

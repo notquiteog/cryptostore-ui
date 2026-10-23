@@ -1,0 +1,164 @@
+/* ===============================
+   SWITCH
+   ===============================
+   A real switch for on/off settings. The native checkbox stays in the DOM and
+   keeps focus, keyboard and screen-reader behaviour; only its painting is
+   replaced. */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+.switch input:disabled { cursor: not-allowed; }
+.switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.10);
+  border: 1px solid var(--border);
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+  pointer-events: none;
+}
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: var(--text-muted);
+  /* The knob travels on the spring: it lands by a third of the duration and
+     spends the rest settling, which is what makes a 20px slide feel like a
+     mechanism instead of a fade. */
+  transition: transform 0.3s var(--ease-spring), background var(--transition);
+}
+.switch input:checked + .switch-track {
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+.switch input:checked + .switch-track::after {
+  transform: translateY(-50%) translateX(20px);
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.switch input:disabled + .switch-track { opacity: 0.45; }
+
+/* Danger-tinted variant for switches that widen access rather than narrow it. */
+.switch-warn input:checked + .switch-track {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--warning) 22%, transparent);
+}
+.switch-warn input:checked + .switch-track::after {
+  background: var(--warning);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--warning) 45%, transparent);
+}
+
+/* A labelled switch row: text on the left, control on the right. */
+.setting-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  padding: var(--sp-4) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.02);
+  transition: border-color var(--transition), background var(--transition);
+}
+.setting-row + .setting-row { margin-top: var(--sp-25); }
+/* On a small phone the switch may drop under its text. A row nested inside
+   another row's extras has ~160px to work with at 344px, and text beside a
+   44px switch in that width ran out of the card. */
+@media (max-width: 400px) {
+  .setting-row { flex-wrap: wrap; gap: var(--sp-25) var(--sp-4); }
+}
+.setting-row:hover { border-color: var(--border-hover); }
+.setting-row.is-on {
+  border-color: var(--primary-border);
+  background: var(--btn-bg);
+}
+/* The text half. `flex: 1 1 12rem` rather than the inline `flex: 1` it
+   replaced: a basis of 0 never overflows its line, so the wrap rule below
+   could not fire and the text was squeezed to 67px beside the switch inside
+   a nested row on a 344px phone. With a real basis the switch drops under the
+   text as soon as the two will not share the line. */
+.setting-row-main { flex: 1 1 12rem; min-width: 0; }
+.setting-row-text { min-width: 0; }
+.setting-row-title {
+  font-weight: 600;
+  font-size: var(--fs-md);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.setting-row-hint {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  margin-top: var(--sp-05);
+  line-height: 1.5;
+}
+/* Extra controls that only make sense once the switch is on. */
+.setting-row-extra {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+/* The extras are laid out inline as `display: grid` with no template, whose
+   one implicit `auto` column sizes to its widest child and, at 344px, ran the
+   nested rows out of the card. A `minmax(0, 1fr)` column shrinks with the
+   card instead. */
+.setting-row-extra > * { min-width: 0; grid-auto-columns: minmax(0, 1fr); }
+
+/* Segmented control — a small set of mutually exclusive choices. */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+.segmented-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-15) var(--sp-4);
+  border: none;
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition), transform var(--transition), opacity var(--transition);
+}
+.segmented-option:hover { color: var(--text); background: var(--surface-hover); }
+.segmented-option.active {
+  background: var(--btn-bg);
+  color: var(--primary);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+

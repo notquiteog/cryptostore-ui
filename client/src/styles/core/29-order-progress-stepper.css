@@ -1,0 +1,279 @@
+/* ===============================
+   ORDER PROGRESS STEPPER
+   ===============================
+   Geometry note, because this was subtly wrong for a long time: each step is a
+   flex column of equal width, so the first icon's centre sits half a column in
+   from the left edge and the last sits half a column in from the right. The
+   track must start and end on those centres — `left/right: calc(50% / steps)`
+   — or the fill lands beside the icons instead of on them. A fixed pixel inset
+   only ever lines up at one specific container width. */
+.order-stepper {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: var(--sp-6) var(--sp-5) var(--sp-5);
+  margin-bottom: var(--sp-6);
+  position: relative;
+  overflow: hidden;
+}
+/* One sheen as the panel arrives, and then it stops.
+
+   It used to run on a 7s loop. DESIGN §2: arrive, respond to the pointer, then
+   hold still — nothing loops. A light sweeping across an order panel every
+   seven seconds, on a page a buyer keeps open while they wait for a payment to
+   confirm, is a movement in the corner of the eye that never resolves into
+   information. Sweeping once as the panel lands says the same thing: this is
+   live. `both` holds the end state so nothing is left mid-sweep. */
+.order-stepper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 35%, rgba(var(--tint-rgb), 0.05) 50%, transparent 65%);
+  transform: translateX(100%);
+  animation: order-stepper-sheen 1.6s var(--ease-panel) 0.25s both;
+  pointer-events: none;
+}
+@keyframes order-stepper-sheen {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+.order-stepper-rail {
+  --node: 40px;
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+}
+
+.order-stepper-track {
+  position: absolute;
+  top: calc(var(--node) / 2 - 1px);
+  left: calc(50% / var(--steps));
+  right: calc(50% / var(--steps));
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  z-index: 0;
+  overflow: hidden;
+}
+.order-stepper-fill {
+  width: var(--fill);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), var(--success));
+  box-shadow: 0 0 10px var(--primary-glow);
+  transition: width 0.9s var(--ease-panel);
+  position: relative;
+}
+/* The fill sweeps once, as the bar grows to the step this order has reached.
+
+   This is the motion worth keeping on the page, because it is literally true:
+   the bar is travelling the distance the order has travelled, and it does it
+   at the moment the page draws that distance. Looping it forever detached the
+   movement from the fact — a bar that pulses identically whether the order
+   moved a step or nothing has happened for three days. */
+.order-stepper-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: translateX(100%);
+  animation: order-fill-pulse 1.4s var(--ease-panel) 0.35s both;
+}
+@keyframes order-fill-pulse {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+.order-step {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  /* Staggered so the row assembles left-to-right instead of popping at once.
+     Deliberately opacity-only: this element's box is what the track aligns
+     against, so translating it would make the alignment depend on an animation
+     having finished. It does not always finish — a backgrounded tab freezes the
+     document timeline mid-flight — and the steps would then sit permanently
+     offset from the rail they are supposed to sit on. Movement is delegated to
+     the node, which scales about its own centre and so cannot shift it. */
+  animation: order-step-in 0.45s var(--ease-panel) both;
+  animation-delay: calc(var(--i) * 70ms);
+}
+@keyframes order-step-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.order-step-node {
+  width: var(--node, 40px);
+  height: var(--node, 40px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--sp-2);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+  transition: background 0.4s var(--ease-panel), border-color 0.4s var(--ease-panel),
+              color 0.4s var(--ease-panel), box-shadow 0.4s var(--ease-panel), transform 0.3s var(--ease-panel);
+  position: relative;
+  animation: order-node-in 0.45s var(--ease-panel) both;
+  animation-delay: calc(var(--i) * 70ms);
+}
+/* Scales about the centre, so the node's midpoint — and therefore its
+   alignment with the track — is identical at every frame. */
+@keyframes order-node-in {
+  from { transform: scale(0.82); }
+  to   { transform: scale(1); }
+}
+/* The glyph inside a filled node is the page ground, not white.
+   `--step-color` is handed in from OrderDetail as one of --warning, --success,
+   --info, --secondary or --primary, and all five are solved to clear AA
+   against `--bg` — which makes `--bg` the one ink guaranteed to read on any of
+   them, in either mode. White was pinned to a dark-mode assumption and did not
+   even hold there: on the shipped `--warning` #e0a84e it measures about
+   1.9:1. */
+.order-step.is-done .order-step-node {
+  background: var(--step-color);
+  border-color: var(--step-color);
+  color: var(--bg);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--step-color) 45%, transparent);
+}
+.order-step.is-active .order-step-node {
+  background: var(--step-color);
+  border-color: var(--step-color);
+  color: var(--bg);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--step-color) 55%, transparent);
+  animation-name: order-node-in-active;
+}
+@keyframes order-node-in-active {
+  from { transform: scale(0.82); }
+  to   { transform: scale(1.06); }
+}
+/* A ring on the step the order is actually sitting at.
+
+   It pings once on arrival and then stays as a static ring. Repeating forever
+   made the current step read as an alert rather than as a position — and the
+   step is not an alert: "shipped" is good news that pinged at the buyer every
+   two seconds for as long as the tab was open. The resting ring, the step
+   colour and the bold label all say which step it is without moving. */
+.order-step.is-active .order-step-node::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid var(--step-color);
+  opacity: 0.55;
+  animation: order-node-ping 0.9s var(--ease-panel) 0.4s both;
+}
+@keyframes order-node-ping {
+  from { opacity: 0.7; transform: scale(1); }
+  to   { opacity: 0.55; transform: scale(1.28); }
+}
+
+.order-step-label {
+  font-size: var(--fs-3xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.3;
+  transition: color 0.3s ease, font-weight 0.3s ease;
+}
+.order-step.is-done .order-step-label { color: var(--text); }
+.order-step.is-active .order-step-label { color: var(--text); font-weight: 700; }
+
+/* When each step actually happened.
+ *
+ * `paid_at`, `shipped_at` and `delivered_at` have been on the orders row since
+ * the initial schema and no screen ever drew them. The stepper said where an
+ * order had got to and the header said when it was placed, so "it has been
+ * sitting at accepted for nine days" — the single most common question anyone
+ * asks about an order, buyer or staff — could not be answered from the page
+ * that exists to answer it.
+ *
+ * The exact time is on the element's `title`, per DESIGN §4: hover discloses
+ * detail, so the rung can stay short. Only steps the order has actually
+ * reached carry one; `accepted` never does, because no column records when it
+ * was accepted, and inventing one from `updated_at` would be a timestamp that
+ * silently changes every time anybody touches the row.
+ */
+.order-step-when {
+  display: block;
+  margin-top: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  text-align: center;
+  white-space: nowrap;
+  cursor: help;
+}
+/* Reserved on every step, filled on the ones that have a date, so the labels
+   below the nodes sit on one baseline instead of stepping up and down across
+   the rail. */
+.order-step-when:empty::before { content: '\00a0'; }
+
+/* Cancelled / refunded / disputed — the ladder does not apply. */
+.order-stepper-terminal {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  --terminal: var(--text-muted);
+}
+.order-stepper-terminal.is-refunded { --terminal: var(--warning); }
+.order-stepper-terminal.is-disputed { --terminal: var(--danger); }
+.order-stepper-terminal-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--terminal);
+  border: 1px solid color-mix(in srgb, var(--terminal) 40%, transparent);
+  background: color-mix(in srgb, var(--terminal) 10%, transparent);
+}
+/* The wrapper the icon sits beside. It carried `style={{ minWidth: 0 }}`
+   inline — the one declaration that stops a long terminal sentence forcing the
+   flex row wider than the panel. */
+.order-stepper-terminal-text { min-width: 0; }
+.order-stepper-terminal-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-md);
+  color: var(--terminal);
+}
+.order-stepper-terminal-sub {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-top: var(--sp-05);
+}
+
+@media (max-width: 520px) {
+  .order-stepper-rail { --node: 34px; }
+  .order-step-label { font-size: var(--fs-3xs); }
+  /* Five columns of `12 Aug` do not fit in 375px. The dates come off; the
+     order's position is still readable, and the full history is a tap away on
+     the fact strip. Hidden rather than shrunk — a 7px date is not information,
+     it is texture. */
+  .order-step-when { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .order-stepper::before,
+  .order-stepper-fill::after,
+  .order-step,
+  .order-step-node,
+  .order-step.is-active .order-step-node::after { animation: none; }
+  .order-step { opacity: 1; }
+  .order-step.is-active .order-step-node { transform: scale(1.06); }
+}
+

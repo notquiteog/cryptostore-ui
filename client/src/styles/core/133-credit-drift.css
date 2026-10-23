@@ -1,0 +1,97 @@
+/* ── The credit-ledger mismatch banner ──────────────────────────────────────
+ *
+ * What this is: the strip that appears on /admin/store-credit when an account's
+ * balance and its own ledger disagree. See `components/admin/CreditDrift.jsx`
+ * for why it is a banner that is usually absent rather than a permanent tile.
+ *
+ * The failure this shape prevents: styled as a warning card and drawn every
+ * time, it becomes the fourth thing on a page of three figures and stops being
+ * read within a fortnight. It is toned as danger, it is unmissable, and it is
+ * almost never on screen — the three properties have to hold together.
+ */
+
+.cdrift {
+  margin: var(--sp-4) 0;
+  padding: var(--sp-3);
+  /* Composed from the channel triple rather than a `--danger-border` token,
+     which does not exist: `--tint-rgb` flips polarity between modes but
+     `--danger-rgb` does not, so a fixed alpha of the danger hue reads as an
+     edge in both. DESIGN §11. */
+  border: 1px solid rgba(var(--danger-rgb), 0.45);
+  border-radius: var(--radius);
+  /* Composited over the page ground rather than left translucent: this sits in
+     the admin's normal flow, not over scrolling content, so a flat tint is
+     right and no backdrop root is created. */
+  background: linear-gradient(rgba(var(--danger-rgb), 0.08), rgba(var(--danger-rgb), 0.08)), var(--surface);
+}
+
+.cdrift-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: 0 0 var(--sp-15);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.cdrift-more {
+  font-size: var(--fs-3xs);
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cdrift-why {
+  max-width: var(--shell-prose);
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.cdrift-list { margin: 0; padding: 0; list-style: none; }
+
+/* One record per line, aligned columns — DESIGN §6's compact line item. The
+   list is short by construction (it is empty on a healthy store and a handful
+   on a broken one), so there is no card view to switch to; on a phone the row
+   simply wraps and the figures stay together as a group. */
+.cdrift-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-15) 0;
+  border-top: 1px solid var(--glass-border);
+  font-size: var(--fs-xs);
+}
+.cdrift-row:first-child { border-top: 0; }
+
+.cdrift-who { color: var(--text); font-weight: 600; text-decoration: none; }
+.cdrift-who:hover { color: var(--primary); }
+
+/* `--font-mono` so the three figures line up down the column. DESIGN §6: a
+   column of money that does not align is unreadable at a glance, and the whole
+   point of showing both sides is that the eye compares them. */
+.cdrift-figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-25);
+  margin-right: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+}
+.cdrift-figs b { font-weight: 600; color: var(--text-secondary); }
+
+.cdrift-gap { color: var(--danger); font-weight: 700; }
+
+.cdrift-moves { font-size: var(--fs-3xs); color: var(--text-muted); }
+
+.cdrift[data-reveal] { animation: rise-in var(--dur-2) var(--ease-settle) both; }
+@media (prefers-reduced-motion: reduce) {
+  /* End state restored — an `animation: … both` merely switched off leaves the
+     banner at its `from` keyframe and the warning never appears. */
+  .cdrift[data-reveal] { animation: none; opacity: 1; transform: none; }
+}

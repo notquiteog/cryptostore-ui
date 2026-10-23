@@ -1,0 +1,44 @@
+/*
+ * The "Ask" button that console cards carry.
+ *
+ * Lifted out of 79-admin-settings.css, where it was written as
+ * `.aset-card-title .aset-ask` — correct for the one page that had it, and the
+ * reason the second page to want one could not simply reuse the class. The
+ * rules are the same; only the selector stopped naming a page.
+ *
+ * A dashed outline rather than a filled control on purpose: this is a hint
+ * beside a heading, not an action on the record underneath it, and the console
+ * has real buttons a few pixels away that must stay louder than it.
+ */
+.ask-about {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px var(--sp-15);
+  border: 1px dashed rgba(var(--tint-rgb), 0.3);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--fs-2xs, 0.72rem);
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.ask-about:hover,
+.ask-about:focus-visible {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/*
+ * Beside a heading, the button needs the gap; inside a row of controls the
+ * flex parent is already spacing it, and a hard margin there pushes it out of
+ * alignment with its neighbours. So the margin is a modifier the caller opts
+ * into rather than a default it has to undo.
+ */
+.ask-about-inline {
+  margin-left: var(--sp-2);
+}

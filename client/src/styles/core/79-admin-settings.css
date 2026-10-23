@@ -1,0 +1,519 @@
+/* ===============================
+   THE SETTINGS PAGE
+   ===============================
+   Replaces an 860px centred column of a dozen identical cards stacked in the
+   order they were written — DESIGN §1's "centred column, enormous vertical
+   padding" and "one elevation for everything" at once, on the longest page in
+   the admin panel.
+
+   Three things carry the rewrite:
+
+     A RAIL, because the page has fourteen sections and scrolling was the
+     primary cost of using it. §9 asks a screen to say where it is; without a
+     map this one was navigated with the browser's find.
+
+     A SAVE BAR that exists only while there is something to save. The button
+     used to sit at the very top, two thousand pixels above whatever was being
+     edited, and nothing on the page indicated it needed pressing.
+
+     A CONTAINER QUERY, not a viewport one. §5 is explicit, and it is not
+     theoretical here: the admin shell wraps this content in a column that is
+     narrower than the window by a sidebar's width, so a viewport query fires
+     the wide rules in a box that cannot hold them. */
+
+.aset {
+  container-type: inline-size;
+  container-name: settings;
+  /* Wider than the old 860 because there are now two columns to hold, but not
+     unbounded: past ~1280 the form rows stop reading as rows and become a
+     label marooned from its control. */
+  max-width: var(--shell);
+}
+
+.aset-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-5);
+  align-items: start;
+}
+
+@container settings (min-width: 900px) {
+  /* The rail is fixed-width on purpose. It holds section names, which are
+     short and known; giving it a fraction would let a long name push the
+     content column around as the highlight moves. */
+  .aset-cols { grid-template-columns: 216px 1fr; }
+  .aset-rail {
+    position: sticky;
+    top: var(--sp-4);
+    max-height: calc(100vh - var(--sp-8));
+    overflow-y: auto;
+    /* Room for the focus ring on the last entry, which a hard overflow edge
+       would clip. */
+    padding: var(--sp-1);
+    margin: calc(var(--sp-1) * -1);
+  }
+}
+
+.aset-main { min-width: 0; }
+
+/* ── Rail ──────────────────────────────────────────────────────────────── */
+
+.aset-rail ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.aset-rail-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--control-h-sm);
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+}
+.aset-rail-link svg { flex-shrink: 0; opacity: 0.8; }
+.aset-rail-link:hover { color: var(--text); background: rgba(var(--tint-rgb), 0.05); }
+
+/* Selection lights the shape rather than thickening it (§3): the border width
+   never changes, so the list does not shuffle as the highlight travels. */
+.aset-rail-link.is-on {
+  color: var(--primary);
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.10);
+}
+
+/* Below the two-column breakpoint the rail becomes a horizontal strip that
+   scrolls — a fourteen-item vertical list above the content would be a screen
+   of navigation before the first field. It scrolls sideways and says so with
+   its own scrollbar, which is the one case §5's rule is answered by the
+   control rather than a label. */
+@container settings (max-width: 899px) {
+  .aset-rail {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    margin-bottom: var(--sp-2);
+    padding-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .aset-rail ul { flex-direction: row; gap: var(--sp-2); }
+  .aset-rail-link { width: auto; white-space: nowrap; }
+}
+
+@media (hover: none) {
+  .aset-rail-link { min-height: 44px; }
+}
+
+/* ── Section cards ─────────────────────────────────────────────────────── */
+
+/* The cards themselves keep `.glass-card`; what changes is that they now have
+   a HEAD with a rule under it, so a section reads as a titled group rather
+   than as another box in a stack of identical boxes. */
+.aset-card { margin-bottom: var(--sp-5); scroll-margin-top: var(--sp-5); }
+
+.aset-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.aset-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+.aset-card-title svg { color: var(--primary); flex-shrink: 0; }
+
+.aset-card-lede {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 68ch;
+  /* Full width under the title, not squeezed beside the head action. */
+  flex: 1 0 100%;
+}
+
+/* ── Save bar ──────────────────────────────────────────────────────────── */
+
+.aset-savebar {
+  position: sticky;
+  bottom: var(--sp-3);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-top: var(--sp-5);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--primary-border);
+  /* lg-tier glass: it floats over the form it belongs to, so what is under it
+     has to dissolve rather than compete (§3). */
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  box-shadow: var(--rim-inset), var(--shadow-lg), 0 0 24px var(--card-glow);
+  /* §2: it arrives rather than blinking into existence, and it comes from the
+     edge it is docked to. */
+  animation: aset-bar-in var(--dur-2) var(--ease-spring) both;
+}
+
+@keyframes aset-bar-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The count, and optionally one line under it. The wrapper is always present
+   so the bar has one layout, not two: with no note it holds a single child and
+   collapses to exactly the inline row it was before the note existed. */
+.aset-savebar-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.aset-savebar-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--warning);
+}
+/* Quieter than the count by a step of size and two of colour. It carries
+   either what saving will do or why it cannot yet — commentary on the count
+   above it, never a second headline. */
+.aset-savebar-note {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.aset-savebar-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* The live-chat button is `position: fixed` in this same corner, so without
+   this the Save button sits under a 52px circle — the one control the bar
+   exists for is the one that cannot be pressed.
+
+   The clearance is horizontal, and that is the load-bearing part: the button's
+   *bottom* is not one number. 08-navbar.css lifts its dock over the storefront
+   tab bar (`--tabbar-h` plus air, `!important`) on narrow viewports, so a bar
+   positioned to sit above it at one width lands underneath it at another. Its
+   right inset does not move at any width.
+
+   Scoped with `:has()` rather than reserved unconditionally because the button
+   only renders for a signed-in user on a store with chat switched on; an
+   operator who has turned it off should not pay for the gap. */
+body:has(.livechat-fab) .aset-savebar { margin-right: calc(52px + var(--sp-5)); }
+
+/* The counterpart, and the reason the bar can afford to be absent: a page with
+   no bar and no confirmation is a page you reload to check. */
+.aset-clean {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-5) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.aset-clean svg { color: var(--success); }
+
+/* Mobile tab bar clearance, the same rule `.site-main` carries: a sticky bar
+   docked to the bottom of the viewport lands underneath a fixed tab bar. */
+@media (max-width: 768px) {
+  .aset-savebar { bottom: calc(var(--tabbar-h) + var(--sp-3) + var(--sp-2)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* `both` fill means cancelling without restoring the end state leaves the
+     bar invisible — the trap §2 names. */
+  .aset-savebar { animation: none; opacity: 1; transform: none; }
+  .aset-rail-link { transition: none; }
+}
+
+/* ── Field stacks and notes inside a card ──────────────────────────────────
+   `.aset-fields` is a plain vertical stack of form groups; `.aset-note` is a
+   one-line status under them — what the store will actually do with what was
+   typed — warm when it is a warning. */
+.aset-fields { display: flex; flex-direction: column; gap: var(--sp-3); }
+.aset-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+  /* A note that quotes a URL path (`…/mirrors.txt`) has an unbreakable word
+     in it, which on a 320px phone ran out of the card. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.aset-note svg { flex-shrink: 0; margin-top: 2px; color: var(--success); }
+.aset-note.is-warn { color: var(--warning); }
+.aset-note.is-warn svg { color: var(--warning); }
+.aset-note code { font-family: var(--font-mono); font-size: var(--fs-2xs); }
+.aset-note a { color: var(--primary); }
+
+/* ── Price by payment method ────────────────────────────────────────────── */
+.rail-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
+.rail-row {
+  display: grid;
+  grid-template-columns: 9rem 8rem 7rem auto;
+  gap: var(--sp-2);
+  align-items: center;
+  font-size: var(--fs-sm);
+}
+.rail-row .glass-input { height: var(--control-h-sm); padding: 0 var(--sp-2); font-family: var(--font-mono); }
+.rail-row-name { color: var(--text-secondary); }
+.rail-row-say { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.rail-row-say.is-off { color: var(--success); }
+.rail-row-say.is-fee { color: var(--warning); }
+@media (max-width: 560px) {
+  .rail-row { grid-template-columns: 1fr 1fr; }
+  .rail-row-name { grid-column: 1 / -1; }
+}
+
+/* "Ask" beside a card's title: the section's own question, put to the
+   assistant (Settings.jsx → AskAboutSection). A text button at the title's
+   scale rather than an icon, because an unlabelled glyph beside a heading
+   reads as decoration, and this one is a door. Absent entirely when the shop
+   does not offer the assistant. */
+/*
+ * The Ask button's own rules moved to 122-ask-about.css when the second page
+ * wanted one — `.aset-card-title .aset-ask` could not be reused off this page,
+ * which is exactly how a copy gets made. What is left here is the placement
+ * inside a card title, which IS this page's business.
+ */
+.aset-card-title .ask-about {
+  margin-left: var(--sp-2);
+}
+
+/* ── What the models cost ────────────────────────────────────────────────────
+ *
+ * `components/admin/ai/UsageChart.jsx`, at the top of the AI page. Thirty days
+ * of spend per capability, because the one sentence this replaced — "1.4M
+ * tokens spent today" — is a number rather than an answer: it does not say
+ * which of five features to switch off.
+ *
+ * ── Why the row is not a table ──────────────────────────────────────────────
+ *
+ * DESIGN §6. Five short fields read DOWN a single axis, one of which is a
+ * drawing that has to stay on its row. A collapsing responsive table would put
+ * the sparkline on its own line under its own `data-label`, which is a chart
+ * nobody can scan — so this is line items, and it stays line items at every
+ * width by shedding columns rather than stacking them.
+ *
+ * ── The line is one channel of three ────────────────────────────────────────
+ *
+ * §3: it must survive `--glow-strength: 0` and a palette where the tints are
+ * close. The trend is the drawing, the magnitude is the printed figure, and the
+ * ordering is by spend — so an operator who cannot see the line at all still
+ * reads the table top to bottom and finds the expensive one first.
+ */
+
+.aiu h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* The three or four headline figures. A row of equal tiles is DESIGN §1's
+   "row of three", so these are inline runs of text at one weight with the
+   numbers promoted — the figure is the information, the word is its unit. */
+.aiu-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  margin: var(--sp-3) 0;
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.aiu-total {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-15);
+}
+
+.aiu-total strong {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Money is the figure an operator came for when they have set a rate, so it is
+   the one that takes the brand colour. */
+.aiu-total-cost strong { color: var(--primary); }
+.aiu-total-cost svg { align-self: center; color: var(--primary); }
+
+/* Today, beside the month, muted — it is context for the total rather than a
+   competing headline. */
+.aiu-total-today strong { color: var(--text-secondary); }
+
+.aiu-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.aiu-row {
+  display: grid;
+  /* name · sparkline · tokens · requests · cost. The line takes the slack,
+     because it is the only column whose usefulness scales with width. */
+  grid-template-columns: minmax(6rem, 9rem) minmax(0, 1fr) 4.5rem 4rem 5rem;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-15) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.aiu-row:last-child { border-bottom: 0; }
+
+/* The capability id, as `config/aiKeys.js` spells it. Lower case and
+   monospaced, because it IS an identifier — the switch above carries the
+   human label, and printing a second prettified name here would leave an
+   operator matching two vocabularies. */
+.aiu-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aiu-spark {
+  width: 100%;
+  height: var(--sp-8);
+  overflow: visible;
+}
+
+.aiu-spark polyline {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.2;
+  /* The viewBox is stretched by `preserveAspectRatio="none"`, which would scale
+     the stroke with it and give a wide row a hairline and a narrow one a slab.
+     This pins the stroke to the rendered pixel grid instead. */
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.aiu-tokens,
+.aiu-reqs,
+.aiu-cost {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.aiu-tokens { color: var(--text); font-weight: 600; }
+.aiu-reqs { color: var(--text-muted); }
+.aiu-cost { color: var(--primary); font-weight: 600; }
+
+.aiu-foot { margin-top: var(--sp-3); }
+
+@media (max-width: 46rem) {
+  /*
+   * Columns are SHED, not stacked. The request count is the least useful of
+   * the five on a phone — it is context for the token figure rather than a fact
+   * anybody acts on — so it goes, and the row stays one line that can be
+   * scanned. §5's rule about hiding columns applies to data the operator
+   * needed; this one is still in the row's title attribute.
+   */
+  .aiu-row { grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr) 4rem 4.5rem; }
+  .aiu-reqs { display: none; }
+}
+
+@media (max-width: 30rem) {
+  /* At phone width the sparkline is the first thing that stops being legible
+     at 60px wide, so it is the next to go and the figures stay. A trend nobody
+     can read is worse than no trend. */
+  .aiu-row { grid-template-columns: minmax(0, 1fr) 4rem 4.5rem; }
+  .aiu-spark { display: none; }
+}
+
+/* ── A colleague got there first ────────────────────────────────────────────
+   components/admin/SettingsConflict.jsx, and the live "somebody changed this"
+   banner that precedes it. One card, two states: a notice with a reload, or a
+   list of keys with both values and a choice per row.
+
+   Warning-toned rather than danger: nothing was lost and nothing was written.
+   The operator has to make a decision, not recover from an accident. */
+.scfl {
+  margin-bottom: var(--sp-5);
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--glass-border));
+}
+.scfl-title { display: flex; align-items: center; gap: var(--sp-2); }
+.scfl-title svg { color: var(--warning); flex: none; }
+.scfl .admin-hint { display: flex; align-items: flex-start; gap: var(--sp-15); flex-wrap: wrap; }
+.scfl .admin-hint svg { flex: none; margin-top: 2px; color: var(--warning); }
+
+.scfl-list { list-style: none; margin: var(--sp-3) 0 0; padding: 0; }
+.scfl-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  font-size: var(--fs-sm);
+}
+/* The key is the identifier the row was written with, so it reads as one —
+   same argument the audit log makes for printing the raw action name. */
+.scfl-key {
+  flex: none;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.06);
+  padding: 1px var(--sp-1);
+  border-radius: var(--radius-sm, 4px);
+}
+.scfl-side { display: flex; align-items: baseline; gap: var(--sp-1); min-width: 0; }
+.scfl-label {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+/* Wraps rather than truncating. A conflict on a long value — a URL, a
+   statement — is exactly the case where seeing the whole thing decides it. */
+.scfl-value { overflow-wrap: anywhere; color: var(--text-primary); }
+.scfl-value em { color: var(--text-muted); }
+.scfl-secret { color: var(--text-muted); font-style: italic; }
+/* Pushed to the far end, so the choice is always in the same place down a
+   column of rows rather than wherever the values happen to end. */
+.scfl-acts { display: flex; gap: var(--sp-15); margin-left: auto; flex: none; }
+.scfl-foot { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); flex-wrap: wrap; }
+/* The live banner has no rows, so its paragraph carries the whole message and
+   wants a little more room to breathe than a list header would. */
+.scfl-live .admin-hint { margin: 0; line-height: 1.6; }
+.scfl-live .scfl-key { margin: 0 2px; }

@@ -1,0 +1,391 @@
+/* ===============================
+   TOKENS
+   =============================== */
+:root {
+  color-scheme: dark;
+
+  /* Base palette — "Ledger": electric indigo / steel / brass on warm
+     graphite. Every value below was solved against WCAG on this background
+     rather than picked by eye; see client/src/theme/defaults.js, which is the
+     source of truth. This block is only the floor: what renders before the
+     store's own settings arrive. */
+  --primary: #7e8dff;
+  --secondary: #8fa8bf;
+  --accent: #a5b0ff;
+  --bg: #111113;
+
+  /* Which way surfaces are tinted. Dark mode lifts them with white; light mode
+     flips to ink so the same alpha reads as a border/edge instead of vanishing.
+     Every hard-coded tint in this file goes through it. */
+  --tint-rgb: 255, 255, 255;
+  --text-rgb: 236, 235, 231;
+  /* Image scrim — opposite polarity to --tint-rgb. See computeVars.js. */
+  --scrim-rgb: 0, 0, 0;
+  /* Channel triples for brand colours that get composed into rgba() at call
+     sites. ThemeContext overwrites all of these from the store's palette, so a
+     re-theme carries them; these are only the pre-settings floor. */
+  --primary-rgb: 126, 141, 255;
+  --secondary-rgb: 143, 168, 191;
+  --accent-rgb: 165, 176, 255;
+  --success-rgb: 79, 206, 143;
+  --warning-rgb: 224, 168, 78;
+  --danger-rgb: 255, 115, 104;
+
+  /* Recoloured-logo paint. The derivation sets it to the admin's logo colour
+     or, when none is set, the mode's primary; this floor keeps the mark
+     branded during the frames before settings arrive. Resolved per element,
+     so the light-mode block's own `--primary` flows through it. */
+  --logo-color: var(--primary);
+
+  /* The page wash. `--bg-wash` is the background mixed toward the *glow*
+     colour by the admin's background-tint amount — NOT toward `--primary`, so
+     the room and the brand are independent. At tint 0 it equals `--bg` exactly
+     and the page is precisely the colour that was picked. */
+  --bg-wash: #131316;
+  --bg-gradient: linear-gradient(
+    160deg,
+    var(--bg) 0%,
+    var(--bg-wash) 50%,
+    var(--bg) 100%
+  );
+
+  /* Surface scale */
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-hover: rgba(255, 255, 255, 0.0875);
+  --surface-active: rgba(255, 255, 255, 0.1375);
+  --border: rgba(255, 255, 255, 0.0875);
+  --border-hover: rgba(255, 255, 255, 0.225);
+
+  /* Text. The two derived steps are solved against the background for 7:1 and
+     4.5:1 by ThemeContext; these floors match the solved values for the
+     default palette. The old fixed 0.65/0.38 alphas shipped `--text-muted` at
+     3.18:1, under the AA floor, on every install. */
+  --text: #ecebe7;
+  --text-secondary: rgba(236, 235, 231, 0.6445);
+  --text-muted: rgba(236, 235, 231, 0.4886);
+
+  /* Semantic */
+  --success: #4fce8f;
+  --warning: #e0a84e;
+  --danger: #ff7368;
+  --info: #8fa8bf;
+
+  /* Glass */
+  --glass-opacity: 0.05;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.125);
+  --glass-blur: 22px;
+  /* Elevation tiers, derived by ThemeContext from the one admin blur knob
+     (0.45× and 1.5×; these floors are the 22px default solved). Three depths,
+     one meaning: sm under chips, dropdowns and sticky toolbars; md on cards;
+     lg behind modals and the navbar, where the page must dissolve. */
+  --glass-blur-sm: 10px;
+  --glass-blur-lg: 33px;
+  --glass-saturate: 160%;
+  /* Shadow tiers are mode-pairs set by ThemeContext (light mode needs shadows
+     an order of magnitude softer, or panels read as ink smudges). These floors
+     are the dark defaults. `--glass-shadow` predates the tiers: kept as the md
+     alias so the many existing call sites keep rendering identically. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30), 0 3px 10px rgba(0, 0, 0, 0.26);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 34px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.40), 0 18px 50px rgba(0, 0, 0, 0.55), 0 44px 96px rgba(0, 0, 0, 0.38);
+  --glass-shadow: var(--shadow-md);
+
+  /* One composed backdrop filter per tier so blur and vividness stay in step.
+     Colour behind a panel blooming through it is the optical signature of
+     frosted glass, and it rides the same filter pass as the blur — so it is
+     free. Composed here rather than per-surface because `var()` inside a
+     custom property resolves on the declaring element. `--glass-filter` is the
+     pre-tier name and stays equal to md, so nothing already frosted changes. */
+  --glass-sm: blur(var(--glass-blur-sm)) saturate(var(--glass-saturate));
+  --glass-md: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  --glass-lg: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  --glass-filter: var(--glass-md);
+  /* Below sm: the veil a full-screen scrim puts over the page underneath the
+     sheet sitting on it. It is a dim, not a frost, so no `saturate` — pushing
+     colour in the layer whose job is to recede is backwards.
+
+     Derived in CSS rather than set by ThemeContext like the other tiers,
+     because the ratio is all there is to say: it tracks `--glass-blur`
+     wherever that lands, including the `0px` the flat and reduced-transparency
+     modes set, and there is no floor or cap to solve for. The 0.14 is the
+     authored 3px over the 22px default — the literal it replaces, which sat in
+     93-store-search.css ignoring the operator's blur slider entirely and
+     frosting the page by 3px on a store that had asked for no blur at all. */
+  --glass-blur-scrim: calc(var(--glass-blur) * 0.14);
+  --glass-scrim: blur(var(--glass-blur-scrim));
+
+  /* Specular edge. A lit top-left and a shadowed bottom-right is what makes a
+     panel read as a sheet of glass rather than a rectangle with a border. */
+  --rim-strength: 1;
+  --rim-light: rgba(255, 255, 255, 0.24);
+  --rim-dark: rgba(0, 0, 0, 0.34);
+  --rim-inset:
+    inset 1px 1px 0 -0.5px var(--rim-light),
+    inset -1px -1px 0 -0.5px var(--rim-dark);
+
+  /* Buttons */
+  --btn-bg: rgba(126, 141, 255, 0.13);
+  --btn-hover: rgba(126, 141, 255, 0.24);
+  --btn-text: #ffffff;
+
+  /* Glow. `--glow-strength` scales every one of these at once from the admin's
+     slider; at 0 the store goes completely flat. The ambient `--bg-glow-*`
+     washes follow the background-tint knob instead, because they are part of
+     the room rather than the lighting on the furniture. */
+  --glow-strength: 0.35;
+  --primary-glow: rgba(126, 141, 255, 0.40);
+  --secondary-glow: rgba(143, 168, 191, 0.30);
+  --card-glow: rgba(126, 141, 255, 0.18);
+  --bg-glow-1: rgba(126, 141, 255, 0.016);
+  --bg-glow-2: rgba(143, 168, 191, 0.012);
+  /* Grain over the room; ThemeContext derives it from the admin's grain knob
+     (2% default, halved on a light ground). */
+  --noise-opacity: 0.02;
+  --focus-ring: rgba(126, 141, 255, 0.28);
+  --primary-border: rgba(126, 141, 255, 0.30);
+  --glow-sm: 0 0 12px rgba(126, 141, 255, 0.22);
+  --glow-md: 0 0 22px rgba(126, 141, 255, 0.30);
+  --glow-lg: 0 4px 34px rgba(126, 141, 255, 0.38);
+  --text-glow: 0 0 18px rgba(126, 141, 255, 0.35);
+
+  /* Radii. All three are derived from the admin's roundness slider by
+     ThemeContext; these floors correspond to its 14px default. */
+  --radius: 14px;
+  --radius-sm: 8px;
+  --radius-lg: 22px;
+  --pill: 999px;
+
+  /* Motion. Durations and curves are tokens so a control never invents its
+     own feel: pick a pair, don't tune one. `--ease-out` starts fast and lands
+     soft — hover states read as instant without arriving abruptly. The spring
+     pair get their real curves in the @supports block below; these
+     cubic-bezier values are the fallback approximation for engines without
+     linear(). */
+  --transition: 0.18s var(--ease-out);
+  --ease-panel: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-1: 0.12s;
+  --dur-2: 0.2s;
+  --dur-3: 0.34s;
+  --stagger: 40ms;
+
+  /* Type. Three roles, declared once — a call site picks a role, never a
+     family. The admin's font settings override these through the derivation
+     (theme_font_ui / _display / _mono over FONT_ROSTER in defaults.js); these
+     floors are the Ledger defaults: Hanken Grotesk working, Archivo voice,
+     IBM Plex Mono ledger. */
+  --font: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Archivo', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── The fluid scale ────────────────────────────────────────────────────
+     Three units. Every type step, every spacing step and every control height
+     below is a multiple of one of them, and each unit is a `clamp()` on the
+     viewport — so the whole interface breathes continuously from a 320px
+     phone to an 8K span instead of being designed at 1440 and left to fend
+     for itself at both ends.
+
+     Why units and multiples rather than a clamp per step: the stylesheet this
+     replaces carried SIXTY-EIGHT distinct hand-picked font sizes — 0.72rem,
+     0.74rem, 0.75rem, 0.76rem, 0.78rem, all within a pixel of each other,
+     each one somebody's local "make it a bit smaller". `DESIGN.md` §7 warns
+     against drifting into nine. Nine would have been a tidy stylesheet. A
+     ladder that is arithmetic off one unit cannot drift, because there is no
+     value to hand-pick.
+
+     Two ladders, not one, because they must move in OPPOSITE directions at
+     the small end. Working text (`--fs-md` and below) has a legibility floor:
+     an 11px label must stay 11px on a phone. Display text has a fitting
+     ceiling: a 44px page title on a 320px screen wraps to four lines and
+     eats the fold. So `--fs-unit` barely moves below 1280 while
+     `--fs-unit-display` shrinks hard, and both climb together above it. They
+     cross at ~1400px, which is why the desktop the app was designed at looks
+     the same as it did.
+
+     `vw` and not a container query on purpose: this is the size of the room,
+     not the size of the box. A panel that is 300px wide on a 5K monitor
+     should still carry 5K-sized type — the reader's eye is the same distance
+     away either way. Boxes answer to `@container`; the ROOM answers here. */
+  --fs-unit: clamp(0.98rem, 0.925rem + 0.094vw, 1.375rem);
+  --fs-unit-display: clamp(0.86rem, 0.855rem + 0.16vw, 1.625rem);
+  --sp-unit: clamp(0.2125rem, 0.2175rem + 0.0375vw, 0.4rem);
+
+  /* Working ladder — tables, key-value rows, toolbars, forms, body copy.
+     `--fs-sm` (13px at desktop) is the working size; `--fs-base` (14px) is
+     ordinary UI prose. The three smallest steps carry a `max()` floor in
+     absolute rem: below ~1280px the multiple would take a 10px legal line or
+     a unit label under the size at which it is readable at arm's length, and
+     "it got smaller on a phone" is not a legitimate answer for text that was
+     already at the floor. */
+  --fs-3xs: max(0.625rem, calc(var(--fs-unit) * 0.625));
+  --fs-2xs: max(0.6875rem, calc(var(--fs-unit) * 0.6875));
+  --fs-xs: max(0.75rem, calc(var(--fs-unit) * 0.75));
+  --fs-sm: calc(var(--fs-unit) * 0.8125);
+  --fs-base: calc(var(--fs-unit) * 0.875);
+  --fs-md: calc(var(--fs-unit) * 1);
+
+  /* Display ladder — headings, page titles, figures a screen is built around.
+     Rides the display unit, so these shrink on a phone rather than forcing a
+     three-word title onto three lines. */
+  --fs-lg: calc(var(--fs-unit-display) * 1.125);
+  --fs-xl: calc(var(--fs-unit-display) * 1.375);
+  --fs-2xl: calc(var(--fs-unit-display) * 1.75);
+  --fs-3xl: calc(var(--fs-unit-display) * 2.25);
+  --fs-4xl: calc(var(--fs-unit-display) * 2.875);
+  --track-wide: 0.08em;
+
+  /* Spatial scale. The step names are the desktop pixel count divided by four
+     — `--sp-4` is 16px at 1280 — but the grid itself scales with the room:
+     3.6px at 320, 4.9px at 3840, 6.4px at 7680, so a card's inner padding
+     stays in proportion to its type at every size instead of being a phone's
+     padding stranded on an 8K monitor.
+
+     Half steps (`--sp-05`, `--sp-15`, `--sp-25`) exist because the fine end
+     of a dense UI genuinely needs 2, 6 and 10: the vertical padding inside a
+     status pill, the gap between an icon and its label, the inset on a chip.
+     The stylesheet this replaces expressed those with 0.1rem, 0.12rem,
+     0.14rem, 0.15rem, 0.16rem, 0.18rem, 0.2rem, 0.22rem, 0.24rem, 0.25rem,
+     0.28rem, 0.3rem and 0.32rem — thirteen values spanning four pixels. The
+     grid is 2px below 12 and 4px above it; that is the whole vocabulary. */
+  --sp-05: calc(var(--sp-unit) * 0.5);
+  --sp-1: calc(var(--sp-unit) * 1);
+  --sp-15: calc(var(--sp-unit) * 1.5);
+  --sp-2: calc(var(--sp-unit) * 2);
+  --sp-25: calc(var(--sp-unit) * 2.5);
+  --sp-3: calc(var(--sp-unit) * 3);
+  --sp-4: calc(var(--sp-unit) * 4);
+  --sp-5: calc(var(--sp-unit) * 5);
+  --sp-6: calc(var(--sp-unit) * 6);
+  --sp-8: calc(var(--sp-unit) * 8);
+  --sp-10: calc(var(--sp-unit) * 10);
+  --sp-12: calc(var(--sp-unit) * 12);
+  --sp-16: calc(var(--sp-unit) * 16);
+
+  /* Control heights exist so a toolbar's button, input and select actually
+     share a baseline — three controls each a pixel or two off is what makes a
+     toolbar look homemade. Derived from the type unit rather than fixed, so a
+     control keeps its proportion to the label inside it at every size. The
+     44px touch floor is applied under `pointer: coarse` at the end of this
+     file, not here: a laptop at 700px still has a mouse. */
+  --control-h-sm: calc(var(--fs-unit) * 1.875);
+  --control-h: calc(var(--fs-unit) * 2.375);
+  --control-h-lg: calc(var(--fs-unit) * 2.875);
+
+  /* ── Measure ────────────────────────────────────────────────────────────
+     How wide the page is allowed to be, in three flavours, because "how wide"
+     has three different right answers.
+
+     The stylesheet this replaces had ONE answer — `.container { max-width:
+     1200px }` — and eleven surfaces that disagreed with it in private
+     (1560, 1280, 1180, 1040, 1000, 940, 780, 760…). On a 3840px monitor the
+     storefront was a 1200px column with 1320px of empty background on either
+     side; the audit measured the widest real text on the page reaching 0.57
+     of the window at 3840 and 0.16 at 7680. That is the "centred column,
+     enormous vertical padding" tell in `DESIGN.md` §1, and it is what the
+     store actually looked like on anything wider than the laptop it was
+     built on.
+
+     Three measures, because "how wide" has three different right answers and
+     the fix for an empty monitor is NOT to stretch everything to the edges.
+     A 3400px-wide order row is worse than a centred one; a 3400px shelf of
+     product cards is better than a centred one. The difference is whether
+     extra width buys more information or just longer lines.
+
+     - `--shell-prose` is a reading measure: policy pages, a ticket thread, an
+       empty state's paragraph. It grows only with the type, because a line
+       of prose has a length past which it stops being readable no matter how
+       much monitor is available.
+     - `--shell` is the standard record or form page — a cart, an order, a
+       profile, a settings sheet. 1800px is where its two columns stop
+       gaining and its rows start stretching.
+     - `--shell-wide` is the console: the admin, its dense tables, its card
+       feeds. It stops at 2600px, which is about as far apart as the two ends
+       of one record can sit and still be read in a single sweep of the eye.
+       The first draft of this stopped at 3400 and the analytics best-sellers
+       table proved it wrong on sight — a product name at the left edge and
+       its units-sold figure a thousand pixels away, with nothing in between.
+     - `--shell-shelf` is the shop window and the catalog, where extra width
+       is extra facings rather than longer rows. A shelf of product cards at
+       5000px is twenty legible tiles; a table at 5000px is one unreadable
+       row, which is why these are two tokens and not one. */
+  --shell-prose: min(100%, calc(var(--fs-unit) * 46));
+  --shell: min(100%, clamp(1120px, 80vw, 1800px));
+  --shell-wide: min(100%, clamp(1120px, 92vw, 2600px));
+  --shell-shelf: min(100%, clamp(1120px, 96vw, 5200px));
+
+  /* How wide a single-line field is allowed to get. A box to type a store
+     name or a password into is not a ruler: past about 34 characters it stops
+     reading as a field and starts reading as a rule with a caret on it, which
+     is what the profile's password inputs became at 1000px once the page
+     stopped capping at 1180. Textareas and search fields are deliberately not
+     bound by this — a markdown editor wants every pixel. */
+  --field-max: calc(var(--fs-unit) * 34);
+
+  /* The page gutter. One number for "how far content sits from the edge of
+     the glass", fluid, so a 320px phone gives up 28px of its 320 to margin
+     and a 4K monitor gives up 128 — instead of both giving up 64. */
+  --gutter: clamp(0.875rem, 0.35rem + 1.75vw, 4rem);
+
+  /* Stacking order. Every raw z-index literal is a future bug where a toast
+     opens under a modal; layers are named once and only ever referenced. */
+  --z-nav: 100;
+  --z-drawer: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+
+  /* Navbar / overlay surface — opaque-ish.
+
+     `--overlay-blur` is a legacy blur name that now rides the lg tier instead
+     of holding its own fixed 28px: it predates the tier system, and the fixed
+     value meant those surfaces kept a heavy blur after an operator had turned
+     the glass slider to zero — the surfaces that ignored the knob. It is kept
+     as a name because six sheets consume it.
+
+     `--nav-blur` sat here beside it under the same justification, and the
+     justification was not true of it: nothing in the app read it. The navbar
+     reads `--glass-lg` directly. It is gone rather than left as a token a
+     future reader would reasonably assume the navbar was built on. */
+  --nav-bg: rgba(17, 17, 19, 0.86);
+  --overlay-bg: rgba(17, 17, 19, 0.95);
+  --overlay-blur: var(--glass-blur-lg);
+  /* Sticky toolbars and dropdown panes over scrolling content; ThemeContext
+     rebuilds it from the page ground per mode, so text on it always sits on
+     its designed background rather than on whatever scrolls beneath. */
+  --surface-raised: rgba(17, 17, 19, 0.68);
+  /* Sunken well: content pressed into the glass (addresses, keys). */
+  --well: rgba(0, 0, 0, 0.25);
+}
+
+/* Real damped-spring curves, sampled from the oscillator
+   x(t) = 1 − e^(−ζω₀t)(cos ω_d t + (ζω₀/ω_d) sin ω_d t) rather than eyeballed.
+   `--ease-spring` (ζ≈0.48) overshoots ~17% and rings once — for small objects
+   arriving: dropdowns, chips, toggles. `--ease-settle` (ζ≈0.85) barely crosses
+   1 — for panels and anything large enough that a visible bounce would read as
+   the page wobbling. The cubic-bezier declarations above are the fallback for
+   engines without linear(), which is why these live in @supports instead of
+   replacing them. */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-spring: linear(0, 0.129 5%, 0.41 10%, 0.714 15%, 0.959 20%, 1.112 25%, 1.175 30%, 1.17 35%, 1.127 40%, 1.072 45%, 1.023 50%, 0.989 55%, 0.971 60%, 0.968 65%, 0.974 70%, 0.983 75%, 0.993 80%, 1 85%, 1.004 90%, 1.006 95%, 1.005 100%);
+    --ease-settle: linear(0, 0.128 6.3%, 0.365 12.5%, 0.59 18.8%, 0.761 25%, 0.875 31.3%, 0.943 37.5%, 0.98 43.8%, 0.998 50%, 1.005 56.3%, 1.006 62.5%, 1.005 68.8%, 1.004 75%, 1.003 81.3%, 1.001 87.5%, 1.001 93.8%, 1 100%);
+  }
+}
+
+
+/* Touch raises the control floor, and it is a POINTER question, not a width
+   question: a laptop at 700px still has a mouse, and a tablet at 1180px does
+   not. `DESIGN.md` §5 puts the floor at 44px; the derived heights above are
+   38px at desktop scale, so without this a phone gets a 37px tap target.
+   `max()` rather than a flat 44px, so the scale still climbs above the floor
+   on a large touch screen instead of being pinned there. */
+@media (pointer: coarse) {
+  :root {
+    --control-h-sm: max(40px, calc(var(--fs-unit) * 2.25));
+    --control-h: max(44px, calc(var(--fs-unit) * 2.75));
+    --control-h-lg: max(50px, calc(var(--fs-unit) * 3.25));
+  }
+}

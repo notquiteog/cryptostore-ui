@@ -1,0 +1,359 @@
+/* ===============================
+   GLASS PRIMITIVES
+   ===============================
+
+   ORDER MATTERS on the backdrop-filter pair: `-webkit-` FIRST, the standard
+   property LAST. Everywhere in this stylesheet tree, not just here.
+
+   Vite 8 minifies CSS with lightningcss, which treats `-webkit-backdrop-filter`
+   and `backdrop-filter` as one logical property and collapses a rule that
+   declares both down to whichever came LAST. Written the natural way — standard
+   first, prefix second — every one of those rules shipped as `-webkit-` only.
+   Chrome does not implement `-webkit-backdrop-filter` at all (`CSS.supports`
+   answers false for it), so 80 of the 90 frosted surfaces in the app rendered
+   with no blur in any Chromium or Firefox build, while `npm run dev` — which
+   serves the CSS unminified and never runs lightningcss — looked perfect. That
+   is the whole shape of the bug: a production-only failure with no error, no
+   console warning, and a dev server that disagrees with the deploy.
+
+   The blur slider in the theme editor looked broken for the same reason. It
+   sets `--glass-blur` correctly; there was simply no surviving declaration
+   reading it.
+
+   client/test/backdropFilter.test.mjs fails the build if a rule is ever written
+   back the other way round. Do not "tidy" these into the conventional order. */
+
+/* ── Container glass: `.glass-plate` ──────────────────────────────────────
+   For a frosted surface that CONTAINS another frosted surface. Put the class
+   on the container; the blur moves to a backing layer and everything inside
+   keeps its own.
+
+   `backdrop-filter` on an element makes that element a BACKDROP ROOT: from
+   then on, a descendant's own `backdrop-filter` can only sample what was
+   painted INSIDE that ancestor's box. Anything outside it — which is the whole
+   page, for a bar pinned to the top of it — is not in the descendant's
+   backdrop at all, so the filter runs over nothing and the surface renders
+   with a translucent fill and no blur.
+
+   That is not a subtle difference. It is what "the theme's blur slider does
+   nothing to the dropdowns" looked like: every panel hanging off the navbar —
+   the eight nav popovers, the search autocomplete, the assistant panel —
+   declared its tier and drew page text through itself with perfectly hard
+   edges, because `.navbar` declared a blur too and became their backdrop root.
+   The panels were reading the operator's blur setting correctly and painting
+   it onto an empty backdrop. Nothing logs, and the stylesheet reads as if it
+   works.
+
+   What decides it is geometry, not nesting. Measured on the storefront, the
+   assistant panel sat 100% outside the bar's own box and the popovers and the
+   autocomplete 98% — all of that area was page the filter had no access to.
+   The mobile menu is the counter-example and worth knowing before "fixing"
+   something that is not broken: it is an in-flow child, so the bar GROWS to
+   contain it (66px to 609px on a phone), it is 0% outside, and its blur was
+   sampling real content the whole time. Glass inside glass is only wrong where
+   it reaches past the root — which is also why a sale badge over its own
+   product photo is right, and why the audit in scripts/tools/uisweep.mjs
+   scores the escaping area rather than the nesting.
+
+   The fix is that a container does not blur ON itself. `::before` is a
+   separate box, so the blur it carries makes the PSEUDO-ELEMENT the backdrop
+   root, not the container — and the container's descendants keep the document
+   as theirs. `z-index: -1` puts the plate above the container's own background
+   and below its content, which is the same order `backdrop-filter` painted in.
+
+   Two things worth knowing before changing this:
+
+   - The container KEEPS its own `background`. Compositing is linear in the
+     page behind, so a constant tint blurred with the page is the same colour
+     as that tint over a blurred page — moving the fill onto the plate would
+     change nothing and would move a value away from the rules that read it
+     (`--nav-bg`, hover states, the light-mode pairs).
+   - `inset: 0` covers the padding box, not the border box. A surface with a
+     visible border wants the plate pulled out by the border width, or a
+     hairline of unblurred page shows through it — see `.navbar::before`.
+
+   Anything that adds `backdrop-filter` back onto a `.glass-plate` element
+   itself puts every panel inside it back to sharp. client/test/backdropFilter
+   .test.mjs fails if one does. */
+.glass-plate {
+  /* The plate's containing block. Surfaces that are `fixed` or `sticky`
+     declare that in their own file and override this; both are positioned,
+     which is all the plate needs. */
+  position: relative;
+}
+.glass-plate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  /* Same order rule as every other pair in this tree — `-webkit-` first. */
+  -webkit-backdrop-filter: var(--plate-filter, var(--glass-filter));
+  backdrop-filter: var(--plate-filter, var(--glass-filter));
+}
+
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--rim-inset), var(--glass-shadow);
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--rim-inset), var(--glass-shadow);
+  padding: var(--sp-6);
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(var(--tint-rgb), 0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+/* The lit rim as a masked gradient border, so the highlight actually travels
+   around the corner radius instead of being a flat stroke. `::before` is taken
+   by the sheen above, hence `::after`. */
+.glass-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    145deg,
+    var(--rim-light) 0%,
+    transparent 38%,
+    transparent 62%,
+    var(--rim-dark) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+}
+.glass-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  /* Uses the token rather than a literal black: on a light page a 55%-black
+     drop shadow reads as a smudge, and the mode-aware value already exists. */
+  box-shadow: var(--rim-inset), var(--glass-shadow), 0 0 28px var(--card-glow);
+}
+
+/* Inputs */
+.glass-input {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-4);
+  min-height: var(--control-h);
+  /* `--glass-bg`, not a hard-coded tint: the admin's opacity slider has to
+     reach inputs and buttons too, and a literal here meant it silently did
+     not — the two most numerous controls in the app ignored it. */
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  outline: none;
+  font-family: var(--font);
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition), color var(--transition);
+  font-size: var(--fs-md);
+}
+.glass-input:focus {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.glass-input::placeholder { color: var(--text-muted); }
+
+textarea.glass-input {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.5;
+}
+
+/* The chevron is a data-URI, so its stroke colour cannot be a custom property
+   — it has to be baked into the URL. The old one baked in `%23eef0ff99`
+   (near-white), which is invisible on a light page. Two URLs, one per mode. */
+:root {
+  --select-chevron: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ecebe7aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+:root[data-theme="light"] {
+  --select-chevron: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2317150faa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+}
+
+select.glass-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right var(--sp-3) center;
+  /* Clears the chevron, which is ~14px wide sitting a step in from the right
+     edge. Snapping this to `--sp-8` (32px) during the token pass left about
+     four pixels between a long option's text and the arrow, and less than
+     that on a phone where the step is smaller — the value has to be the
+     chevron plus its inset plus a gap, not the nearest step to the old
+     literal. */
+  padding-right: var(--sp-10);
+}
+select.glass-input option {
+  /* Native option lists cannot take an alpha background, so this needs an
+     opaque colour that follows the mode rather than a pinned `#0a0f1c` — which
+     rendered a black dropdown on a white page. */
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Buttons */
+.glass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5);
+  /* Shared control height, so a toolbar's button, input and select sit on one
+     baseline instead of each being a pixel or two off. */
+  min-height: var(--control-h);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  /* sm tier: at button size the md blur is visually identical and a page of
+     toolbars pays for every extra pass.
+
+     It looks like the blur here could go — a control sitting on a card blurs
+     that card's near-uniform fill, which cannot show. Measured before removing
+     it, and the answer is no, twice over:
+
+     - The BLUR half is indeed invisible: forcing it off while keeping
+       `saturate` moved the button by a mean of 0.02–0.16 of 255 (max 2), at or
+       under the frame-to-frame noise. But removing it saves nothing. The cost
+       of a backdrop-filter is the PASS — the render surface and the backdrop
+       readback — not the convolution. Blur-plus-saturate and saturate-alone
+       measured 38.3 vs 38.2 fps over seven interleaved runs on /admin/theme,
+       the most button-dense page in the app.
+     - Dropping the filter ENTIRELY does save something, and it is both small
+       and not free: 40.7 fps against 38.3, on a page carrying 348 frosted
+       buttons of which only 31 are ever on screen at once (the rest are below
+       the fold, where nothing rasterises them). The `saturate` is what the
+       remaining difference buys, and it is visible — a button loses its depth
+       and the page grain reads straight through it. That is the colour bloom
+       01-tokens.css calls the optical signature of frosted glass, spent for
+       about 5% on one admin page.
+
+     So: not a wasted pass, and not worth trimming. If this ever does need to
+     go, it is the whole declaration or nothing — halving it is the one option
+     that costs appearance and buys no time. */
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-base);
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition), color var(--transition), transform var(--transition), opacity var(--transition);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+.glass-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+/* The lift is gated on a real hover-capable pointer. On touch, `:hover` latches
+   after a tap and the control stays visibly raised until something else is
+   touched. */
+@media (hover: hover) and (pointer: fine) {
+  .glass-btn:hover:not(:disabled) { transform: translateY(-1px); }
+}
+/* Press feedback must beat the finger: the fast duration makes the dip land
+   inside the tap, and the release springs back on the normal clock. */
+.glass-btn:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: var(--dur-1);
+}
+.glass-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.glass-btn-primary {
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  color: var(--btn-text);
+  box-shadow: 0 2px 14px var(--card-glow);
+}
+.glass-btn-primary:hover:not(:disabled) {
+  background: var(--btn-hover);
+  border-color: var(--primary);
+  box-shadow: 0 4px 22px var(--primary-glow), 0 0 0 1px var(--primary-border);
+}
+
+/* Same fossil-literal fix as the badges: compose from the live triples. */
+.glass-btn-danger {
+  background: rgba(var(--danger-rgb), 0.12);
+  border-color: rgba(var(--danger-rgb), 0.32);
+  color: var(--danger);
+}
+.glass-btn-danger:hover:not(:disabled) {
+  background: rgba(var(--danger-rgb), 0.22);
+  box-shadow: 0 4px 18px rgba(var(--danger-rgb), 0.25);
+}
+
+.glass-btn-success {
+  background: rgba(var(--success-rgb), 0.12);
+  border-color: rgba(var(--success-rgb), 0.32);
+  color: var(--success);
+}
+.glass-btn-success:hover:not(:disabled) {
+  background: rgba(var(--success-rgb), 0.22);
+  box-shadow: 0 4px 18px rgba(var(--success-rgb), 0.25);
+}
+
+.glass-btn-active {
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  color: var(--primary);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+
+.glass-btn-sm {
+  padding: var(--sp-1) var(--sp-3);
+  min-height: var(--control-h-sm);
+  font-size: var(--fs-sm);
+  gap: var(--sp-15);
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-25);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+/* Fills and borders compose from the theme's channel triples, never literal
+   rgb. The literals these replaced were a fossil palette: `16,217,138` was the
+   *previous* success green and `244,63,94` the previous danger — every badge
+   wore last year's tint behind this year's text, and no re-theme could reach
+   them. */
+.badge-primary { background: var(--btn-bg); color: var(--primary); border-color: var(--primary-border); }
+.badge-success { background: rgba(var(--success-rgb), 0.12); color: var(--success); border-color: rgba(var(--success-rgb), 0.30); }
+.badge-warning { background: rgba(var(--warning-rgb), 0.12); color: var(--warning); border-color: rgba(var(--warning-rgb), 0.30); }
+.badge-danger  { background: rgba(var(--danger-rgb), 0.12);  color: var(--danger);  border-color: rgba(var(--danger-rgb), 0.30); }
+.badge-info    { background: rgba(var(--secondary-rgb), 0.12); color: var(--info);  border-color: rgba(var(--secondary-rgb), 0.30); }
+.badge-muted   { background: rgba(var(--text-rgb), 0.06); color: var(--text-muted); border-color: var(--border); }
+

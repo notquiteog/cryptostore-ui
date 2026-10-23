@@ -1,0 +1,111 @@
+/* ===============================
+   THEME WORKBENCH
+   ===============================
+   Palette comparisons need independent token scopes: a light sample inside a
+   dark editor must carry its own ink, glass and controls. The record is compact
+   at both widths, with two columns only when the panel can actually hold them.
+   Navigation keeps explicit scroll controls so off-screen sections are visible
+   as a choice on phones, and keyboard focus never disappears into the strip. */
+.thm-history { display: flex; gap: var(--sp-1); }
+.thm-tab-navigation {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-4);
+}
+.thm-tab-navigation .thm-tabs {
+  flex: 1;
+  min-width: 0;
+  position: static;
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+.thm-scroll {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-height: var(--control-h);
+  width: var(--control-h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.thm-scroll:disabled { color: var(--text-muted); opacity: 0.4; cursor: default; }
+.thm-scroll:hover:enabled { background: var(--surface-hover); border-color: var(--primary-border); }
+.thm-tab:focus-visible, .thm-scroll:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -3px;
+}
+.thm-panel:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.thm-comparison { container-type: inline-size; }
+.thm-comparison-tools { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-4); margin-bottom: var(--sp-5); }
+.thm-comparison-tools p { flex: 1 1 24ch; margin: 0; color: var(--text-secondary); font-size: var(--fs-sm); max-width: 60ch; }
+.thm-comparison-tools label { display: grid; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-secondary); max-width: 100%; }
+.thm-comparison-tools select { margin: 0; }
+.thm-comparison-grid { display: grid; gap: var(--sp-4); }
+.thm-specimen {
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-gradient);
+  color: var(--text);
+  font-family: var(--font);
+  box-shadow: var(--shadow-sm);
+}
+.thm-specimen-head, .thm-specimen-head > span { display: flex; align-items: center; gap: var(--sp-2); }
+.thm-specimen-head { justify-content: space-between; flex-wrap: wrap; font-size: var(--fs-sm); font-weight: 600; padding-bottom: var(--sp-4); border-bottom: 1px solid var(--border); }
+.thm-specimen-store { display: flex; align-items: center; gap: var(--sp-2); padding-block: var(--sp-5); }
+.thm-specimen-store strong { font-family: var(--font-display); font-size: var(--fs-lg); overflow-wrap: anywhere; min-width: 0; }
+.thm-specimen-store svg { color: var(--primary); flex-shrink: 0; }
+.thm-specimen-store > span { margin-left: auto; font-size: var(--fs-2xs); color: var(--text-muted); }
+.thm-specimen-product {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-md);
+  backdrop-filter: var(--glass-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--rim-inset), var(--shadow-sm);
+}
+.thm-specimen-art { display: grid; place-items: center; width: calc(var(--sp-8) * 2); min-height: calc(var(--sp-8) * 2); background: var(--well); border-radius: var(--radius-sm); color: var(--primary); }
+.thm-specimen-record { min-width: 0; }
+.thm-specimen-kicker { color: var(--text-muted); font-size: var(--fs-2xs); }
+.thm-specimen-record h3 { margin: var(--sp-1) 0; font-family: var(--font-display); font-size: var(--fs-lg); line-height: 1.2; overflow-wrap: anywhere; }
+.thm-specimen-record p { margin: 0; color: var(--text-secondary); font-size: var(--fs-xs); }
+.thm-specimen-price { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+.thm-specimen-price strong { font-family: var(--font-mono); font-size: var(--fs-md); }
+.thm-specimen-buy { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.thm-specimen-buy button { flex: 1 1 auto; justify-content: center; font-size: var(--fs-xs); }
+.thm-specimen-statuses { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-block: var(--sp-4); }
+.thm-specimen-field { display: grid; gap: var(--sp-2); font-size: var(--fs-xs); }
+.thm-specimen-field input { min-width: 0; margin: 0; }
+.thm-specimen-ramp { display: grid; gap: var(--sp-1); margin-block: var(--sp-4); font-size: var(--fs-sm); }
+.thm-specimen-ramp > :first-child { font-weight: 600; }
+.thm-specimen-ramp > :nth-child(2) { color: var(--text-secondary); }
+.thm-specimen-ramp > :last-child { color: var(--text-muted); font-size: var(--fs-xs); }
+.thm-specimen-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); border-top: 1px solid var(--border); padding-top: var(--sp-4); }
+.thm-specimen-foot > :last-child { color: var(--text-muted); font-size: var(--fs-2xs); }
+.thm-load-error { padding: var(--sp-8); color: var(--text-secondary); }
+.thm-load-error h1 { color: var(--text); font-size: var(--fs-xl); }
+@container (min-width: 720px) { .thm-comparison-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 360px) {
+  .thm-specimen { padding: var(--sp-3); }
+  .thm-specimen-product { gap: var(--sp-2); padding: var(--sp-3); }
+  .thm-specimen-art { width: var(--sp-10); }
+  .thm-specimen-art svg { width: var(--sp-8); }
+}
+@media (pointer: coarse) {
+  .thm button, .thm-head button, .thm-panel input, .thm-comparison-tools select { min-height: 44px; }
+}

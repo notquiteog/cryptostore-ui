@@ -1,0 +1,839 @@
+/* catalog — feature styles.
+   Loaded after global.css, so every custom property defined there is in scope.
+   Colours must come from tokens (--primary, --surface, --text, --glow-md, …)
+   so both :root and :root[data-theme="light"] resolve correctly.
+
+   Everything here is prefixed `cat-`. Two features share the file:
+
+     .cat-search-*   the autocomplete combobox, moved off the inline styles it
+                     used to carry — those hardcoded a black drop shadow and a
+                     black-tinted plate, which read as a hole punched in the
+                     page once light mode existed.
+     .cat-drop-*     scheduled drops: the countdown and the early-access
+                     markers on cards, on the product page, and in the admin
+                     editor.
+
+   Every keyframe below is disabled in one reduced-motion block at the bottom,
+   matching the convention global.css already follows. The countdown DIGITS are
+   deliberately not frozen there — see the comment on that block. */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Search — combobox and suggestion menu
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.cat-search {
+  position: relative;
+}
+
+.cat-search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cat-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--text-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+  transition: color 0.18s var(--ease-panel);
+}
+
+/* The magnifier picks up the accent once the field is focused, so the active
+   control is identifiable without relying on the ring alone. */
+.cat-search-field:focus-within .cat-search-icon {
+  color: var(--primary);
+}
+
+.cat-search-input {
+  padding-left: var(--sp-8);
+  padding-right: var(--sp-3);
+  width: 100%;
+}
+
+.cat-search-input.has-value {
+  padding-right: var(--sp-8);
+}
+
+.cat-search-input.is-loading {
+  padding-right: var(--sp-10);
+}
+
+.cat-search-input.has-value.is-loading {
+  padding-right: var(--sp-16);
+}
+
+.cat-search-clear {
+  position: absolute;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s var(--ease-panel), background 0.15s var(--ease-panel);
+}
+
+.cat-search-clear:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.cat-search-clear:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.cat-search-spinner {
+  position: absolute;
+  right: 0.75rem;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(var(--text-rgb), 0.25);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: cat-spin 0.7s linear infinite;
+  pointer-events: none;
+}
+
+.cat-search-input.has-value ~ .cat-search-spinner {
+  right: 2.15rem;
+}
+
+/* ── Suggestion menu ── */
+
+.cat-search-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  /* `min-width: 260px` lived here and fought `left: 0; right: 0`: min-width
+     wins over the box the offsets describe, so inside a search field narrower
+     than 260px — which is every one of them on a 375px phone once the navbar's
+     padding is taken out — the menu grew past its container and pushed the
+     navbar into a horizontal scroll. The offsets already give it the field's
+     full width, which is the width it wants. */
+  z-index: 300;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  /* Opaque, mode-following plate rather than `--glass-bg`. This menu drops over
+     the product grid, so the translucent version put suggestion text on top of
+     product photos. Same fix, and the same reason, as
+     `.product-card-variants-badge` and `.oos-badge` in global.css.
+
+     A light-mode override used to sit under this rule swapping `--glass-bg` for
+     `--surface`. computeVars.js sets both from one value (`set('--glass-bg',
+     surface); set('--surface', surface)`), so that override was a provable
+     no-op and light mode never got the fix it claimed. Do not reintroduce that
+     pair — if this ever needs to differ by mode, it needs two different tokens,
+     not two names for one. */
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-shadow), var(--glow-sm);
+  transform-origin: top center;
+  animation: cat-menu-in 0.16s var(--ease-panel) both;
+}
+
+.cat-search-option {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s var(--ease-panel);
+}
+
+.cat-search-option:last-of-type {
+  border-bottom: none;
+}
+
+.cat-search-option:hover,
+.cat-search-option.is-active {
+  background: var(--surface-hover);
+}
+
+/* The list is driven by aria-activedescendant, so the input keeps DOM focus
+   and the options never receive a focus ring of their own. This inset bar is
+   what makes the active option visible to a keyboard user — without it,
+   arrowing through the list moved nothing anyone could see. */
+.cat-search-option.is-active {
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+
+/* These are spans inside a <button> (an option must not nest a div), so each
+   one has to be told to behave as a block — ellipsis truncation and the flex
+   layout both need it. */
+.cat-search-thumb {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.cat-search-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cat-search-thumb-empty {
+  font-size: var(--fs-lg);
+  opacity: 0.35;
+}
+
+.cat-search-info {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+.cat-search-name {
+  display: block;
+  font-weight: 600;
+  font-size: var(--fs-base);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cat-search-price {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cat-search-all {
+  display: block;
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.12s var(--ease-panel), color 0.12s var(--ease-panel);
+}
+
+.cat-search-all:hover,
+.cat-search-all.is-active {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.cat-search-all strong {
+  color: var(--text);
+}
+
+/* ── "No exact matches, showing the closest" ──
+   The server tells the page which search stage answered. Saying so matters:
+   a fuzzy result presented silently reads as though the buyer typed it
+   correctly and the catalog simply holds something odd. */
+.cat-searchnote {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-25) var(--sp-3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--info);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  animation: cat-fade-up 0.28s var(--ease-panel) both;
+}
+
+.cat-searchnote svg {
+  flex-shrink: 0;
+  color: var(--info);
+}
+
+.cat-searchnote b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Scheduled drops — shared countdown atoms
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Tabular figures throughout. A proportional "1" is narrower than a "0", so a
+   ticking clock in the page's normal numerals jitters its own width once a
+   second and drags the layout beside it along. */
+.cat-drop-clock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.cat-drop-unit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-05);
+}
+
+.cat-drop-num {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.cat-drop-suffix {
+  font-size: 0.72em;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.cat-drop-sep {
+  opacity: 0.35;
+  font-weight: 600;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Scheduled drops — the badge on a catalog card
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Top-left is the one free corner on a product card: `.oos-badge` holds
+   top-right and `.product-card-variants-badge` holds bottom-left, and a drop
+   pill stacked on either of them is two labels in one place. */
+.cat-drop-badge {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.5rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  max-width: calc(100% - 1rem);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: 999px;
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  /* This badge sits ON the product photo, so a translucent plate means the
+     label is really printed on whatever the photographer shot. Measured at
+     `--glass-bg`: 1.09:1 over a bright product shot in dark mode and 2.35:1
+     over a dark one in light mode, against the 4.5:1 AA needs — the same
+     unreadable-badge-over-an-image bug already fixed twice in global.css, on
+     `.product-card-variants-badge` and `.oos-badge`, and fixed there the same
+     way. `--overlay-bg` is 94–96% opaque and follows the mode, so the plate and
+     `--text` always land on opposite sides of it whatever the photo does. */
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  color: var(--text);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  box-shadow: var(--glow-sm);
+  animation: cat-fade-up 0.32s var(--ease-panel) both;
+}
+
+.cat-drop-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.01em;
+}
+
+/* On a narrow card the clock is the part that has to survive: "Early access"
+   with no time on it says less than a time with a sparkle beside it. */
+@media (max-width: 400px) {
+  .cat-drop-label { display: none; }
+}
+
+/* A `:root[data-theme="light"] .cat-drop-badge` override lived here claiming to
+   fix light mode by setting `background: var(--surface)`. It could not:
+   computeVars.js:156-157 assigns `--glass-bg` and `--surface` from the same
+   `surface` value, so the override set the badge to exactly what it already
+   was, and the 2.35:1 measured in light mode was measured WITH it in place.
+   The base rule now carries `--overlay-bg`, which is a genuinely different
+   token and follows the mode on its own, so there is nothing left for a
+   light-mode rule to say. */
+
+.cat-drop-badge .cat-drop-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.cat-drop-badge.is-early {
+  border-color: rgba(var(--accent-rgb), 0.55);
+}
+
+.cat-drop-badge.is-staff .cat-drop-icon {
+  color: var(--warning);
+}
+
+.cat-drop-badge.is-staff {
+  border-color: rgba(var(--warning-rgb), 0.5);
+}
+
+.cat-drop-badge .cat-drop-clock {
+  color: var(--text);
+}
+
+/* A live pill on a card earns one small signal that it is counting, and no
+   more than that — a card grid full of competing animation is a slot machine,
+   not a shop. */
+/* Static. It pulsed on a 2.4s loop, and a catalog page can hold a dozen
+   scheduled products — twelve dots blinking out of phase behind a grid of
+   photographs, which is the slot machine the note above this block was already
+   worried about. The clock beside it is genuinely moving because it is a
+   clock; the dot was moving because it could. Colour and the word next to it
+   carry the state, and both survive --glow-strength: 0. */
+.cat-drop-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+.cat-drop-badge.is-staff .cat-drop-dot {
+  background: var(--warning);
+}
+
+/* `.product-card-img` is already `position: relative` — the OOS badge and the
+   variants badge both rely on it — so this badge needs no new containing
+   block, only a corner nobody else has claimed. */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Scheduled drops — the banner on the product page
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.cat-dropbanner {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-4) var(--sp-4);
+  border: 1px solid rgba(var(--accent-rgb), 0.4);
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glow-md);
+  animation: cat-fade-up 0.4s var(--ease-panel) both;
+}
+
+:root[data-theme="light"] .cat-dropbanner {
+  background: var(--surface);
+  border-color: rgba(var(--accent-rgb), 0.5);
+}
+
+.cat-dropbanner.is-staff {
+  border-color: rgba(var(--warning-rgb), 0.45);
+  box-shadow: var(--glow-sm);
+}
+
+/* A slow sheen crossing the banner, once every ten seconds. It is the only
+   thing on the page that says "this is a reward" without a word of copy — and
+   at that interval it reads as ambient rather than as an advertisement. */
+.cat-dropbanner.is-early::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 35%,
+    rgba(var(--accent-rgb), 0.14) 50%,
+    transparent 65%
+  );
+  transform: translateX(100%);
+  /* One sweep as the banner lands, then still. On a ten-second loop this was a
+     light crossing the page every ten seconds for as long as a buyer read the
+     product — long enough to be forgotten and short enough to keep pulling the
+     eye back. `both` holds the end state so cancelling it under reduced motion
+     leaves the banner exactly as it rests. */
+  animation: cat-sheen 1.8s var(--ease-panel) 0.3s both;
+}
+
+.cat-dropbanner-main {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.cat-dropbanner-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--accent-rgb), 0.4);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+}
+
+.cat-dropbanner.is-staff .cat-dropbanner-icon {
+  border-color: rgba(var(--warning-rgb), 0.4);
+  background: rgba(var(--warning-rgb), 0.12);
+  color: var(--warning);
+}
+
+.cat-dropbanner-text {
+  min-width: 0;
+}
+
+.cat-dropbanner-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.cat-dropbanner-sub {
+  margin: var(--sp-05) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.cat-dropbanner-sub time {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The clock itself ── */
+
+.cat-dropbanner-clock {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-15);
+  flex-shrink: 0;
+}
+
+.cat-dropbanner-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 2.6rem;
+  padding: var(--sp-15) var(--sp-15);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.cat-dropbanner-cell b {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.cat-dropbanner-cell span {
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Only the seconds cell is tinted. Highlighting all four would make the whole
+   clock read as urgent, which is a lie for a drop three days out. */
+.cat-dropbanner-cell.is-live {
+  border-color: rgba(var(--accent-rgb), 0.45);
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.cat-dropbanner-cell.is-live b {
+  color: var(--accent);
+}
+
+.cat-dropbanner.is-staff .cat-dropbanner-cell.is-live {
+  border-color: rgba(var(--warning-rgb), 0.45);
+  background: rgba(var(--warning-rgb), 0.1);
+}
+
+.cat-dropbanner.is-staff .cat-dropbanner-cell.is-live b {
+  color: var(--warning);
+}
+
+@media (max-width: 620px) {
+  .cat-dropbanner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cat-dropbanner-clock {
+    justify-content: space-between;
+  }
+  .cat-dropbanner-cell {
+    flex: 1;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Scheduled drops — the admin publish-at control
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.cat-pub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.cat-pub-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-25);
+}
+
+.cat-pub-field {
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
+/* Without this the browser paints the native calendar widget for the wrong
+   ground and the picker icon comes out invisible in one of the two themes. */
+.cat-pub-input {
+  color-scheme: dark;
+  width: 100%;
+}
+
+:root[data-theme="light"] .cat-pub-input {
+  color-scheme: light;
+}
+
+.cat-pub-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-15) var(--sp-25);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.cat-pub-state.is-live {
+  border-color: rgba(var(--success-rgb), 0.45);
+  color: var(--success);
+}
+
+.cat-pub-state.is-scheduled {
+  border-color: rgba(var(--accent-rgb), 0.5);
+  color: var(--accent);
+}
+
+.cat-pub-state .cat-drop-dot {
+  background: currentColor;
+}
+
+/* ── Effective go-live, per tier ── */
+
+.cat-pub-tiers {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-wash);
+  overflow: hidden;
+  animation: cat-fade-up 0.3s var(--ease-panel) both;
+}
+
+.cat-pub-tiers-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.cat-pub-tier {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  transition: background 0.15s var(--ease-panel);
+}
+
+.cat-pub-tier:last-child {
+  border-bottom: none;
+}
+
+.cat-pub-tier:hover {
+  background: var(--surface-hover);
+}
+
+/* The tier's own colour arrives from the database as a hex string, so it is
+   passed in as an inline custom property rather than written here — this file
+   must never hold a literal colour, and an operator-chosen one could not be
+   written here in any case. */
+.cat-pub-tier-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--cat-tier-color, var(--primary));
+  box-shadow: 0 0 0 3px rgba(var(--text-rgb), 0.06);
+}
+
+.cat-pub-tier-name {
+  font-weight: 600;
+  color: var(--text);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cat-pub-tier-offset {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cat-pub-tier-when {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cat-pub-tier.is-first .cat-pub-tier-when {
+  color: var(--accent);
+}
+
+.cat-pub-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.cat-pub-note svg {
+  flex-shrink: 0;
+  margin-top: var(--sp-05);
+}
+
+.cat-pub-note.is-warn {
+  color: var(--warning);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Keyframes
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@keyframes cat-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cat-menu-in {
+  from { opacity: 0; transform: translateY(-4px) scaleY(0.98); }
+  to   { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+
+@keyframes cat-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* `cat-pulse` is gone with the blinking drop dot — see the note there. */
+
+@keyframes cat-sheen {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Reduced motion
+   ═══════════════════════════════════════════════════════════════════════
+
+   Every animation this file introduces is switched off here, per the
+   convention global.css already follows.
+
+   What is NOT switched off is the countdown's digits. They are content, not
+   decoration: a timer frozen at 04:11:58 tells a buyer the drop is four hours
+   away for as long as they leave the tab open, which is worse than no timer at
+   all. global.css makes exactly this call for the flash-sale countdown —
+   "a frozen timer would be a lie, not a kindness" — and a drop countdown is
+   the same object. The motion that was actually objectionable (the sheen, the
+   pulsing dot, the entrance slides, the spinner) is gone. */
+@media (prefers-reduced-motion: reduce) {
+  .cat-search-spinner,
+  .cat-search-menu,
+  .cat-searchnote,
+  .cat-drop-badge,
+  .cat-dropbanner,
+  .cat-dropbanner.is-early::after,
+  .cat-pub-tiers {
+    animation: none !important;
+  }
+
+  /* The sheen overlay has nothing to show once it is not moving. */
+  .cat-dropbanner.is-early::after {
+    display: none;
+  }
+
+  .cat-search-icon,
+  .cat-search-clear,
+  .cat-search-option,
+  .cat-search-all,
+  .cat-pub-tier {
+    transition: none;
+  }
+}

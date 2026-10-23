@@ -1,0 +1,1904 @@
+/* ===============================
+   ADMIN DISPUTES
+   ===============================
+   `--adsp-` on every custom property. */
+
+/* How long this claim has been open, coloured by how long that is. The tone is
+   set inline from the age so one rule covers every band. */
+.adsp-age {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--adsp-age-tone, var(--text-muted));
+  white-space: nowrap;
+}
+.adsp-age svg { flex-shrink: 0; }
+
+/* A thread whose last word is the customer's is one somebody owes an answer
+   to. This is the single most useful thing the queue can shout. */
+.adsp-waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 13%, transparent);
+  color: var(--warning);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* ── The queue in two shapes ─────────────────────────────────────────────
+   DESIGN §6 asks every list which of three things it is: one responsive table,
+   two purpose-built views, or a toggle. This one is the toggle — the shared
+   `hooks/useViewMode.js` and `components/ViewToggle.jsx`, defaulting to lines.
+   The full reasoning sits beside that hook call in `pages/admin/Disputes.jsx`;
+   the short version is that a dispute is read before it is settled and a
+   backlog is scanned before it is worked, and those want different shapes.
+
+   What this replaces: the page hardcoded `.acard-grid is-list` at the skeleton
+   AND at the rows, so it was a single column at 1600px exactly as at 375px.
+   The card grid the card was designed for was unreachable, and a queue of
+   forty claims was forty screens of scrolling. Nothing here changes the card —
+   §10 names "a dispute that opens like a case file" and that is the card
+   working as intended. This is the compact half it never had.
+
+   Everything below is the per-surface half of `74-list-views.css`: the two
+   container breakpoints, and the handful of cells that need a face or a tone
+   the shared classes do not carry. The column tracks themselves are declared
+   inline on `.lrows` in the JSX, next to the record they describe. */
+
+/* The dispute number is this row's identity, not a reference to somewhere
+   else, so it takes the working size and the full text colour; `.lrow-id` is
+   pitched for the reference-number case and is deliberately quieter. The order
+   it was raised against sits under it as the context it is. §7: density comes
+   from hierarchy, not from shrinking everything equally. */
+.adsp-row-claim .lrow-id {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--text);
+}
+.adsp-row-claim small a { color: var(--text-secondary); }
+.adsp-row-claim small a:hover { color: var(--primary); }
+
+/* `.acard-chip` is an inline-flex pill. Dropped into a `.lrow-stack` — a flex
+   column, so `align-items: stretch` — it would run the full width of the track
+   and stop reading as a chip at all. */
+.adsp-row-state {
+  align-items: flex-start;
+  gap: var(--sp-1);
+}
+
+/* Whose move it is. When the answer is "ours" that is a debt, and it says so
+   in colour as well as in words — the row's `is-urgent` fill is the other
+   channel, and DESIGN §3 asks that no state depend on a single one, because an
+   operator can flatten the store to `--glow-strength: 0`. */
+.adsp-row-state small.adsp-row-owed {
+  color: var(--warning);
+  font-weight: 650;
+}
+
+/* A count with its glyph. Mono and tabular like every other numeral column so
+   the figures line up down the list, but `.lrow-num` also right-aligns, which
+   is wrong for a cell whose icon leads — hence the extra class to win against
+   it (74-list-views.css is imported after this file, so equal specificity
+   loses). */
+.adsp-row-thread .adsp-row-msgs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  text-align: left;
+}
+.adsp-row-thread .adsp-row-msgs svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Nothing refunded is an em dash, never `$0.00` — the same rule `.acard-hidden`
+   exists for. A zero here would read as a refund that was made and came to
+   nothing. */
+.adsp-row-nil { color: var(--text-muted); }
+
+/* Money headings sit over right-aligned figures. */
+.adsp-rows .lrows-head .adsp-h-num { text-align: right; }
+
+/* The disclosure that opened the case file must not fade out from under the
+   pointer the moment it leaves the row. `.lrow-actions` is hover-revealed, and
+   an open panel whose only close control had vanished was a panel the operator
+   had to scroll past rather than shut. */
+.adsp-rows .lrow.is-open .lrow-actions { opacity: 1; }
+
+/* ── The case file, opened under its line ── */
+
+/* `.acard-drawer` is borrowed whole rather than re-derived: it is the same
+   `0fr -> 1fr` grid track the card opens with, it already carries the
+   reduced-motion opt-out in 56-admin-console.css, and its inner already draws
+   the top hairline that separates the panel from the line above it. Only the
+   closing edge is this surface's business — without it the panel runs into the
+   next dispute with nothing between them. */
+.adsp-case.is-open { border-bottom: 1px solid var(--border); }
+
+/* Every row is followed by its case file, open or not, so `.lrow` is never the
+   last child of `.lrows` and the shared `:last-child` rule that drops the final
+   hairline never fires — leaving a doubled line against the container's own
+   border. The last row is the second-to-last child here. */
+.adsp-rows > .lrow:nth-last-child(2) { border-bottom: none; }
+
+/* The claim in full, for the shape whose line can only show one line of it.
+   The rail tone is inherited from `--acard-tone` on the drawer, so the
+   customer's words carry the dispute's status colour exactly as they do on the
+   card, and the staff answer to them carries the store's own. */
+.adsp-case-claim {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.adsp-case-claim .adsp-case-response { border-left-color: var(--primary); }
+
+/* ── Two container breakpoints ── */
+
+/* Below this the claim is competing with eight other columns and truncates to
+   three or four words, which is not a claim — it is a hint that one exists. It
+   takes the full width of the row on a second line instead, and the remaining
+   cells close up.
+
+   Container queries, not viewport queries: DESIGN §5. A dispute list rendered
+   into a narrow panel on a 1600px monitor needs this exact treatment, and a
+   viewport query is the one thing that will not give it. */
+@container (max-width: 1180px) {
+  .adsp-rows .lrows-head,
+  .adsp-rows .lrow {
+    /* Fixed action track, not `auto` — see the note on the wide tracks in
+       Disputes.jsx: the head and the rows are separate grids and an `auto`
+       track resolves against each one's own content, so the head's hidden
+       "Actions" label collapsed it to nothing and pushed every heading out of
+       line with the column it named. */
+    --lrow-cols:
+      minmax(0, 118px) minmax(0, 1fr) 88px 88px
+      minmax(0, 110px) minmax(0, 96px) minmax(0, 132px) 168px;
+  }
+  /* `order`, not an explicit `grid-row`: the track count changes again below,
+     and a cell laid out last simply falls to the line under whatever else is
+     there, whatever that count happens to be. */
+  .adsp-row-reason {
+    order: 1;
+    grid-column: 1 / -1;
+  }
+  /* A heading for a cell that is no longer a column would leave the head one
+     label out of step with every row beneath it. The claim text needs no
+     heading to be recognised as the claim. */
+  .adsp-rows .lrows-head .adsp-h-reason { display: none; }
+}
+
+/* The phone shape. 74-list-views.css collapses `.lrow` to `1fr auto` here and
+   spans the actions; what the shared file cannot know is which of these nine
+   cells belong on the top line of a dispute. Ordered, never hidden — §5 is
+   explicit that the small shape is not the wide one with columns deleted. */
+@container (max-width: 800px) {
+  /* 800, not the 560 where 74-list-views.css collapses every `.lrows`: eight
+     tracks with three of them fixed (88 + 88 + 168) leave a 700px iPad row
+     nothing to give the state and age cells, which spilled into their
+     neighbours from 1024px landscape down (and by 4px still at 788, an iPad
+     Air's portrait column). So the card shape starts here,
+     and the collapse the shared file would have done at 560 is done here
+     too, scoped to this list, so the two never disagree in between. */
+  .adsp-rows .lrows-head { display: none; }
+  .adsp-rows .lrow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-1) var(--sp-2);
+    padding: var(--sp-3);
+    align-items: start;
+  }
+  .adsp-rows .lrow-text { white-space: normal; }
+  .adsp-rows .lrow-num { text-align: right; }
+  .adsp-rows .lrow-wrap { grid-column: 1 / -1; }
+  .adsp-rows .lrow-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    opacity: 1;
+    padding-top: var(--sp-1);
+  }
+  .adsp-rows .lrow-actions .glass-btn { min-height: 44px; }
+  /* Every cell is ordered explicitly, including the ones that would have
+     landed correctly by accident. Leaving one at the default sorted it up
+     among the order-0 cells in DOM order, which put the message count on the
+     top line beside the dispute number and pushed the status chip down into
+     the body — a row whose most-read fact had been demoted by an omission. */
+  .adsp-row-claim { order: 0; }
+  .adsp-row-state { order: 1; align-items: flex-end; }
+  .adsp-row-reason { order: 2; }
+  .adsp-row-buyer { order: 3; }
+  .adsp-row-opened { order: 4; align-items: flex-end; }
+  .adsp-row-total { order: 5; }
+  .adsp-row-refund { order: 6; }
+  .adsp-row-thread { order: 7; }
+  /* The shared rule spans this row and grows its buttons to a 44px target;
+     only where it lands in the stack is this surface's business. */
+  .adsp-rows .lrow-actions { order: 8; }
+
+  /* Two bare figures side by side with the column headings gone is two numbers
+     nobody can name. The label comes from the markup rather than from `content`
+     so the words stay in the JSX with the rest of the copy — the same trick
+     `.admin-rtable` plays with `data-label`. */
+  .adsp-rows .lrow-num[data-label] { text-align: left; }
+  .adsp-rows .lrow-num[data-label]::before {
+    content: attr(data-label) ' ';
+    margin-right: var(--sp-1);
+    font-family: var(--font);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+}
+
+/* ── Thread ── */
+
+/* A scroll container whose children are not focusable is unreachable by
+   keyboard — Tab goes straight past it to the reply box, so the messages below
+   the fold cannot be read at all. It takes `tabindex="0"` in the markup, which
+   means it also needs a focus ring: the house ring is class-list based and
+   this is not one of those classes. */
+.adsp-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: var(--sp-1);
+  border-radius: var(--radius-sm);
+}
+.adsp-thread:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.adsp-msg {
+  max-width: 88%;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.045);
+  border-left: 3px solid var(--border);
+  align-self: flex-start;
+  animation: adsp-msg-in 0.3s var(--ease-panel) both;
+}
+@keyframes adsp-msg-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+.adsp-msg.is-staff {
+  align-self: flex-end;
+  background: color-mix(in srgb, var(--primary) 11%, transparent);
+  border-left-color: var(--primary);
+}
+.adsp-msg-head {
+  display: flex;
+  /* `center`, not `baseline`. The row grew an avatar, and a circle has no text
+     baseline to sit on — under `baseline` an image avatar aligns to its bottom
+     margin edge and drops below the name it belongs to. */
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-1);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.adsp-msg-who { font-weight: 700; color: var(--text); }
+.adsp-msg.is-staff .adsp-msg-who { color: var(--primary); }
+.adsp-msg-body {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The files on a message. Same shape as the ticket thread's `.asup-msg-atts`,
+   because the same component draws each one: a row of thumbnails that wraps
+   rather than a column that pushes the next message off the screen. */
+.adsp-msg-atts {
+  margin-top: var(--sp-2);
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+/* Who holds the claim. Unowned work is the thing worth spotting, so it is the
+   state that is marked — the support desk's `.asup-owner` rule, kept here so
+   the two desks read alike. The select is sized to a name, not to the track:
+   a full-width control in the state cell would run under the status chip. */
+.adsp-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  max-width: 100%;
+}
+.adsp-owner svg { flex-shrink: 0; }
+.adsp-owner.is-free { color: var(--text-muted); font-style: italic; }
+.adsp-owner-select {
+  padding: var(--sp-05) var(--sp-1);
+  font-size: var(--fs-xs);
+  min-height: 0;
+  max-width: 16ch;
+}
+.adsp-owner-select.is-compact { max-width: 12ch; }
+
+/* The thread's other home, under the messages. A sentence with a link in
+   it, not a button: it is a pointer, and the desk's buttons are actions. */
+.adsp-ticket-link { margin: var(--sp-2) 0 0; }
+.adsp-ticket-link a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  color: var(--primary);
+}
+
+.adsp-compose {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-end;
+}
+.adsp-compose textarea.glass-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  resize: vertical;
+  min-height: 2.6rem;
+  font-size: var(--fs-base);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+/* ── Resolve form ── */
+
+.adsp-resolve {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.adsp-resolve-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+.adsp-resolve .form-group { margin-bottom: 0; }
+.adsp-hint {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+/* The consequence of the selected outcome, stated before it is committed. */
+.adsp-outcome {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--adsp-outcome-tone, var(--primary)) 32%, transparent);
+  background: color-mix(in srgb, var(--adsp-outcome-tone, var(--primary)) 9%, transparent);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.adsp-outcome strong { color: var(--adsp-outcome-tone, var(--primary)); }
+
+@media (max-width: 640px) {
+  .adsp-msg { max-width: 100%; }
+  .adsp-compose { flex-direction: column; align-items: stretch; }
+  .adsp-compose > .glass-btn { width: 100%; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adsp-msg { animation: none; opacity: 1; transform: none; }
+}
+
+/* ── end admin page styles ── */
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PROFILE — PGP CARD
+   ═══════════════════════════════════════════════════════════════════════
+   Three switches that look alike and mean very different things, so each
+   carries its own sentence rather than a bare label. The rows are full-width
+   hit targets: a 26px switch is not a reasonable thing to ask someone to hit
+   on a phone, and these sit close together.
+   Prefix `pgpu-` (PGP user) so nothing collides with the admin `pgp-` family. */
+
+.pgpu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+.pgpu-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+}
+.pgpu-title svg { color: var(--primary); filter: drop-shadow(0 0 8px var(--primary-glow)); }
+
+.pgpu-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: rgba(var(--text-rgb), 0.05);
+  border: 1px solid var(--border);
+}
+.pgpu-status.is-on {
+  color: var(--success);
+  /* 0.09 rather than 0.14: the file records measured AA failures for small
+     coloured text on the heavier plate. */
+  background: rgba(var(--success-rgb), 0.09);
+  border-color: rgba(var(--success-rgb), 0.3);
+}
+
+.pgpu-lede {
+  margin: 0 0 var(--sp-4);
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  max-width: 68ch;
+}
+
+.pgpu-keyblock { margin-bottom: var(--sp-4); }
+.pgpu-key-input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+}
+.pgpu-hint {
+  margin: var(--sp-15) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pgpu-options {
+  display: grid;
+  gap: var(--sp-25);
+  margin-bottom: var(--sp-5);
+}
+
+.pgpu-option {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+}
+.pgpu-option.is-on {
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.06);
+  box-shadow: 0 0 16px var(--card-glow);
+}
+.pgpu-option.is-disabled { opacity: 0.6; }
+
+.pgpu-option-main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+  margin: 0;
+}
+.pgpu-option.is-disabled .pgpu-option-main { cursor: not-allowed; }
+
+.pgpu-option-icon {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: rgba(var(--tint-rgb), 0.06);
+  border: 1px solid var(--border);
+  transition: color var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+.pgpu-option.is-on .pgpu-option-icon {
+  color: var(--primary);
+  border-color: var(--primary-border);
+  box-shadow: 0 0 12px var(--card-glow);
+}
+
+.pgpu-option-text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1; }
+.pgpu-option-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+.pgpu-option-hint { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.5; }
+.pgpu-option-note { font-size: var(--fs-xs); color: var(--text-muted); font-style: italic; }
+.pgpu-option-warn {
+  margin-top: var(--sp-1);
+  padding: var(--sp-15) var(--sp-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.09);
+  border-left: 2px solid rgba(var(--warning-rgb), 0.45);
+}
+
+.pgpu-option-switch { align-self: center; }
+
+/* A bare nested input gets no focus ring from the central group, so the row
+   restates it on the track. */
+.pgpu-option-main:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.pgpu-confirm {
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-3);
+  border-radius: var(--radius);
+  background: rgba(var(--warning-rgb), 0.06);
+  border: 1px solid rgba(var(--warning-rgb), 0.28);
+  animation: rise-in 0.36s var(--ease-panel) both;
+}
+.pgpu-confirm-lede {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-25);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.pgpu-confirm-lede svg { flex: 0 0 auto; margin-top: var(--sp-05); color: var(--warning); }
+.pgpu-confirm-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-3); }
+
+@media (max-width: 520px) {
+  .pgpu-option-main { flex-wrap: wrap; }
+  .pgpu-option-switch { margin-left: auto; }
+  .pgpu-confirm-actions .glass-btn { flex: 1; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pgpu-confirm { animation: none; }
+}
+
+
+/* ── Checkout: how the address is supplied ───────────────────────────────
+   Two modes that are alternatives rather than layers — a pasted PGP block is
+   never re-encrypted by the store — so the picker is a segmented control and
+   each mode states what the store can and cannot read. */
+
+.ck-addr-mode { width: 100%; margin-bottom: var(--sp-4); }
+.ck-addr-mode .segmented-option { flex: 1; justify-content: center; gap: var(--sp-15); }
+
+.ck-addr-state {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-25) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px solid var(--border);
+}
+.ck-addr-state svg { flex: 0 0 auto; margin-top: var(--sp-05); color: var(--text-muted); }
+.ck-addr-state.is-on {
+  background: rgba(var(--success-rgb), 0.09);
+  border-color: rgba(var(--success-rgb), 0.28);
+}
+.ck-addr-state.is-on svg { color: var(--success); }
+.ck-addr-state strong { color: var(--text); font-weight: 650; }
+
+.ck-pgp-input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+}
+.ck-pgp-invalid { border-color: rgba(var(--warning-rgb), 0.55); }
+
+.ck-addr-warn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: var(--sp-15) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--warning);
+  line-height: 1.5;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ORDER PAGE — CUSTOMER CARD  (ocust-)
+   ═══════════════════════════════════════════════════════════════════════
+   Staff opening an order to make a decision about it were shown the order and
+   nothing about the person. This is the missing half: identity, history, and
+   the two or three facts that change how an order is handled. It is the same
+   card idiom the admin queues use — rail, monogram, stat row, disclosure — so
+   it reads as part of that system rather than as a new object. */
+
+.glass-card.ocust {
+  position: relative;
+  overflow: hidden;
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border-color: color-mix(in srgb, var(--ocust-tone, var(--primary)) 26%, var(--glass-border));
+}
+.glass-card.ocust:hover { transform: none; }
+
+.ocust-rail {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg,
+    var(--ocust-tone, var(--primary)),
+    color-mix(in srgb, var(--ocust-tone, var(--primary)) 25%, transparent));
+}
+
+.glass-card.ocust.is-banned { --ocust-tone: var(--danger); }
+
+.ocust-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.ocust-avatar {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ocust-tone, var(--primary));
+  background: color-mix(in srgb, var(--ocust-tone, var(--primary)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ocust-tone, var(--primary)) 35%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ocust-tone, var(--primary)) 22%, transparent);
+}
+
+.ocust-id { min-width: 0; flex: 1; }
+.ocust-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.glass-card.ocust.is-banned .ocust-name { text-decoration: line-through; opacity: 0.75; }
+
+.ocust-role {
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--pill);
+  font-family: var(--font);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--info);
+  background: rgba(var(--secondary-rgb), 0.1);
+  border: 1px solid rgba(var(--secondary-rgb), 0.3);
+}
+
+.ocust-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.ocust-sub svg { vertical-align: -1px; margin-right: var(--sp-05); }
+
+.ocust-tier { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-secondary); }
+.ocust-tier.is-none { color: var(--text-muted); font-style: italic; }
+.ocust-tier-swatch { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+
+.ocust-open { flex: 0 0 auto; }
+@media (max-width: 520px) { .ocust-open-label { display: none; } }
+
+.ocust-banned-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.09);
+  border: 1px solid rgba(var(--danger-rgb), 0.28);
+}
+
+.ocust-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(96px, 100%), 1fr));
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.ocust-stat {
+  padding: var(--sp-2) var(--sp-25);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.ocust-stat-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-05);
+}
+.ocust-stat-label svg { color: var(--ocust-stat-tone, var(--text-muted)); }
+.ocust-stat-value {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 650;
+  color: var(--ocust-stat-tone, var(--text));
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.ocust-hidden { font-style: italic; font-size: var(--fs-sm); color: var(--text-muted); font-family: var(--font); }
+
+.ocust-more { width: 100%; justify-content: center; }
+.ocust-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+.ocust-more svg { transition: transform 0.22s var(--ease-panel); }
+
+/* The 0fr → 1fr grid track, same mechanism as .acard-drawer: animating height
+   needs a measured value, and a zero-height overflow:hidden box still holds
+   tabbable children (hence `inert` on the inner div). */
+.ocust-drawer { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.28s var(--ease-panel); }
+.ocust-drawer.is-open { grid-template-rows: 1fr; }
+.ocust-drawer-clip { overflow: hidden; min-height: 0; }
+.ocust-drawer-inner { padding-top: var(--sp-4); }
+
+.ocust-rows { margin: 0 0 var(--sp-3); display: grid; gap: var(--sp-1); }
+.ocust-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+.ocust-row:last-child { border-bottom: none; }
+.ocust-row dt { color: var(--text-muted); margin: 0; }
+.ocust-row dd {
+  margin: 0;
+  color: var(--text-secondary);
+  text-align: right;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+}
+.ocust-row dd.is-warn { color: var(--warning); font-weight: 600; }
+.ocust-row dd strong { color: var(--text); }
+
+.ocust-flags { margin-bottom: var(--sp-3); }
+.ocust-flags-label {
+  display: block;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-15);
+}
+.ocust-flag-row { display: flex; flex-wrap: wrap; gap: var(--sp-15); }
+
+.ocust-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(var(--text-rgb), 0.04);
+  border: 1px solid var(--border);
+}
+.ocust-flag.is-on {
+  color: var(--ocust-flag-tone, var(--success));
+  background: color-mix(in srgb, var(--ocust-flag-tone, var(--success)) 10%, transparent);
+  border-color: color-mix(in srgb, var(--ocust-flag-tone, var(--success)) 32%, transparent);
+}
+
+.ocust-foot {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ocust-drawer { transition: none; }
+  .ocust-more svg { transition: none; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ORDER PAGE — ITEMS + IN-PLACE REVIEWS  (oitem- / oitems-)
+   ═══════════════════════════════════════════════════════════════════════
+   Each line is a small card rather than a table row, because each one now has
+   state (reviewed / reviewable / not yet) and an action attached to it. The
+   composer expands inside the same card so the item being reviewed is never
+   off screen while you write about it. */
+
+.glass-card.oitems { padding: var(--sp-5) var(--sp-5) var(--sp-4); }
+.glass-card.oitems:hover { transform: none; }
+
+.oitems-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+.oitems-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 650;
+}
+.oitems-title svg { color: var(--primary); }
+.oitems-count {
+  padding: 0.05rem var(--sp-15);
+  border-radius: var(--pill);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(var(--text-rgb), 0.06);
+  font-family: var(--font);
+}
+
+.oitems-nudge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.09);
+  border: 1px solid rgba(var(--warning-rgb), 0.3);
+}
+.oitems-nudge.is-done {
+  color: var(--success);
+  background: rgba(var(--success-rgb), 0.09);
+  border-color: rgba(var(--success-rgb), 0.3);
+}
+
+.oitems-list { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.oitems-empty { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); font-style: italic; }
+
+.oitem {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+  padding: var(--sp-3) var(--sp-3);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.oitem.is-composing {
+  border-color: var(--primary-border);
+  box-shadow: 0 0 18px var(--card-glow);
+}
+
+.oitem-main { display: flex; align-items: flex-start; gap: var(--sp-25); }
+
+/* The product's picture in an order line. Same footprint as `.oitem-icon`,
+   which it replaces when there is media, so a list mixing photographed and
+   un-photographed products keeps one left edge.
+
+   Pinned square from every direction, copying `.obox-thumb` in
+   71-order-boxes.css and for the reason its comment gives: flex must not
+   shrink it and a global `img` rule must not stretch it. The first version of
+   this rule set width/height alone and the thumbnails came out as ~6px
+   slivers, which is that exact fight being lost.
+
+   `contain`, not `cover`, and larger than the icon it replaces.
+
+   The catalogue's product shots are square canvases (250x250) holding tall
+   narrow objects — cartridges, batteries, pens — on a transparent ground. At
+   the icon's 28px that leaves about four pixels of actual product, which is
+   why the first attempt looked like a rendering fault when it was rendering
+   correctly. 40px is the smallest size at which one of these is recognisable
+   as the thing the buyer ordered, which is the only job this image has.
+
+   `contain` rather than `cover` so a non-square source (an operator's own
+   photo rather than an imported one) is scaled whole instead of centre-
+   cropped — on a thumbnail this small a crop loses the product entirely. */
+.oitem-thumb {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  max-width: 40px;
+  max-height: 40px;
+  aspect-ratio: 1 / 1;
+  flex: none;
+  display: block;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--glass-bg);
+}
+
+.oitem-icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: rgba(var(--tint-rgb), 0.06);
+  border: 1px solid var(--border);
+}
+
+.oitem-text { min-width: 0; flex: 1; }
+.oitem-name {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.oitem-name a { color: var(--text); }
+.oitem-name a:hover { color: var(--primary); }
+
+.oitem-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+  margin: var(--sp-05) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.oitem-qty { font-family: var(--font-mono); }
+
+.oitem-money { flex: 0 0 auto; text-align: right; display: flex; flex-direction: column; gap: var(--sp-05); }
+.oitem-total { font-weight: 700; font-family: var(--font-mono); }
+.oitem-unit { font-size: var(--fs-2xs); color: var(--text-muted); font-family: var(--font-mono); }
+.oitem-hidden { font-style: italic; color: var(--text-muted); font-size: var(--fs-sm); }
+
+/* The staff action on an order line — "Offer a swap" — is revealed on hover,
+   not printed on every line. A four-item order drew four identical buttons
+   down the card, which is a wall of chrome in front of the thing the card is
+   for: what was bought and what it cost. The space stays reserved either way,
+   so revealing one cannot make the list jitter under the cursor, and a coarse
+   pointer keeps them all because there is no hover there to reveal anything
+   with (DESIGN §4). */
+.oitem-cta { margin-top: var(--sp-25); }
+@media (hover: hover) {
+  .oitem-cta { opacity: 0; transition: opacity var(--transition); }
+  .oitem:hover .oitem-cta,
+  .oitem:focus-within .oitem-cta { opacity: 1; }
+}
+.oitem-cta-note { font-size: var(--fs-xs); color: var(--text-muted); font-style: italic; }
+.oitem-review-btn { width: 100%; justify-content: center; }
+
+/* ── An existing review, shown in place ── */
+.oitem-review {
+  margin-top: var(--sp-25);
+  padding-top: var(--sp-25);
+  border-top: 1px dashed var(--border);
+}
+.oitem-review-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-15);
+}
+.oitem-review-when { font-size: var(--fs-xs); color: var(--text-muted); }
+.oitem-review-sig {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--pill);
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  color: var(--success);
+  background: rgba(var(--success-rgb), 0.09);
+  border: 1px solid rgba(var(--success-rgb), 0.3);
+}
+.oitem-review-edit { margin-left: auto; }
+.oitem-review-body {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.oitem-review-media { display: flex; flex-wrap: wrap; gap: var(--sp-15); margin-top: var(--sp-2); }
+.oitem-media-thumb {
+  position: relative;
+  margin: 0;
+  width: 62px;
+  height: 62px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.oitem-media-thumb img,
+.oitem-media-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.oitem-media-x {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 20px; height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  color: var(--bg);
+  background: var(--danger);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.oitem-media-thumb:hover .oitem-media-x,
+.oitem-media-x:focus-visible { opacity: 1; }
+.oitem-media-x:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* Touch has no hover, so the control would be unreachable. */
+@media (hover: none) { .oitem-media-x { opacity: 0.9; } }
+
+/* ── The composer ── */
+.oitem-compose {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--primary-border);
+  animation: rise-in 0.3s var(--ease-panel) both;
+}
+.oitem-compose-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+.oitem-compose-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.oitem-compose-body { position: relative; margin-bottom: var(--sp-3); }
+.oitem-compose-count {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.45rem;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  pointer-events: none;
+}
+.oitem-compose-media { margin-bottom: var(--sp-3); display: grid; gap: var(--sp-15); }
+.oitem-compose-hint { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
+
+.oitem-compose-sign {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.oitem-compose-sign input { margin-top: var(--sp-05); accent-color: var(--primary); }
+.oitem-compose-sign em {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: var(--sp-05);
+}
+.oitem-compose-sig {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+}
+.oitem-compose-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* ── Ledger ── */
+.oitems-ledger { margin: 0; display: grid; gap: var(--sp-1); }
+.oitems-ledger-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+}
+.oitems-ledger-row dt { margin: 0; color: var(--text-muted); }
+.oitems-ledger-row dd { margin: 0; font-family: var(--font-mono); color: var(--text-secondary); }
+.oitems-ledger-row.is-credit dd { color: var(--success); }
+.oitems-ledger-row.is-total {
+  margin-top: var(--sp-15);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.oitems-ledger-row.is-total dt,
+.oitems-ledger-row.is-total dd { color: var(--text); }
+
+@media (max-width: 520px) {
+  .oitem-main { flex-wrap: wrap; }
+  .oitem-money { width: 100%; text-align: left; flex-direction: row; align-items: baseline; gap: var(--sp-2); }
+  .oitem-compose-actions .glass-btn { flex: 1; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oitem-compose { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ORDER PAGE — ENCRYPTED ADDRESS  (oenc-) + CONFIRM PANEL (oconf-)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.oenc {
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--primary-rgb), 0.25);
+  background: rgba(var(--primary-rgb), 0.05);
+  padding: var(--sp-3) var(--sp-3);
+}
+.oenc.is-manual {
+  border-color: rgba(var(--warning-rgb), 0.3);
+  background: rgba(var(--warning-rgb), 0.05);
+}
+
+.oenc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-15);
+}
+.oenc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
+  border: 1px solid rgba(var(--primary-rgb), 0.3);
+}
+.oenc.is-manual .oenc-badge {
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.1);
+  border-color: rgba(var(--warning-rgb), 0.32);
+}
+.oenc-when { font-size: var(--fs-2xs); color: var(--text-muted); }
+
+.oenc-note { margin: 0 0 var(--sp-25); font-size: var(--fs-xs); line-height: 1.55; color: var(--text-secondary); }
+
+.oenc-plain {
+  margin: 0 0 var(--sp-25);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--success-rgb), 0.32);
+  background: rgba(var(--success-rgb), 0.07);
+  overflow: hidden;
+  animation: rise-in 0.3s var(--ease-panel) both;
+}
+.oenc-plain-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-15) var(--sp-25);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--success);
+  border-bottom: 1px solid rgba(var(--success-rgb), 0.22);
+}
+.oenc-hide { margin-left: auto; }
+.oenc-plain-body {
+  margin: 0;
+  padding: var(--sp-25);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.oenc-actions { margin-bottom: var(--sp-2); }
+.oenc-pass-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-1);
+}
+.oenc-pass-row { display: flex; gap: var(--sp-15); flex-wrap: wrap; }
+.oenc-pass-row .glass-input { flex: 1; min-width: 12ch; }
+.oenc-pass-hint { margin: var(--sp-15) 0 0; font-size: var(--fs-2xs); color: var(--text-muted); }
+
+/* What the buyer sees in place of a Decrypt button: they already hold a copy,
+   and the server deliberately will not unlock the store key for them. */
+.oenc-selfread {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-25);
+  padding: var(--sp-2) var(--sp-25);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.05);
+  border-left: 2px solid rgba(var(--primary-rgb), 0.4);
+}
+.oenc-selfread svg { flex: 0 0 auto; margin-top: var(--sp-05); color: var(--primary); }
+
+.oenc-raw { display: grid; gap: var(--sp-15); justify-items: start; }
+.oenc-block {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+  color: var(--text-muted);
+}
+
+/* ── A block found inside free text ──
+   components/pgp/EncryptedBlock.jsx, drawn by ArmoredText wherever a ticket,
+   dispute, note or chat line carries an armored message. The same panel as
+   the address above, set inside prose: a little air either side, the prose
+   around it keeping its own line breaks, and a compact variant for the chat
+   widget's narrow column where the explanatory sentence has no room. */
+.oenc-inline { margin: var(--sp-2) 0; }
+.oenc-inline:first-child { margin-top: 0; }
+.oenc-inline:last-child { margin-bottom: 0; }
+.oenc-inline.is-compact { padding: var(--sp-2) var(--sp-2); }
+.oenc-inline.is-compact .oenc-head { margin-bottom: var(--sp-1); }
+.oenc-inline.is-compact .oenc-actions { margin-bottom: var(--sp-15); }
+.armored-text-prose { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.od-notes-armored { width: 100%; font-size: var(--fs-base); }
+
+/* The `.oconf*` rules that stood here are gone rather than left to rot.
+   They were the order page's payment-confirm panel, and OrderDetail.jsx was
+   their only consumer; it now uses `.od-confirm` in
+   82-order-detail-panels.css, which is the same shape generalised to the four
+   irreversible actions on that page — confirm payment, deny and refund,
+   settle a dispute, cancel — instead of only the success-toned one. Three
+   selectors matching nothing is how a stylesheet becomes a place where you
+   cannot tell which rules are load-bearing. */
+
+@media (prefers-reduced-motion: reduce) {
+  .oenc-plain { animation: none; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ADMIN — MEDIA SLOTS  (mslot- / mslots-)
+   ═══════════════════════════════════════════════════════════════════════
+   An ordered list of slots, each holding an image or a video interchangeably.
+   The slot is the object, not the file: that is what the import format has
+   always meant by a list of filenames per item, and what lets a video sit
+   where a photo used to.
+
+   The first slot is marked as the cover because it is — it is the thumbnail on
+   every card in the store, and there was previously no way to see or choose
+   which one it would be. */
+
+.mslots { display: grid; gap: var(--sp-3); }
+
+.mslots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+
+.mslot {
+  margin: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.mslot:hover { border-color: var(--border-hover); }
+.mslot.is-hero {
+  border-color: var(--primary-border);
+  box-shadow: 0 0 16px var(--card-glow);
+}
+
+.mslot-frame {
+  position: relative;
+  aspect-ratio: 1;
+  background: rgba(var(--scrim-rgb), 0.35);
+}
+.mslot-frame img,
+.mslot-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.mslot.is-video .mslot-frame video { object-fit: contain; background: rgba(var(--scrim-rgb), 0.55); }
+
+.mslot-blank {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.mslot-hero,
+.mslot-kind {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--pill);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  /* Sits over arbitrary imagery, so the plate is opaque enough to carry its
+     own contrast rather than borrowing the photo's. */
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+}
+.mslot-hero {
+  top: 6px; left: 6px;
+  color: var(--bg);
+  background: var(--primary);
+}
+.mslot-kind {
+  bottom: 6px; left: 6px;
+  color: var(--text);
+  /* An opaque theme ground keeps the text readable over any photo in both
+     modes; tint-rgb is ink in light mode, so it made this dark-on-dark. */
+  background: var(--bg);
+  border: 1px solid var(--glass-border);
+}
+
+.mslot-meta {
+  padding: var(--sp-15) var(--sp-2) var(--sp-05);
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.mslot-dims { display: inline-flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; }
+
+.mslot-actions {
+  display: flex;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-15) var(--sp-15);
+}
+.mslot-btn {
+  flex: 1;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.06);
+  border: 1px solid var(--border);
+  transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+.mslot-btn:hover:not(:disabled) { color: var(--primary); border-color: var(--primary-border); }
+.mslot-btn.is-danger:hover:not(:disabled) { color: var(--danger); border-color: rgba(var(--danger-rgb), 0.45); }
+.mslot-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+/* A bare button with its own class gets no ring from the central group. */
+.mslot-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.mslots-drop {
+  border-radius: var(--radius);
+  border: 1px dashed var(--border);
+  background: rgba(var(--tint-rgb), 0.025);
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+}
+.mslots-drop.is-dragging {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.07);
+  box-shadow: 0 0 20px var(--card-glow);
+}
+.mslots-drop.is-disabled { opacity: 0.55; }
+
+.mslots-drop-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-6) var(--sp-4);
+  cursor: pointer;
+  text-align: center;
+}
+.mslots-drop.is-disabled .mslots-drop-label { cursor: not-allowed; }
+.mslots-drop-label svg { color: var(--primary); }
+.mslots-drop-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+.mslots-drop-sub { font-size: var(--fs-xs); color: var(--text-muted); max-width: 52ch; line-height: 1.5; }
+
+/* The file input is visually hidden but still focusable, so the ring has to
+   land on the label it drives. */
+.mslots-drop input:focus-visible + .mslots-drop-label {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-radius: var(--radius);
+}
+
+.mslots-spin { animation: spin 1s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mslots-spin { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ADMIN — PRODUCT EDITOR  (apedit- / apvar-)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.apedit { max-width: var(--shell); }
+
+.glass-card.apedit-section { margin-bottom: var(--sp-5); padding: var(--sp-5) var(--sp-5) var(--sp-5); }
+.glass-card.apedit-section:hover { transform: none; }
+
+.apedit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+.apedit-head-main { min-width: 0; flex: 1; }
+.apedit-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 650;
+}
+.apedit-title svg { color: var(--apedit-tone, var(--primary)); }
+.apedit-sub {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 72ch;
+}
+
+.apedit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 0 var(--sp-4);
+}
+
+.apedit-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-2); }
+.apedit-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.06);
+  border: 1px solid var(--border);
+}
+
+/* Live/hidden switch in the section header. */
+.apedit-live {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.apedit-live input {
+  position: absolute;
+  width: 46px; height: 26px;
+  margin: 0; opacity: 0; cursor: pointer; z-index: 1;
+}
+.apedit-live .switch-track {
+  position: relative;
+  width: 46px; height: 26px;
+  flex: 0 0 auto;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.10);
+  border: 1px solid var(--border);
+  transition: background var(--transition), border-color var(--transition);
+}
+.apedit-live input:checked ~ .switch-track { background: var(--btn-bg); border-color: var(--primary-border); }
+.apedit-live input:checked ~ .switch-track::after { transform: translate(20px, -50%); background: var(--primary); }
+.apedit-live input:focus-visible ~ .switch-track { box-shadow: 0 0 0 3px var(--focus-ring); }
+.apedit-live-label { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.apedit-live.is-on .apedit-live-label { color: var(--success); }
+
+/* Keep the switch and its label in separate flex slots. Generic form labels
+   are display:block; inheriting that lets the track paint over the text. */
+.apedit-breakdown { display: grid; gap: var(--sp-2); }
+.apedit-breakdown .apedit-live { display: inline-flex; justify-self: start; margin: 0; }
+.apedit-breakdown .apedit-live-label { min-width: 0; }
+.apedit-breakdown-stock { margin: var(--sp-2) 0 0; }
+@media (pointer: coarse) {
+  .apedit-breakdown .apedit-live { min-height: 44px; }
+}
+
+.apedit-locked,
+.apvar-locked {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px dashed var(--border);
+}
+.apedit-locked svg,
+.apvar-locked svg { flex: 0 0 auto; margin-top: var(--sp-05); color: var(--text-muted); }
+
+.apedit-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+}
+.apedit-empty svg { color: var(--text-muted); opacity: 0.6; }
+.apedit-empty p { margin: 0; font-size: var(--fs-base); color: var(--text-muted); }
+
+/* A persistent reminder rather than a modal: the operator may legitimately want
+   to keep editing, and blocking them to save is worse than telling them. */
+.apedit-dirtybar {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-top: var(--sp-5);
+  padding: var(--sp-25) var(--sp-4);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+  color: var(--warning);
+  background: var(--overlay-bg);
+  backdrop-filter: blur(var(--overlay-blur));
+  border: 1px solid rgba(var(--warning-rgb), 0.35);
+  box-shadow: var(--glass-shadow);
+  animation: rise-in 0.3s var(--ease-panel) both;
+}
+.apedit-dirtybar > span { display: inline-flex; align-items: center; gap: var(--sp-15); }
+
+/* ── Variant cards ── */
+.apvars { display: grid; gap: var(--sp-3); }
+
+/* ── "Create from" ──────────────────────────────────────────────────────────
+   pages/admin/ProductEdit.jsx, above the variant cards: the next variant
+   proposed from the ones already there. Buttons, not chips — pressing one
+   changes the form, which is a control's job, and the tag chips one panel up
+   are dashed precisely to say "could be" where these say "do it".
+
+   Its own row rather than an extra button in the section header: the header's
+   "Add variant" is the blank one, and a blank and three pre-filled ones sharing
+   a row would make the blank look like a fourth suggestion. */
+.apvar-suggest {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.apvar-suggest-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.apvar-suggest-lead svg { color: var(--primary); }
+/* Tabular so a row of sizes — 224, 112, 56 — lines up as a ladder rather than
+   as three unrelated words. */
+.apvar-suggest-btn { font-variant-numeric: tabular-nums; }
+
+.apvar {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.apvar.is-new { border-color: rgba(var(--warning-rgb), 0.4); }
+.apvar.is-off { opacity: 0.72; }
+
+.apvar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+  padding: var(--sp-25) var(--sp-3);
+}
+
+.apvar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  text-align: left;
+}
+.apvar-toggle svg { flex: 0 0 auto; color: var(--text-muted); transition: transform 0.22s var(--ease-panel); }
+.apvar-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.apvar-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: var(--radius-sm); }
+.apvar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apvar-name em { color: var(--text-muted); font-weight: 400; }
+
+.apvar-summary { display: flex; align-items: center; gap: var(--sp-15); flex-wrap: wrap; }
+.apvar-price {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.apvar-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  color: var(--apvar-stock-tone, var(--text-muted));
+}
+/* Price per base unit, on a breakdown product's variant header.
+ *
+ * Mono and tabular so a column of them reads as a ladder — 2.68, 2.23, 3.57
+ * line up digit under digit, which is the whole reason the figure is on the
+ * collapsed card at all. `is-under` is the pack that undercuts the size above
+ * it: `--warning` on the text and nothing else, because the card still saves
+ * and a pill with a filled background would read as a validation error. The
+ * icon carries the same meaning for anyone who cannot use the colour.
+ */
+.apvar-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.apvar-unit.is-under { color: var(--warning); font-weight: 650; }
+
+.apvar-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--pill);
+  font-size: var(--fs-3xs);
+  font-weight: 650;
+  color: var(--text-muted);
+  background: rgba(var(--text-rgb), 0.05);
+  border: 1px solid var(--border);
+}
+.apvar-tag.is-new { color: var(--warning); background: rgba(var(--warning-rgb), 0.09); border-color: rgba(var(--warning-rgb), 0.3); }
+.apvar-tag.is-off { color: var(--text-muted); }
+
+.apvar-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.28s var(--ease-panel); }
+.apvar-body.is-open { grid-template-rows: 1fr; }
+.apvar-body-clip { overflow: hidden; min-height: 0; }
+.apvar-body-inner { padding: 0 var(--sp-3) var(--sp-3); border-top: 1px solid var(--border); padding-top: var(--sp-3); }
+
+.apvar-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 var(--sp-3);
+}
+
+.apvar-money { position: relative; }
+.apvar-money-sign {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  pointer-events: none;
+}
+
+/*
+ * The cost-and-margin line under a variant's price.
+ *
+ * Muted by default because on a healthy line it is reference, not news. The
+ * below-cost state is the only one that raises its voice, and it raises it
+ * exactly once — `--danger` on the text, no icon, no background: the field is
+ * still saveable and an alarm that looks like a validation error would suggest
+ * otherwise.
+ */
+.apvar-margin {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-2xs, 0.72rem);
+  line-height: 1.4;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.apvar-margin.is-below {
+  color: var(--danger);
+  font-weight: 600;
+}
+.apvar-money .glass-input { padding-left: var(--sp-6); }
+
+.apvar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.apvar-hint { display: block; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; margin-top: var(--sp-05); }
+
+.apvar-tiers { margin-bottom: var(--sp-4); }
+.apvar-tiers-head { margin-bottom: var(--sp-2); }
+.apvar-tier {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--sp-15);
+  margin-bottom: var(--sp-15);
+  align-items: center;
+}
+
+.apvar-warn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: var(--sp-15) 0;
+  font-size: var(--fs-xs);
+  color: var(--warning);
+}
+/* A sentence long enough to wrap sits beside the icon, not under it: without
+   this the flex item shrinks the 12px triangle to a sliver on a narrow card,
+   and the second line tucks under the icon instead of aligning with the first.
+   `align-items: center` above is right for the one-line case, so the icon is
+   pinned to the top only once the text actually wraps to two. */
+.apvar-warn > svg { flex: none; align-self: flex-start; margin-top: 0.15em; }
+.apvar-warn > span { min-width: 0; line-height: 1.5; }
+
+.apvar-media { margin-bottom: var(--sp-4); display: grid; gap: var(--sp-05); }
+.apvar-media .mslots { margin-top: var(--sp-2); }
+
+.apvar-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.apvar-delete { margin-left: auto; }
+.apvar-visible {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.apvar-visible input { accent-color: var(--primary); }
+
+@media (max-width: 720px) {
+  .apvar-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .apvar-grid { grid-template-columns: minmax(0, 1fr); }
+  .apvar-tier { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .apvar-tier .glass-btn { grid-column: 1 / -1; justify-content: center; }
+  .apvar-delete { margin-left: 0; width: 100%; justify-content: center; }
+  .apedit-dirtybar { bottom: 0.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apvar-body { transition: none; }
+  .apvar-toggle svg { transition: none; }
+  .apedit-dirtybar { animation: none; }
+}

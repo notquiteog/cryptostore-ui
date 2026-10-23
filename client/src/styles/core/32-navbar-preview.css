@@ -1,0 +1,48 @@
+/* ===============================
+   NAVBAR PREVIEW (admin theme)
+   =============================== */
+.navbar-preview {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: var(--sp-25);
+  background: rgba(var(--tint-rgb), 0.02);
+}
+.navbar-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 56px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: var(--nav-bg);
+  border: 1px solid rgba(var(--tint-rgb), 0.06);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.navbar-preview-search {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-15) var(--sp-3);
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.navbar-preview-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+/* The preview is a fixed-height strip; a wide mark must not push the mock
+   search field out of it. */
+.navbar-preview-bar .navbar-logo-wide { max-width: 190px; }
+.navbar-preview-bar .navbar-logo-dynamic.navbar-logo-wide { width: 190px; }
+.navbar-preview-bar .navbar-wordmark { display: inline-block; max-width: 130px; }
+

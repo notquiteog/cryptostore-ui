@@ -1,0 +1,241 @@
+/* ── Order next action ─────────────────────────────────────────────────────
+   Whose move an order is, drawn on every surface that shows one: the strip
+   under the order page's stepper, a line on the buyer's order cards and rows,
+   a line on the admin queue cards, and one on the home widget.
+
+   The data is one object from the server (utils/orderNextAction.js) and the
+   rule these rules enforce is that the same object reads the same way
+   everywhere: the responsibility first, then the action, then — only where
+   there is room — the reason. Before this each surface said something
+   different about one order, and "paid" or "accepted" said nothing about why
+   it had not moved.
+
+   Glow means live, focused or dangerous (DESIGN §3). The buyer's own move is
+   lit; the store's, the network's and the carrier's are not, because a wait
+   is not a call to action. */
+
+/* The strip on the order page, under the stepper. */
+.od-now {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--tint-rgb), 0.1);
+  background: rgba(var(--tint-rgb), 0.04);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  --od-now-rgb: var(--tint-rgb);
+}
+.od-now.is-yours {
+  --od-now-rgb: var(--primary-rgb);
+  border-color: rgba(var(--primary-rgb), 0.35);
+  background: rgba(var(--primary-rgb), 0.07);
+  box-shadow: 0 0 18px rgba(var(--primary-rgb), calc(0.18 * var(--glow-strength)));
+}
+.od-now.is-none { color: var(--text-muted); }
+.od-now-who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2);
+  height: calc(var(--control-h-sm) - 8px);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: rgba(var(--od-now-rgb), 0.12);
+  border: 1px solid rgba(var(--od-now-rgb), 0.25);
+}
+.od-now.is-yours .od-now-who { color: var(--primary); }
+.od-now-label {
+  font-weight: 700;
+  color: var(--text);
+}
+.od-now-reason {
+  flex: 1 1 18ch;
+  min-width: 0;
+  text-wrap: pretty;
+}
+.od-now-since {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.od-now-since b { color: var(--text-primary); }
+.od-now-go {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  margin-left: auto;
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--transition), transform var(--transition);
+}
+.od-now-go:hover { color: var(--text); transform: translateX(2px); }
+.od-now-go:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* The staff shortcuts beside the strip: deliberate questions, not a chat. */
+.od-now-ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+/* The buyer's list: one line under the track (cards) or the badge (rows). */
+.ordx-next {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+  max-width: 100%;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.ordx-next:hover { color: var(--text); }
+.ordx-next:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.ordx-next-who {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ordx-next.is-yours .ordx-next-who { color: var(--primary); }
+.ordx-next-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text);
+}
+.ordx-next.is-yours .ordx-next-label { text-shadow: var(--text-glow); }
+.ordx-next.is-compact { margin-top: var(--sp-05); font-size: var(--fs-2xs); }
+.ordx-next.is-compact .ordx-next-label { font-weight: 500; }
+
+/* The admin queue card: the label leads because the operator is here to do
+   it; the responsibility is the chip. In the dense list only the label fits. */
+.acard-now {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-2);
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.acard-now-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+.acard-now-label:hover { color: var(--primary); }
+.acard-now-label:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.acard-now-who {
+  padding: 0 var(--sp-1);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid rgba(var(--tint-rgb), 0.16);
+}
+.acard-now.is-store .acard-now-who { color: var(--warning); border-color: rgba(var(--warning-rgb), 0.35); }
+.acard-now-reason {
+  flex: 1 1 100%;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.acard.is-dense .acard-now-reason,
+.acard-grid.is-list .acard-now-reason { display: none; }
+
+/* The home widget: the whole card is a link, so this is a line, not one. */
+.latest-order-next {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.latest-order-next-who {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.latest-order-next.is-yours .latest-order-next-who { color: var(--primary); }
+.latest-order-next.is-yours { color: var(--text); font-weight: 600; }
+
+/* ── The payment panel, by state ───────────────────────────────────────────
+   Unpaid: the amount, the address and the code lead. Part paid: the SAME
+   slots now carry the remainder, and the code encodes the remainder — the
+   gap this closes is a shortfall sentence that said "send 0.0011 more" beside
+   a code that still said 0.0052. Everything in: the ask goes, and "nothing
+   more to send" takes its place; a code that could be scanned into a second
+   payment is not drawn at all. */
+.od-pay.is-partial .od-pay-ask {
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--warning-rgb), 0.4);
+  background: rgba(var(--warning-rgb), 0.07);
+  box-shadow: 0 0 22px rgba(var(--warning-rgb), calc(0.2 * var(--glow-strength)));
+}
+.od-pay.is-partial .od-pay-ask .od-copy-label { color: var(--warning); }
+.od-pay-of {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.od-pay-done {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--success-rgb), 0.35);
+  background: rgba(var(--success-rgb), 0.07);
+}
+.od-pay-done > svg { flex: none; color: var(--success); margin-top: 2px; }
+.od-pay-done-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.od-pay-done-sub { margin-top: var(--sp-05); font-size: var(--fs-sm); color: var(--text-secondary); }
+.od-pay.is-confirming .od-pay-qr,
+.od-pay.is-settled .od-pay-qr { display: none; }
+.od-pay.is-confirming .od-pay-split,
+.od-pay.is-settled .od-pay-split { grid-template-columns: 1fr; }
+
+@media (prefers-reduced-motion: reduce) {
+  .od-now-go, .ordx-next, .acard-now-label { transition: none; }
+  .od-now-go:hover { transform: none; }
+}

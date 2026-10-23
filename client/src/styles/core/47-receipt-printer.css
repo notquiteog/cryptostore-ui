@@ -1,0 +1,692 @@
+/* ===============================
+   RECEIPT PRINTER
+   ===============================
+   What the checkout panel does the moment an order exists: a slot opens under
+   the Place Order button and the receipt feeds out of it.
+
+   The point is not the flourish. Placing an order used to jump straight to the
+   payment screen, so the only full account of what was just bought flashed past
+   on the way somewhere else. Printing it in place gives that account somewhere
+   to sit, and puts the one thing still outstanding — paying — at the bottom of
+   it as the obvious next move.
+
+   The sheet is warm paper against the store's glass on purpose: it is a
+   different kind of object from the panel holding it, and reading as one is
+   what makes the slot above it legible as a machine.
+
+   Geometry: `.rcpt-feed` is a one-track grid animating `0fr -> 1fr`, so the
+   paper is revealed at its own natural height without anything measuring it in
+   JS. `.rcpt-clip` hides the overflow, which top-anchors the sheet — lines
+   appear at the growing bottom edge, where the print head is. */
+
+.rcpt {
+  /* Plain white stock and a cool neutral ink. A warm sheet with a printed
+     grain reads as a till roll from a corner shop, which is the wrong century
+     for the rest of this page — the receipt should look freshly cut, and the
+     only colour on it should be the brand's, on the button. */
+  --rcpt-paper: #ffffff;
+  --rcpt-paper-edge: rgba(15, 23, 42, 0.05);
+  --rcpt-ink: #0f172a;
+  --rcpt-ink-soft: #64748b;
+  --rcpt-rule: rgba(15, 23, 42, 0.11);
+  --rcpt-accent: #047857;
+  --rcpt-tooth: 8px;
+
+  margin-top: var(--sp-4);
+}
+
+/* ── The machine ─────────────────────────────────────────────────────────
+   A lipped bar rather than a divider. Without the mouth beneath it the sheet
+   below reads as a card that faded in, which is a different — and much less
+   truthful — statement about what just happened. */
+
+.rcpt-slot {
+  position: relative;
+  display: block;
+  border-radius: var(--radius-sm) var(--radius-sm) 3px 3px;
+  background:
+    linear-gradient(180deg,
+      rgba(var(--tint-rgb), 0.11) 0%,
+      rgba(var(--tint-rgb), 0.04) 55%,
+      rgba(0, 0, 0, 0.22) 100%);
+  border: 1px solid var(--border);
+  box-shadow:
+    inset 0 1px 0 rgba(var(--tint-rgb), 0.22),
+    0 6px 18px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+/* A light bar travelling the face while the mechanism runs. Purely a state
+   cue: it is the only part of the printer that says "still going". */
+.rcpt-slot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg,
+    transparent 30%,
+    rgba(var(--primary-rgb), 0.18) 50%,
+    transparent 70%);
+  transform: translateX(-100%);
+  opacity: 0;
+}
+.rcpt.is-printing .rcpt-slot::after {
+  opacity: 1;
+  animation: rcpt-scan 1.15s ease-in-out infinite;
+}
+@keyframes rcpt-scan {
+  to { transform: translateX(100%); }
+}
+
+.rcpt-slot-face {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2);
+}
+
+.rcpt-slot-label {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rcpt-slot-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.rcpt-led {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.rcpt-led.is-busy {
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary-glow);
+  animation: rcpt-led 0.85s ease-in-out infinite;
+}
+.rcpt-led.is-ready {
+  background: var(--success);
+  box-shadow: 0 0 9px rgba(var(--success-rgb), 0.55);
+}
+@keyframes rcpt-led {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+/* The gap the paper comes through. Inset shadow on both lips, so the sheet
+   below looks like it is passing under an edge rather than starting at one. */
+.rcpt-mouth {
+  display: block;
+  height: 7px;
+  background: #05070d;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.95),
+    inset 0 -1px 0 rgba(var(--tint-rgb), 0.09),
+    0 1px 0 rgba(var(--tint-rgb), 0.06);
+}
+
+/* ── The feed ────────────────────────────────────────────────────────────
+   The stops are uneven on purpose: a smooth ramp reads as a card sliding, and
+   the stutter is what makes it read as a mechanism advancing paper. */
+
+.rcpt-feed {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.rcpt.is-printing .rcpt-feed {
+  animation: rcpt-feed var(--rcpt-feed, 1500ms) linear forwards;
+}
+@keyframes rcpt-feed {
+  0%   { grid-template-rows: 0fr; }
+  6%   { grid-template-rows: 0.03fr; }
+  11%  { grid-template-rows: 0.03fr; }
+  24%  { grid-template-rows: 0.21fr; }
+  29%  { grid-template-rows: 0.21fr; }
+  46%  { grid-template-rows: 0.45fr; }
+  50%  { grid-template-rows: 0.45fr; }
+  70%  { grid-template-rows: 0.72fr; }
+  74%  { grid-template-rows: 0.72fr; }
+  93%  { grid-template-rows: 0.97fr; }
+  100% { grid-template-rows: 1fr; }
+}
+
+.rcpt-clip {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+/* Released once the track is at 1fr, so the Pay button's glow is not shaved
+   off by a clip that no longer has anything to clip. */
+.rcpt.is-done .rcpt-clip { overflow: visible; }
+
+/* The print head, riding the growing bottom edge. */
+.rcpt.is-printing .rcpt-clip::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--primary) 25%,
+    #fff 50%,
+    var(--primary) 75%,
+    transparent);
+  box-shadow: 0 0 12px var(--primary-glow);
+  z-index: 2;
+}
+
+/* ── The sheet ───────────────────────────────────────────────────────────── */
+
+.rcpt-paper {
+  position: relative;
+  padding: var(--sp-5) var(--sp-5) var(--sp-5);
+  background: var(--rcpt-paper);
+  color: var(--rcpt-ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  box-shadow:
+    inset 0 9px 12px -11px rgba(15, 23, 42, 0.45),
+    0 16px 34px rgba(2, 6, 23, 0.34);
+}
+/* No printed grain — a texture overlay is what made this look like a till
+   roll. All that is left is a hairline down each long edge, which is the one
+   thing a flat white rectangle needs to still read as a cut strip of paper
+   rather than a white card. */
+.rcpt-paper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    var(--rcpt-paper-edge) 0%,
+    transparent 1.5%,
+    transparent 98.5%,
+    var(--rcpt-paper-edge) 100%);
+}
+.rcpt.is-printing .rcpt-paper {
+  animation: rcpt-jitter 190ms steps(2, end) infinite;
+}
+@keyframes rcpt-jitter {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(0.5px); }
+}
+
+/* Torn edge. Each tooth is one conic tile: the wedge covers everything above
+   the two 45-degree diagonals, leaving a notch at either corner. Its own strip
+   rather than a mask on the sheet, so nothing on the sheet gets clipped. */
+.rcpt-tear {
+  display: block;
+  height: calc(var(--rcpt-tooth) / 2);
+  background: var(--rcpt-paper);
+  filter: drop-shadow(0 6px 10px rgba(2, 6, 23, 0.28));
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg)
+    0 0 / var(--rcpt-tooth) 100%;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg)
+    0 0 / var(--rcpt-tooth) 100%;
+}
+
+/* Every printed line enters on its own beat, timed off `--i` so the stagger
+   tracks how far down the sheet the line sits. Lines that arrive early would
+   be visible above the print head; lines that arrive late would appear on
+   paper that is already out. */
+.rcpt-head,
+.rcpt-meta-row,
+.rcpt-item,
+.rcpt-sum,
+.rcpt-due,
+.rcpt-ship,
+.rcpt-code,
+.rcpt-action {
+  animation: rcpt-line 260ms ease-out backwards;
+  animation-delay: calc(var(--i, 0) * var(--rcpt-stagger, 55ms) + 120ms);
+}
+@keyframes rcpt-line {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.rcpt-head {
+  padding-bottom: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--rcpt-rule);
+  text-align: center;
+}
+.rcpt-store {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rcpt-ink);
+}
+.rcpt-kicker {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--rcpt-ink-soft);
+}
+
+.rcpt-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  margin: 0 0 var(--sp-3);
+}
+.rcpt-meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-25);
+  font-size: var(--fs-2xs);
+}
+.rcpt-meta-row dt {
+  margin: 0;
+  min-width: 4.5em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rcpt-ink-soft);
+}
+.rcpt-meta-row dd {
+  margin: 0 0 0 auto;
+  text-align: right;
+  font-weight: 600;
+  color: var(--rcpt-ink);
+}
+.rcpt-meta-row dd.is-pending {
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.13);
+  color: #b45309;
+  font-size: var(--fs-3xs);
+  letter-spacing: 0.08em;
+}
+
+/* Item lines. Dashed rules top and bottom, the way a till roll separates the
+   basket from the money. */
+.rcpt-items {
+  list-style: none;
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--rcpt-rule);
+  border-bottom: 1px solid var(--rcpt-rule);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.rcpt-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+.rcpt-item-qty {
+  font-weight: 700;
+  color: var(--rcpt-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.rcpt-item-name {
+  min-width: 0;
+  color: var(--rcpt-ink);
+  overflow-wrap: anywhere;
+}
+.rcpt-item-name em {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-3xs);
+  color: var(--rcpt-ink-soft);
+}
+.rcpt-item-sum {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rcpt-sums {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-3);
+}
+.rcpt-sum {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-25);
+  font-size: var(--fs-2xs);
+}
+.rcpt-sum dt {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--rcpt-ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+/* Dotted leader, same device as the checkout ledger: the column of figures
+   stays scannable however wide the labels get. */
+.rcpt-sum dt::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px dotted var(--rcpt-rule);
+  transform: translateY(-0.3em);
+}
+.rcpt-sum dd {
+  margin: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--rcpt-ink);
+}
+.rcpt-sum.is-off dd { color: var(--rcpt-accent); }
+
+.rcpt-due {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0 var(--sp-3);
+  border-top: 1px solid var(--rcpt-ink);
+  margin-bottom: var(--sp-3);
+}
+.rcpt-due-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.rcpt-due-value {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rcpt-ship { margin: 0 0 var(--sp-3); }
+.rcpt-ship-title {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rcpt-ink-soft);
+}
+.rcpt-ship-body {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+  color: var(--rcpt-ink);
+}
+
+.rcpt-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-3) 0 var(--sp-4);
+  border-top: 1px solid var(--rcpt-rule);
+  color: var(--rcpt-ink);
+}
+/* A real Code 128 of the order id — one gradient paint whose stops come from
+   utils/code128. `no-repeat` at full size, because a barcode that tiles is a
+   barcode that scans twice; the id is printed in full beneath it for the day
+   the scanner is out of batteries. */
+.rcpt-barcode {
+  width: 100%;
+  height: 34px;
+  background-image: linear-gradient(90deg, var(--rcpt-bars));
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+.rcpt-code-text {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  color: var(--rcpt-ink-soft);
+}
+
+/* ── The one thing still outstanding ─────────────────────────────────────
+   Deliberately not a `.glass-btn`: glass is the language of the page around
+   it, and the point of this control is that it is sitting on the paper. */
+
+.rcpt-action { text-align: center; }
+
+.rcpt-pay {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  /* The label is the page ground, not white. The fill is a brand gradient, and
+     dark-mode brand colours are solved LIGHT against a dark page — so a white
+     label on them fails on every shipped preset (Porcelain's celadon lands at
+     1.91:1, and Material, Phosphor, Bullion and Classic Cyan are no better).
+     Both stops of the gradient clear AA against `--bg` by construction, so the
+     ground is the one ink that reads across the whole sweep in either mode.
+     This is the store's single most important button. */
+  color: var(--bg);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  box-shadow:
+    0 6px 18px rgba(var(--primary-rgb), 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform var(--transition), box-shadow var(--transition), filter var(--transition);
+}
+.rcpt-pay:hover {
+  filter: saturate(1.12) brightness(1.05);
+  box-shadow:
+    0 10px 26px rgba(var(--primary-rgb), 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+@media (hover: hover) and (pointer: fine) {
+  .rcpt-pay:hover { transform: translateY(-2px); }
+}
+.rcpt-pay:active { transform: translateY(0); }
+.rcpt-pay:focus-visible {
+  outline: 2px solid var(--rcpt-ink);
+  outline-offset: 2px;
+}
+.rcpt-pay svg { flex-shrink: 0; }
+/* One sweep across the pay button as the sheet finishes printing — a single
+   moving thing on a still sheet, pointing at the next step.
+
+   It used to repeat every 2.6s for as long as the receipt was on screen, which
+   is where it stopped being a gesture and became a loop (DESIGN §2, and §10's
+   same constraint on flourishes). Sweeping once, just after the paper stops
+   feeding, says the identical thing and then gets out of the way: arrive,
+   respond to the pointer, hold still. The button underneath is a lit primary
+   CTA in its own right, so nothing is carried by the sweep alone.
+
+   Travel is a transform rather than `left`. Animating `left` relayouts on
+   every frame and stutters on a phone — the one property rule §2 states
+   outright. The keyframes restate `skewX` because a transform list replaces
+   the base value wholesale rather than adding to it; dropping it would
+   un-skew the highlight for the length of the sweep. */
+.rcpt-pay-glow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 45%;
+  z-index: -1;
+  background: linear-gradient(100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%);
+  transform: skewX(-18deg);
+  opacity: 0;
+}
+.rcpt.is-done .rcpt-pay-glow {
+  animation: rcpt-sweep 1.15s var(--ease-out) 0.45s both;
+}
+/* 422% of this element's own width is the 190%-of-button journey the `left`
+   version travelled: the element is 45% as wide as the button it crosses. */
+@keyframes rcpt-sweep {
+  0%   { transform: skewX(-18deg) translateX(0);    opacity: 0; }
+  18%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: skewX(-18deg) translateX(422%); opacity: 0; }
+}
+
+.rcpt-foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--sp-15);
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-3xs);
+  line-height: 1.45;
+  text-align: left;
+  color: var(--rcpt-ink-soft);
+}
+.rcpt-foot svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--rcpt-accent);
+}
+
+/* The signed-copy link, printed as the sheet's last line. Ink on paper like
+   everything above it — a dotted rule under small caps, the way a receipt
+   prints its own footer — and it darkens under the pointer rather than
+   glowing, because nothing on the paper glows but the pay button. */
+.rcpt-signed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-25);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rcpt-ink-soft);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  transition: color var(--dur-1) var(--ease-out);
+}
+.rcpt-signed:hover,
+.rcpt-signed:focus-visible { color: var(--rcpt-ink); }
+.rcpt-signed:focus-visible { outline: 2px solid var(--rcpt-ink); outline-offset: 2px; }
+
+/* ── The panel around it ─────────────────────────────────────────────────── */
+
+/* A pinned panel is fine while it is a short summary; once a full receipt is
+   hanging off it, it can outgrow the viewport, and a sticky element taller
+   than the viewport strands its own bottom — the Pay button — out of reach. */
+.summary-panel.is-printed { position: static; }
+
+.summary-cta.is-placed {
+  background: rgba(var(--success-rgb), 0.14);
+  border-color: rgba(var(--success-rgb), 0.4);
+  color: var(--success);
+  opacity: 1;
+  cursor: default;
+}
+.summary-cta.is-placed::after { display: none; }
+
+/* Spent, not gone: the fields still say what the order was placed with, they
+   just stop inviting edits that would go nowhere. `inert` does the real work
+   on the JSX side — this is only how that reads. */
+.ck-main.is-spent {
+  opacity: 0.5;
+  filter: saturate(0.65);
+  transition: opacity 420ms ease, filter 420ms ease;
+}
+
+/* ── Light mode ──────────────────────────────────────────────────────────
+   The stock stays white in both themes; what changes is how it lifts off the
+   page. White on a light background has nothing but depth to sit on, so the
+   shadow softens, the edge hairline strengthens, and a faint ring stands in
+   for the contrast the dark page gives for free. */
+:root[data-theme="light"] .rcpt {
+  --rcpt-paper-edge: rgba(15, 23, 42, 0.07);
+}
+:root[data-theme="light"] .rcpt-paper {
+  box-shadow:
+    inset 0 9px 12px -11px rgba(15, 23, 42, 0.18),
+    0 12px 28px rgba(15, 23, 42, 0.14),
+    0 0 0 1px rgba(15, 23, 42, 0.05);
+}
+:root[data-theme="light"] .rcpt-mouth {
+  background: #1c2230;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 620px) {
+  .rcpt-paper { padding: var(--sp-4) var(--sp-4) var(--sp-4); }
+  .rcpt-due-value { font-size: var(--fs-xl); }
+  .rcpt-store { font-size: var(--fs-md); letter-spacing: 0.16em; }
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────
+   The receipt is information, not decoration, so it does not animate in — it
+   is simply there, in full, on the first frame. `grid-template-rows` has to be
+   pinned back to `1fr` explicitly: the feed keyframes hold their last value
+   through `forwards`, and cancelling only the animation would leave a
+   zero-height track and no receipt at all. */
+@media (prefers-reduced-motion: reduce) {
+  .rcpt.is-printing .rcpt-feed,
+  .rcpt.is-printing .rcpt-paper,
+  .rcpt.is-printing .rcpt-slot::after,
+  .rcpt-led.is-busy,
+  /* Cancelling the pay sweep degrades it to nothing rather than to a white bar
+     parked on the button: the element's base state is `opacity: 0`, and the
+     sweep only ever reaches full opacity mid-keyframe. Do not "tidy" that base
+     opacity away — it is what makes this line safe. */
+  .rcpt.is-done .rcpt-pay-glow {
+    animation: none;
+  }
+  .rcpt-feed,
+  .rcpt.is-printing .rcpt-feed { grid-template-rows: 1fr; }
+  .rcpt.is-printing .rcpt-slot::after { opacity: 0; }
+  .rcpt.is-printing .rcpt-clip::after { display: none; }
+  .rcpt-head,
+  .rcpt-meta-row,
+  .rcpt-item,
+  .rcpt-sum,
+  .rcpt-due,
+  .rcpt-ship,
+  .rcpt-code,
+  .rcpt-action { animation: none; }
+  .rcpt-pay:hover { transform: none; }
+  .ck-main.is-spent { transition: none; }
+}
+

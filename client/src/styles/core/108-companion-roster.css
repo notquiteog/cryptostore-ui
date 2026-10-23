@@ -1,0 +1,16 @@
+/* The preview explains both input paths. Motion controls stay visible when
+ * reduced motion disables them, so the missing movement has an explanation. */
+.cmp-interaction {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.cmp-chip:disabled { opacity: .55; cursor: default; }
+
+/* Waking a tile replaces its SVG frames. Keep pointer-down/up on the stable
+ * button, or the first click can disappear with the frame it landed on. */
+.cmp-tile-art { pointer-events: none; }
+
+@media (pointer: coarse) {
+  .cmp-chip { min-height: 44px; min-width: 44px; }
+}

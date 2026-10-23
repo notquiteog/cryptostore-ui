@@ -1,0 +1,490 @@
+/* ===============================
+   PRODUCTS PAGE (the catalog)
+
+   Page furniture only — the head, the sticky bar, the filter panel, the
+   active-query chips, the empty state and the pager. The two result views
+   live in 11-product-grid-and-cards.css.
+
+   Three shapes here exist because of specific failures:
+
+   - The filter panel used to be the ONLY place the state of the query was
+     written down, and it is collapsed by default. A buyer who arrived on a
+     category link saw a short shelf and a badge reading "2". The chip rail
+     below the bar now names every active filter and lets it be dropped where
+     it stands.
+   - The sort control sat above a 24-card grid, so reordering meant scrolling
+     up, choosing, and scrolling back. The bar is sticky under the navbar.
+   - The page was `.container` — 1200px — so a 2560px monitor rendered five
+     columns and two hand-widths of empty gutter. The catalog gets its own
+     wider measure, because it is a shelf and a shelf should be full.
+   =============================== */
+
+.catalog { overflow-x: hidden; }
+
+.catalog-inner {
+  /* The shelf measure, shared with the home page's shop window (`--shell-shelf`,
+     01-tokens) rather than the private 1560px that used to live here. Same
+     reasoning as the comment above — a shelf should be full — but expressed
+     once: 1560 was itself only a wider guess, and it left a 3840px monitor
+     with 1140px of empty background and a 7680px one with 6120px. The shelf
+     measure, not the console one: a product grid gains columns with width,
+     which is what `--shell-shelf` is for. */
+  width: 100%;
+  max-width: var(--shell-shelf);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ── Head ───────────────────────────────────────────────────────────────── */
+
+.cat-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+
+.cat-head-text { min-width: 0; }
+
+.cat-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text);
+  margin: 0;
+}
+
+/* The subtitle is the count, because it is the only thing about this shelf
+   that is true right now. "Browse our range" would fit any store on earth. */
+.cat-count {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.cat-count b {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* ── Sticky control bar ─────────────────────────────────────────────────── */
+
+.cat-bar {
+  position: sticky;
+  /* Clears the sticky navbar, by reading its height rather than copying it.
+     A bar that scrolls under the navbar and reappears half-covered is worse
+     than one that never stuck at all — and that is exactly what a copied
+     number produces the first time the bar it was copied from changes. */
+  top: var(--navbar-h);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  /* sm tier: the toolbar is above the page, not above a modal. */
+  box-shadow: var(--shadow-sm), var(--rim-inset);
+}
+
+.cat-bar-spacer { flex: 1; min-width: 0; }
+
+/* Every control on the bar shares one height, so the button, the select and
+   the segmented toggle actually sit on a baseline. Three controls a pixel or
+   two apart is what makes a toolbar look homemade.
+
+   `min-height`, not `height`, and the number is a variable rather than
+   `--control-h` spent directly — because one of the three controls has a floor
+   of its own that this rule does not get to overrule. `height` pinned the
+   segmented pill at 38px while DESIGN §5's touch floor (74-list-views.css)
+   gives its two buttons `min-height: 44px` on a coarse pointer, so on a phone
+   the Grid and List buttons stood ten pixels proud of the bubble they are
+   drawn inside. Nothing clipped them and nothing should: `.segmented` is
+   `overflow: visible`, as anything wearing a focus ring has to be.
+
+   So the row is sized from its tallest control instead of squashing it. The
+   desktop number is unchanged. The touch number is the switch's own outer
+   height — 44px of button plus the 3px padding and 1px border `.segmented`
+   carries on each side (23-switch.css) — and the button and the select are
+   raised to meet the switch rather than the other way round, because the 44px
+   is the part §5 does not allow us to give back. That arithmetic is the one
+   thing here that can rot: if the pill's padding or border changes, this
+   number has to move with it. */
+.cat-bar { --cat-bar-h: var(--control-h); }
+@media (pointer: coarse) {
+  .cat-bar { --cat-bar-h: 52px; }
+}
+.cat-bar-btn,
+.cat-bar-sort select,
+.cat-bar .segmented {
+  min-height: var(--cat-bar-h);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cat-bar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+.cat-bar-btn:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border-hover); }
+.cat-bar-btn.is-open { background: var(--surface-active); color: var(--text); }
+/* Glow means live (DESIGN §3): a filtered shelf is a shelf that is not showing
+   everything, and that is worth lighting. The border carries the same claim at
+   --glow-strength: 0. */
+.cat-bar-btn.has-filters {
+  border-color: var(--primary-border);
+  color: var(--text);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+.cat-bar-btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+.cat-bar-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--pill);
+  background: var(--primary);
+  color: var(--bg);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cat-bar-chev {
+  opacity: 0.6;
+  transition: transform var(--dur-2) var(--ease-spring);
+}
+.cat-bar-chev.is-open { transform: rotate(180deg); }
+
+.cat-bar-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.cat-bar-sort-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.cat-bar-sort select {
+  padding: 0 var(--sp-6) 0 var(--sp-3);
+  min-width: 0;
+}
+
+/* ── Grid / list toggle ─────────────────────────────────────────────────── */
+
+/* This page used to carry the FIFTH hand-rolled copy of the cards/rows switch
+   in the app: `.cat-view` / `.cat-view-btn` / `.is-on`, a forty-line
+   re-implementation of the house segmented control with its own word pair and
+   its own localStorage key. It is `components/ViewToggle.jsx` now — the same
+   control the two admin queues, the buyer's order list and the admin catalog
+   use — so the only rule left here is the one that keeps it on the toolbar's
+   shared baseline, above. See hooks/useViewMode.js for why one module owns
+   this. */
+
+/* ── Filter panel ───────────────────────────────────────────────────────── */
+
+/* The 0fr → 1fr grid track reveals the panel's natural height with no JS
+   measurement and no layout-thrashing max-height guess. It is the one
+   layout-triggering animation this codebase keeps on purpose. */
+.cat-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-3) var(--ease-panel);
+}
+.cat-panel.is-open { grid-template-rows: 1fr; }
+.cat-panel-inner { overflow: hidden; min-height: 0; }
+
+.cat-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
+  gap: var(--sp-3);
+  align-items: end;
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--rim-inset);
+}
+
+.cat-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.cat-field-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.cat-field select {
+  width: 100%;
+  min-width: 0;
+  height: var(--control-h);
+  font-size: var(--fs-sm);
+}
+.cat-avail {
+  width: 100%;
+  height: var(--control-h);
+  justify-content: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+/* ── The active query, as chips ─────────────────────────────────────────── */
+
+.cat-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  max-width: 100%;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  /* Small object arriving: overshoots by a hair and rings once, so a filter
+     appearing reads as a thing that landed rather than a thing that faded. */
+  animation: rise-in var(--dur-3) var(--ease-spring) both;
+}
+.cat-chip:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--danger);
+}
+.cat-chip:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.cat-chip svg { flex-shrink: 0; opacity: 0.7; }
+.cat-chip:hover svg { opacity: 1; color: var(--danger); }
+
+.cat-chip-key {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.cat-chip-val {
+  color: var(--text);
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cat-chip.is-clear {
+  border-style: dashed;
+  color: var(--text-muted);
+}
+.cat-chip.is-clear:hover { color: var(--danger); }
+
+/* Coarse pointers get a full-size target: a 30px pill between two other 30px
+   pills is a mis-tap that silently changes what the buyer is looking at. */
+@media (hover: none) {
+  .cat-chip { height: 44px; padding: 0 var(--sp-4); }
+}
+
+/* ── Empty and zero-result states ───────────────────────────────────────── */
+
+/* Tighter than the shared `.empty-state`. That block's 3.25rem of vertical
+   padding is right for an admin page whose whole content is the message; here
+   it sits under a filter bar and a chip rail that the buyer is about to use
+   again, and a 400px void between them and the next move is the "centred
+   column, enormous vertical padding" the brief names as a tell. */
+/* Both classes on purpose: `.empty-state` lives in 44-empty-states.css, which
+   is imported AFTER this file, so a single-class selector here loses the tie
+   on source order and the padding silently stays at 3.25rem. */
+.empty-state.cat-empty { padding: var(--sp-6) var(--sp-5); }
+.empty-state.cat-empty > svg { margin-bottom: var(--sp-3); }
+.empty-state.cat-empty h3 { margin: 0; }
+
+.cat-empty-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+.cat-empty-acts .glass-btn { margin-top: 0; }
+
+/* Zero results after filtering is a navigation problem, not an apology. These
+   are the categories the store actually stocks — the widest honest next move
+   from a shelf that came back empty. */
+.cat-empty-cats {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+  width: 100%;
+}
+.cat-empty-cats-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-3);
+}
+.cat-empty-cats-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+}
+
+/* ── Pager ──────────────────────────────────────────────────────────────── */
+
+.cat-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+/* "25–48 of 253" — a page number alone never says how much shelf is left. */
+.cat-pager-range {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.cat-pager-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.cat-pager-btn,
+.cat-pager-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.cat-pager-btn:hover:not(:disabled),
+.cat-pager-num:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border-hover); }
+.cat-pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.cat-pager-btn:focus-visible,
+.cat-pager-num:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+.cat-pager-num.is-on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--bg);
+  font-weight: 700;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.cat-pager-nums { display: flex; align-items: center; gap: var(--sp-1); }
+.cat-pager-gap { color: var(--text-muted); padding: 0 2px; }
+/* The numbers are the desktop affordance; a phone gets "3 / 11" instead,
+   because eleven tap targets in a row is a mis-tap generator. */
+.cat-pager-of { display: none; }
+
+@media (max-width: 640px) {
+  .cat-pager-nums { display: none; }
+  .cat-pager-of {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--sp-3);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+  }
+  .cat-pager-btn { min-width: 44px; height: 44px; }
+  .cat-pager { justify-content: center; }
+}
+
+/* ── Narrow viewport ────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .catalog-inner { padding: 0 var(--sp-4); }
+
+  /* The bar wraps rather than scrolls sideways: a control that is off the
+     right edge with nothing to say so is a control that does not exist
+     (DESIGN §5).
+
+     Two rows, not three. Stacking all three controls full-width made a sticky
+     bar 130px tall, which on an 844px phone is a sixth of the screen
+     permanently spent on chrome instead of on the shelf. Filters and the view
+     toggle share the first line; sort, whose options are long, gets the
+     second to itself. */
+  .cat-bar { flex-wrap: wrap; }
+  .cat-bar-spacer { display: none; }
+  .cat-bar-btn { flex: 1 1 auto; justify-content: center; order: 1; }
+  .cat-bar .view-toggle { order: 2; }
+  .cat-bar-sort { flex: 1 1 100%; order: 3; }
+  .cat-bar-sort select { flex: 1; }
+
+  .cat-panel-grid { grid-template-columns: 1fr 1fr; padding: var(--sp-3); }
+  .cat-title { font-size: var(--fs-xl); }
+}
+
+@media (max-width: 360px) {
+  .cat-panel-grid { grid-template-columns: 1fr; }
+  /* The words used to be dropped here, on the reasoning that a grid glyph and
+     a rows glyph are the same shape to anyone not already looking for the
+     difference — so they should be the last thing to go, not the first.
+     74-list-views.css now makes that call for every copy of the control at
+     once, at 540px, which is where this toolbar actually runs out of room. */
+}

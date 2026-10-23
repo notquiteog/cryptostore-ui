@@ -1,0 +1,117 @@
+/* ===============================
+   RESPONSIVE ADMIN TABLES
+   ===============================
+   A nine-column order table is 771px wide. Inside an `overflow-x: auto`
+   wrapper on a 375px phone that is 438px of data hidden off the right edge
+   with nothing on screen to say it is there — the operator sees a truncated
+   table and no reason to suspect there is more.
+
+   Below the breakpoint each row becomes its own card and each cell prints the
+   column heading it belongs to, taken from `data-label`. The `<thead>` is
+   hidden visually but left in the accessibility tree, so the table keeps its
+   semantics and a screen reader still announces real column headers. */
+
+.admin-rtable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+@media (max-width: 720px) {
+  /* Clipped rather than `display: none`: a removed thead takes the column
+     headers out of the accessibility tree along with the pixels. */
+  .admin-rtable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-rtable,
+  .admin-rtable tbody,
+  .admin-rtable tr,
+  .admin-rtable td {
+    display: block;
+    width: 100%;
+  }
+
+  /* Several of these tables carry an inline `min-width` to stop the columns
+     collapsing on desktop. Once the rows are cards there are no columns left
+     to protect, and the floor just pushes the card past the screen edge —
+     where the wrapper's `overflow: hidden` silently crops it. Only
+     `!important` outranks an inline style. */
+  .admin-rtable { min-width: 0 !important; }
+
+  .admin-rtable tr {
+    position: relative;
+    margin-bottom: var(--sp-3);
+    padding: var(--sp-1) var(--sp-4) var(--sp-25);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: rgba(var(--tint-rgb), 0.03);
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+  .admin-rtable tr:hover {
+    border-color: var(--primary-border);
+    box-shadow: 0 0 18px var(--card-glow);
+  }
+  .admin-rtable tr:last-child { margin-bottom: 0; }
+
+  .admin-rtable td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* A value that will not fit beside its label drops under it. Without this
+       a 173px status pill next to "Status" ran a 320px phone's row-card 94px
+       past the card edge. */
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    padding: var(--sp-2) 0;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-base);
+    text-align: right;
+    min-width: 0;
+  }
+  .admin-rtable td:last-child { border-bottom: none; }
+
+  .admin-rtable td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-align: left;
+  }
+  /* A cell with no heading to print should not reserve the label column. */
+  .admin-rtable td:not([data-label])::before { display: none; }
+
+  /* The row's own value half must be allowed to shrink and wrap rather than
+     forcing the card wider than the screen. */
+  .admin-rtable td > * { min-width: 0; }
+
+  /* Controls get the full width of the card, below the data. */
+  .admin-rtable td[data-actions] {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    padding-top: var(--sp-3);
+  }
+  .admin-rtable td[data-actions]::before { display: none; }
+
+  /* An empty-state cell spans the card instead of pretending to be a field. */
+  .admin-rtable td[colspan]::before { display: none; }
+  .admin-rtable td[colspan] { justify-content: center; text-align: center; }
+
+  /* The row-card supplies its own frame, so the scroll wrapper stops being a
+     scroll wrapper — otherwise it keeps a stray horizontal scrollbar. */
+  .admin-table-scroll,
+  .admin-rtable-wrap { overflow-x: visible; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-rtable tr { transition: none; }
+}
+

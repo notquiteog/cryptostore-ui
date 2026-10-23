@@ -1,0 +1,67 @@
+/* ── Restock subscriptions ──
+   pages/Wishlist.jsx (RestockWatches) and the "notify me" toggle in
+   components/product/BuyBox.jsx.
+
+   Deliberately the same row geometry as `.pw-*` in 95-price-watch.css: the two
+   panels sit one above the other on one page and answer the two halves of the
+   same question ("can I buy it" and "what will it cost"), so two different row
+   shapes would read as two features that happen to share a page.
+
+   What is NOT shared is the lit state. A price watch lights up when the number
+   goes down; this lights up when the thing becomes buyable, and a lit row here
+   carries a real action — Add to cart — because a notification that says
+   something is back and then offers no way to get it is the dead end DESIGN §9
+   is about. The state also survives `--glow-strength: 0`: `is-back` changes the
+   border and prints the word "in stock", so the glow is the third channel and
+   never the only one. */
+
+.rw { margin-top: var(--sp-8); }
+.rw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.rw-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-3) var(--sp-4);
+  padding: var(--sp-25) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.rw-row.is-back {
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  box-shadow: 0 0 calc(18px * var(--glow-strength, 1)) -8px rgba(var(--success-rgb), 0.6);
+}
+.rw-row.is-gone { opacity: 0.7; }
+
+/* The state column. Not a badge on the name: it is the one field the buyer is
+   here to read, so it gets its own column and the mono face the price watch
+   uses for its figures, to keep the two panels on one vertical rhythm. */
+.rw-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.rw-row.is-back .rw-state { color: var(--success); font-weight: 700; }
+.rw-actions { display: flex; gap: var(--sp-2); }
+.rw-actions .glass-btn { white-space: nowrap; }
+
+/* Two lines on a phone, not three.
+   Collapsing all three cells into one column is the obvious rewrite and it is
+   the wrong one: it gives a subscription with two words in it about 240px of
+   height, so three watches fill a screen. The name earns a full-width line
+   because a product name plus a variant is the part that can be long; the
+   state and the buttons then share the second line, which is what a dense card
+   means in DESIGN §6 as opposed to a tile with three words on it. */
+@media (max-width: 560px) {
+  .rw-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--sp-2); }
+  .rw-what { grid-column: 1 / -1; }
+  .rw-state { grid-column: 1; }
+  .rw-actions { grid-column: 2; justify-content: flex-end; }
+}

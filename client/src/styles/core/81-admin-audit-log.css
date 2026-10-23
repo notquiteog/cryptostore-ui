@@ -1,0 +1,728 @@
+/* ===============================
+   AUDIT LOG — the tape
+   ===============================
+   What this replaces: a five-column table — when, who, what, from where, and a
+   "Details" button over a JSON dump. Every failure below is one that page had.
+
+   · **A table promised a shape the record does not have.** Columns commit to
+     every row carrying the same fields. An audit payload does not: one row is
+     fifty theme keys, the next is a before/after role diff, the next is an
+     order and a box number. The only column that could hold all of them was one
+     holding `JSON.stringify`, so the interesting half of every record was a
+     click away and unreadable on arrival.
+   · **Every row weighed the same.** `order.address_decrypted` — a buyer's real
+     address in plaintext — was drawn exactly like `variant.bins_assigned`.
+     DESIGN §1: real information is not uniformly weighted.
+   · **A column that is empty by design.** `ip_address` is NULL on every row
+     unless the operator turns `session_ip_logging` on, which CLAUDE.md says
+     should stay off. A fifth of the width was em dashes.
+   · **Time was printed forty times and never structured.** A chronological
+     record whose only rendering is a flat list throws away the one signal that
+     is free: where the bursts are.
+
+   The shape here is a tape. Days are folds, entries hang off a spine, and the
+   quiet stretches between them are drawn rather than left implicit — DESIGN
+   §10's rule that a flourish must do a job, the job being that an investigation
+   is looking for a cluster and a uniform list hides clusters completely.
+
+   Built on `.lrows` / `.lrow` (74-list-views.css) rather than a new row family:
+   that pair already owns the hairline rhythm, the zebra, the hover and
+   focus-within pair, the truncation and the phone shape. What is added here is
+   the spine, the day folds, the severity channels and the payload drawer. */
+
+.alog-page {
+  /* The tone each severity carries, named once. `--lrow-tone` is read by
+     74-list-views.css for the hover rule and the left rule, so a row only has
+     to say which severity it is.
+
+     Routine deliberately resolves to the brand primary rather than to a fourth
+     colour: a routine row's tone is only ever seen as the hover accent every
+     other list in the console uses, and giving "nothing special happened" its
+     own hue would be a colour the operator has to learn for no information. */
+  --alog-severe: var(--danger);
+  --alog-notable: var(--warning);
+  --alog-routine: var(--primary);
+}
+
+/* ── Filter bar ───────────────────────────────────────────────────────────── */
+
+/* Its own query container, and a named one.
+ *
+ * The first version put the filter bar's narrow rules inside the feed's
+ * `@container` block, where they were dead: `@container` resolves against the
+ * nearest containing ancestor, and `.alog-controls` is a sibling of `.alog-feed`
+ * rather than a descendant, so `.alog-controls .glass-input { width: 100% }`
+ * never matched anything and the two inputs stayed 190px wide inside a 343px
+ * phone. Naming both containers is what makes that mistake visible rather than
+ * silent — a rule now says which box it is asking about. */
+.alog-filters {
+  container: alog-bar / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.alog-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* A chip carries its own count, and the counts are the point. Seven equal
+   buttons would be DESIGN §1's row-of-three failure with four more in it; seven
+   buttons reading 750 / 5 / 105 / 61 / 54 / 118 / 17 is a distribution, and it
+   tells the operator where the activity actually is before they press anything. */
+.alog-fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border-radius: var(--pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    color var(--transition),
+    box-shadow var(--transition);
+}
+.alog-fchip svg { flex-shrink: 0; opacity: 0.75; }
+
+.alog-fchip-count {
+  padding: 1px var(--sp-2);
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.07);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+@media (hover: hover) {
+  .alog-fchip:hover {
+    color: var(--text);
+    background: var(--surface-hover);
+    border-color: var(--border-hover);
+  }
+}
+
+/* The active filter is a live control, which is exactly what §3 says glow is
+   for. Fill and border carry it too, so the state survives an operator taking
+   `--glow-strength` to zero. */
+.alog-fchip.is-on {
+  color: var(--primary);
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  box-shadow: var(--glow-sm);
+}
+.alog-fchip.is-on svg { opacity: 1; }
+.alog-fchip.is-on .alog-fchip-count {
+  background: rgba(var(--primary-rgb), 0.18);
+  color: var(--primary);
+}
+
+.alog-controls {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* Label above the control, not beside it: beside it, the actor field and the
+   window select stop sharing a baseline the moment one label wraps, and a
+   toolbar whose controls sit a few pixels apart is what makes a console look
+   homemade (§7). */
+.alog-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.alog-control-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+}
+.alog-control .glass-input {
+  min-height: var(--control-h-sm);
+  width: 190px;
+  max-width: 100%;
+  padding-block: 0;
+  font-size: var(--fs-sm);
+}
+.alog-clear { margin-bottom: 1px; }
+
+.alog-search input { min-width: 0; }
+
+/* ── The feed ─────────────────────────────────────────────────────────────── */
+
+.alog-feed {
+  /* Named so the narrow rules at the foot of this file say which box they are
+     asking about. `.lrows` already declared `container-type: inline-size`; this
+     only adds the name, and an unnamed `@container` query — which is what
+     74-list-views.css uses for `.lrow` — still matches a named container. */
+  container-name: alog-feed;
+
+  /* `.lrows` sets `overflow: hidden` to clip its own corner radius, and
+     `overflow: hidden` establishes a scroll container — which makes every
+     `position: sticky` descendant stick to a box that never scrolls, i.e. not
+     at all. 57-admin-orders.css records the same trap about `.glass-card`.
+
+     `clip` clips identically and does NOT establish a scroll container, so the
+     day folds below keep sticking to the viewport. Do not "tidy" this back to
+     `hidden`: the day headers stop working and nothing else changes, so it
+     looks like it was never doing anything. */
+  overflow: clip;
+
+  /* time | spine | actor | what | actions */
+  --lrow-cols: 66px 14px 148px minmax(0, 1fr) auto;
+}
+
+/* Detail mode opens every payload, so rows carry more vertical weight and the
+   hairline between an entry and its own payload would read as a record
+   boundary. The drawer supplies its own separation instead. */
+.alog-feed.is-cards .alog-row { border-bottom: none; }
+
+.alog-skel { height: 34px; }
+
+/* ── The day fold ─────────────────────────────────────────────────────────── */
+
+.alog-day {
+  position: sticky;
+  /* The admin topbar is `position: fixed` at 56px and only exists below 900px
+     (15-admin-layout.css), so the offset that clears it is width-dependent —
+     see the media query at the foot of this file. */
+  top: var(--sp-2);
+  z-index: 20;
+
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+
+  /* Opaque-ish and frosted, because rows scroll underneath it. `--surface-raised`
+     is the token for exactly this — a sticky bar over moving content — and it is
+     rebuilt per mode from the page ground, so the text on it always sits on its
+     designed background rather than on whatever happens to be passing. */
+  background: var(--surface-raised);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  box-shadow: var(--shadow-sm);
+}
+.alog-day:first-child { border-top: none; }
+
+.alog-day-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.alog-day-date {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+/* Three weights across three facts, which is §7's point about density coming
+   from hierarchy: the weekday is the thing you look for, the date confirms it,
+   the count is context. */
+.alog-day-count {
+  margin-left: auto;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── The quiet marker ─────────────────────────────────────────────────────── */
+
+/* Where nothing happened for three quarters of an hour or more. Drawn on the
+   spine's own axis so it reads as a break in the tape rather than as a row. */
+.alog-quiet {
+  display: grid;
+  grid-template-columns: 66px 14px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-3);
+  height: 26px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.015);
+}
+/* The dashed segment sits in the spine column, continuing the line it belongs
+   to. `repeating-linear-gradient` and not a dotted border: a 1px dotted border
+   renders as a smear at fractional device pixel ratios. */
+.alog-quiet-mark {
+  grid-column: 2;
+  justify-self: center;
+  width: 1px;
+  height: 100%;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--border) 0 3px,
+    transparent 3px 6px
+  );
+}
+.alog-quiet-text {
+  grid-column: 3;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* ── The entry ────────────────────────────────────────────────────────────── */
+
+.alog-row { align-items: stretch; }
+
+.alog-time {
+  align-self: center;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* The spine. Each row draws its own full-height segment, so consecutive rows
+   join into one continuous line without any magic number tying the line's x
+   position to the grid tracks — change `--lrow-cols` and the spine follows.
+   The negative insets cover `.lrow`'s vertical padding and its 1px hairline;
+   without them the line breaks once per row. */
+.alog-tick {
+  position: relative;
+  align-self: stretch;
+  justify-self: center;
+  width: 14px;
+}
+.alog-tick::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: calc(var(--sp-2) * -1);
+  bottom: calc(var(--sp-2) * -1 - 1px);
+  width: 1px;
+  background: var(--border);
+}
+/* The tick itself. Hollow for routine, filled for anything consequential —
+   shape as well as hue, so the severity is legible without colour vision and
+   at `--glow-strength: 0`. */
+.alog-tick::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg);
+  border: 1px solid var(--text-muted);
+}
+.alog-row.is-notable .alog-tick::after {
+  background: var(--warning);
+  border-color: var(--warning);
+}
+/* The one lit thing on the page, and the only glow that is not a theme token:
+   there is no danger-coloured `--glow-*` tier, so the alpha is multiplied by
+   `--glow-strength` by hand. That multiplier is what makes it behave like every
+   other glow in the store — it follows the operator's slider (live at 1.6 on
+   this install, 0 on a flattened one) and it switches off under
+   `prefers-contrast: more`, which sets the strength to 0. Composed from
+   `--danger-rgb` rather than a literal rgba, per §11, so a re-theme carries it.
+
+   Nothing depends on it: the fill, the diameter and the row's left rule already
+   say "severe" at strength 0. */
+.alog-row.is-severe .alog-tick::after {
+  width: 9px;
+  height: 9px;
+  background: var(--danger);
+  border-color: var(--danger);
+  box-shadow: 0 0 10px rgba(var(--danger-rgb), calc(0.5 * var(--glow-strength)));
+}
+
+/* The actor is a filter, not a decoration: pressing it narrows the whole feed
+   to that person. Styled as text rather than as a button because forty buttons
+   down a column is the wall of chrome §4 is about — the affordance arrives on
+   hover and focus. */
+.alog-actor {
+  align-self: center;
+  justify-self: start;
+  max-width: 100%;
+  padding: 2px var(--sp-1);
+  margin-left: calc(var(--sp-1) * -1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+@media (hover: hover) {
+  .alog-actor:hover { color: var(--primary); background: var(--btn-bg); }
+}
+.alog-actor:focus-visible { color: var(--primary); background: var(--btn-bg); }
+
+.alog-what {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-2);
+  min-width: 0;
+}
+
+.alog-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.alog-row.is-severe .alog-label { color: var(--danger); }
+.alog-severe-mark { flex-shrink: 0; color: var(--danger); }
+
+/* A reference to another record. The label is the noun — `order`, `account`,
+   `key` — at half the weight of the value, so a line reads "order 2EF3C71D"
+   without the noun competing with the identifier. */
+.alog-ref {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.05);
+  border: 1px solid transparent;
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.alog-ref-label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-transform: lowercase;
+}
+.alog-ref.is-link { color: var(--text); text-decoration: none; }
+@media (hover: hover) {
+  .alog-ref.is-link:hover {
+    color: var(--primary);
+    background: var(--btn-bg);
+    border-color: var(--primary-border);
+  }
+}
+.alog-ref.is-link:focus-visible {
+  color: var(--primary);
+  border-color: var(--primary-border);
+}
+
+/* `paid → accepted`. The arrow is a real glyph at muted weight, and the two
+   states differ by colour and weight rather than by position alone. */
+.alog-transition {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+.alog-was { color: var(--text-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.alog-arrow { color: var(--text-muted); }
+.alog-now { color: var(--text); font-weight: 600; }
+
+/* The identifier the row was written with. Always present, never loud: the
+   label beside it is this codebase's interpretation, and an operator grepping
+   the server for a call site needs the real string. */
+.alog-raw-action {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  opacity: 0.65;
+  white-space: nowrap;
+}
+@media (hover: hover) and (pointer: fine) {
+  /* Present but receded until the row is under the cursor — §4's rule that
+     hover discloses information as well as controls, which is how a line gets
+     dense without getting loud. */
+  .alog-raw-action { opacity: 0.35; transition: opacity var(--dur-1) var(--ease-out); }
+  .alog-row:hover .alog-raw-action,
+  .alog-row:focus-within .alog-raw-action { opacity: 0.75; }
+}
+
+.alog-actions { align-self: center; }
+.alog-expand svg { transition: transform var(--dur-2) var(--ease-out); }
+.alog-expand svg.is-open { transform: rotate(180deg); }
+
+/* A consequential row keeps its marker with no pointer on it: a wash and a left
+   rule, both of which survive `--glow-strength: 0`, which a glow alone would
+   not. Same shape as `.lrow.is-urgent`, different meaning — that one says
+   "someone must act", this says "this one moved money or revealed identity". */
+.alog-row.is-severe {
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+.alog-row.is-notable { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 55%, transparent); }
+
+/* ── The payload drawer ───────────────────────────────────────────────────── */
+
+/* DESIGN §2 names the receipt's `0fr → 1fr` grid track as the exception worth
+   copying: it reveals the content's natural height with no JS measurement, and
+   the rows below it are not re-laid-out on every frame the way an animated
+   `height` would. */
+.alog-drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-3) var(--ease-settle);
+}
+.alog-drawer.is-open {
+  grid-template-rows: 1fr;
+  border-bottom: 1px solid var(--border);
+}
+.alog-drawer-inner { overflow: hidden; min-height: 0; }
+
+.alog-payload {
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) calc(66px + 14px + var(--sp-3) * 2);
+  background: var(--well);
+  font-size: var(--fs-sm);
+}
+
+/* Key on the left at label weight, value on the right at text weight. A grid
+   and not a table: the payload has between one and a dozen keys and the widest
+   one should set the column, which `max-content` does and a table's auto layout
+   does with more markup. */
+.alog-fields {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: var(--sp-1) var(--sp-4);
+  margin: 0;
+}
+.alog-fields dt {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+.alog-fields dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.alog-plain { color: var(--text); }
+.alog-null { color: var(--text-muted); font-style: italic; }
+.alog-bool { color: var(--text); font-weight: 600; }
+
+.alog-list { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.alog-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.06);
+  border: 1px solid var(--border);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.alog-chip.is-link { color: var(--primary); text-decoration: none; border-color: var(--primary-border); }
+.alog-chip.is-more {
+  cursor: pointer;
+  color: var(--primary);
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  font-family: var(--font);
+}
+@media (hover: hover) {
+  .alog-chip.is-link:hover,
+  .alog-chip.is-more:hover { background: var(--btn-hover); }
+}
+
+.alog-nested { display: flex; flex-direction: column; gap: var(--sp-1); }
+.alog-nested-item { display: inline-flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.alog-nested-item em {
+  font-style: normal;
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+}
+
+.alog-ip {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+}
+.alog-ip-label {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+}
+.alog-ip code {
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.06);
+  font-size: var(--fs-2xs);
+  color: var(--text);
+}
+
+.alog-payload-foot { margin-top: var(--sp-3); }
+.alog-raw-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.alog-raw-toggle svg { transition: transform var(--dur-2) var(--ease-out); }
+.alog-raw-toggle svg.is-open { transform: rotate(180deg); }
+@media (hover: hover) { .alog-raw-toggle:hover { color: var(--text); } }
+
+.alog-raw {
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.alog-payload-thin { margin: 0; color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* ── Footnote ─────────────────────────────────────────────────────────────── */
+
+.alog-footnote {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.alog-footnote svg { flex-shrink: 0; transform: translateY(2px); }
+.alog-footnote a { color: var(--text-secondary); }
+
+/* ── The phone shape ──────────────────────────────────────────────────────── */
+
+/* A container query, not a viewport one (§5). `.lrow`'s own container rule
+   fires at 560px and would collapse this row to `1fr auto`, dropping the spine
+   — so the audit row states its own tracks at a wider breakpoint, where five
+   columns genuinely stop fitting.
+
+   The spine survives on the phone deliberately. It is the structure that makes
+   the list a chronology rather than a pile, and it costs 14px. */
+/* The filter bar on a phone.
+ *
+ * Measured before this block existed: eight chips at the 44px touch floor wrapped
+ * to four rows and the bar stood 351px tall on an 812px screen — 43% of the
+ * viewport spent on chrome before a single audit entry, which is §7's failure
+ * stated as a number.
+ *
+ * The icon is what goes. It sits beside a word that says the same thing, so it
+ * is the one element here that cannot answer §7's "who presses it and when" —
+ * and dropping it takes the strip from four rows to three without hiding a
+ * single filter or its count. The 44px height stays: that is §5's floor on a
+ * coarse pointer and it is not negotiable against a layout preference. */
+@container alog-bar (max-width: 620px) {
+  .alog-fchip svg { display: none; }
+  .alog-fchip { padding-inline: var(--sp-3) var(--sp-2); gap: var(--sp-1); }
+
+  /* Both controls on one line. They are 190px each by default, which at 343px
+     put one per row and added another 60px of bar. */
+  .alog-control { flex: 1 1 130px; }
+  .alog-controls .glass-input { width: 100%; }
+  .alog-clear { flex: 1 1 100%; justify-content: center; }
+}
+
+@container alog-feed (max-width: 620px) {
+  .alog-feed .alog-row {
+    grid-template-columns: 14px auto minmax(0, 1fr) auto;
+    gap: var(--sp-1) var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    align-items: center;
+  }
+  .alog-feed .alog-tick { grid-column: 1; grid-row: 1 / span 2; }
+  .alog-feed .alog-time { grid-column: 2; grid-row: 1; }
+  .alog-feed .alog-actor { grid-column: 3; grid-row: 1; }
+  .alog-feed .alog-actions { grid-column: 4; grid-row: 1; }
+  .alog-feed .alog-what { grid-column: 2 / -1; grid-row: 2; }
+
+  /* Spanning two rows, the segment's insets have to cover the whole row box. */
+  .alog-feed .alog-tick::before {
+    top: calc(var(--sp-2) * -1);
+    bottom: calc(var(--sp-2) * -1 - 1px);
+  }
+
+  .alog-quiet { grid-template-columns: 14px minmax(0, 1fr); padding-inline: var(--sp-3); }
+  .alog-quiet-mark { grid-column: 1; }
+  .alog-quiet-text { grid-column: 2; }
+
+  /* Icon only. With the word, this button was 95px wide against a 390px
+     screen — a quarter of the row spent on the control rather than on the
+     record, which is §7 exactly. `aria-label` on the button carries the
+     meaning the hidden word was carrying. */
+  .alog-feed .alog-expand-word { display: none; }
+  .alog-feed .alog-expand { padding-inline: var(--sp-2); }
+
+  .alog-payload { padding-left: calc(14px + var(--sp-3) * 2); }
+  .alog-fields { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .alog-fields dd { margin-bottom: var(--sp-2); }
+}
+
+@media (pointer: coarse) {
+  .alog-fchip,
+  .alog-control .glass-input,
+  .alog-actor { min-height: 44px; }
+  .alog-expand { min-height: 44px; }
+  /* Hover-revealed disclosure has no route in on touch, so the identifier is
+     simply present. */
+  .alog-raw-action { opacity: 0.7; }
+}
+
+/* The topbar is fixed at 56px and only exists below 900px, so the offset that
+   keeps a day fold from sliding under it is width-dependent. */
+@media (max-width: 900px) {
+  .alog-day { top: calc(56px + var(--sp-2)); }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+/* The drawer is the one thing here that must NOT simply lose its animation: an
+   `animation: … both` would hold its `from` frame, but this is a transition on
+   a grid track, so removing the transition leaves the open state intact and the
+   payload still appears — it just appears at once. */
+@media (prefers-reduced-motion: reduce) {
+  .alog-drawer { transition: none; }
+  .alog-fchip,
+  .alog-actor,
+  .alog-ref.is-link,
+  .alog-raw-action,
+  .alog-raw-toggle { transition: none; }
+  .alog-expand svg,
+  .alog-raw-toggle svg { transition: none; }
+}

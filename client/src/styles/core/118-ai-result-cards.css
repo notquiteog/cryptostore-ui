@@ -1,0 +1,146 @@
+/* ── Assistant result cards ────────────────────────────────────────────────
+   One card shape for everything a tool hands back (components/ai/ResultCard).
+
+   A card that changed something shows the before and the after, and the one
+   control that reverses it. A comparison is a real table: numerals in mono
+   so a column of prices lines up, the option names as column heads that link
+   to their pages. A review or a proposal is a list whose tone says which
+   lines need a decision. Every figure came from the server's own pricing and
+   stock; the model never wrote one.
+
+   Wide content scrolls inside its own box (DESIGN §5) — the assistant panel
+   is narrow on every viewport and must never scroll sideways itself. */
+
+.buddy-result {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.buddy-result-head {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-05);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.buddy-result-head:hover { transform: none; }
+
+.buddy-result-changed {
+  margin: 0;
+  padding: 0 var(--sp-3) var(--sp-2);
+  display: grid;
+  gap: var(--sp-05);
+}
+.buddy-result-change {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+}
+.buddy-result-change dt { color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.buddy-result-change dd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: 0;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.buddy-result-change s { color: var(--text-muted); }
+.buddy-result-change svg { color: var(--text-muted); }
+
+.buddy-result-table-wrap {
+  overflow-x: auto;
+  padding: 0 var(--sp-3) var(--sp-2);
+}
+.buddy-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-xs);
+}
+.buddy-result-table th,
+.buddy-result-table td {
+  padding: var(--sp-1) var(--sp-2) var(--sp-1) 0;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid rgba(var(--tint-rgb), 0.08);
+}
+.buddy-result-table thead th {
+  border-top: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.buddy-result-table thead th a { color: var(--primary); text-decoration: none; }
+.buddy-result-table thead th a:hover { text-decoration: underline; }
+.buddy-result-table tbody th {
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.buddy-result-table td {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.buddy-result-table td.is-none { color: var(--text-muted); }
+
+.buddy-result-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--sp-3) var(--sp-2);
+  display: grid;
+  gap: var(--sp-1);
+}
+.buddy-result-lines li {
+  display: grid;
+  gap: 2px;
+  padding-left: var(--sp-2);
+  border-left: 2px solid var(--line-tone, var(--success));
+  font-size: var(--fs-xs);
+}
+.buddy-result-lines li.is-warn { --line-tone: var(--warning); }
+.buddy-result-lines li.is-danger { --line-tone: var(--danger); }
+.buddy-result-lines li.is-muted { --line-tone: rgba(var(--tint-rgb), 0.3); }
+.buddy-result-line-label { font-weight: 600; color: var(--text); }
+.buddy-result-line-note { color: var(--text-secondary); }
+
+.buddy-result-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  border-top: 1px solid rgba(var(--tint-rgb), 0.08);
+}
+
+/* ── Buttons that act ─────────────────────────────────────────────────────
+   A staff verb or a swap offer on a card (ResultCard's ActionButton). Armed
+   is the first press: the label changes to say what the second will do, and
+   the border says it is waiting. Done keeps the button in place, greyed, so
+   a card read back later still says what happened on it. */
+.buddy-result-act { gap: var(--sp-1); }
+.buddy-result-act.is-armed {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+.buddy-result-act.is-done {
+  opacity: 0.7;
+  color: var(--success);
+}
+
+/* A line's own buttons — one per order in a queue, one per alternative on a
+   proposal — sit under its note rather than beside it, because the labels
+   ("Offer Blue Raspberry × 2") are sentences, not glyphs. */
+.buddy-result-line-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-top: 2px;
+}
+a.buddy-result-line-label { color: var(--primary); text-decoration: none; }
+a.buddy-result-line-label:hover { text-decoration: underline; }

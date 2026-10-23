@@ -1,0 +1,12 @@
+/* ===============================
+   ADMIN PAGE STYLES
+   ===============================
+   Rules for the four card-grid admin pages: Rate Limits (.rl-), Products
+   (.apr-), Reviews (.arv-) and Support (.asup-). Each family is prefixed so it
+   cannot collide with a page-level class, uses theme tokens only so it follows
+   both modes and any admin re-theme, and carries its own reduced-motion block.
+
+   These live here rather than in per-page files because main.jsx imports this
+   stylesheet and nothing else — a second copy in an unimported file is two
+   sources of truth for the same rules, and they drift silently. */
+/* --- limits.css --- */

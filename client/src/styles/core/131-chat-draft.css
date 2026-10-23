@@ -1,0 +1,214 @@
+/* ── The live chat's drafted reply ──────────────────────────────────────────
+ *
+ * What this is: the strip that carries a model-written reply above the chat
+ * composer, and the one icon button that summons it. See
+ * `components/admin/ai/ChatReplyAssist.jsx` for why the chat room does not use
+ * the shared `DraftTool` panel.
+ *
+ * The failure this shape prevents: the inherited panel sat in the flow under
+ * the composer, so every draft pushed the message list upward — mid-sentence,
+ * while a customer was still typing. The strip is taken OUT of the flow
+ * (`position: absolute` against `.lc-compose`, which becomes its containing
+ * block) and floats over the bottom of the transcript instead. The composer
+ * never moves, and the conversation under the strip is still readable around
+ * it. Do not "tidy" this into the flow.
+ *
+ * Dashed, not solid, and that is this app's settled vocabulary rather than a
+ * choice made here: `98-tag-suggestions.css` established that a thing the
+ * record HAS wears a solid border and a thing it COULD have wears a dashed
+ * one, specifically because the distinction survives a theme where the two
+ * tints are close and `--glow-strength` is 0. A draft is that claim about a
+ * paragraph.
+ */
+
+.lc-compose { position: relative; }
+
+.lcdraft {
+  position: absolute;
+  left: var(--sp-3);
+  right: var(--sp-3);
+  bottom: 100%;
+  z-index: 2;
+  margin-bottom: var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+  padding: var(--sp-2);
+  border: 1px dashed var(--primary-border);
+  border-radius: var(--radius);
+  /* ── Why this is two layers and not one, and why there is no blur ──
+     `--surface-raised` is the app's token for a pane floating over scrolling
+     content, and ThemeContext rebuilds it from the page ground so text on it
+     sits on its designed background. It is 68–72% alpha, though, and this
+     strip floats over a live message list — at that alpha somebody's message
+     reads straight through the draft.
+     Blur is not the answer here and would look like it was: the chat panel is
+     itself frosted, so a `backdrop-filter` on a child of it is glass-in-glass
+     (DESIGN §3) — it would filter an empty backdrop and come out translucent
+     with the transcript perfectly sharp behind it, at whatever blur the
+     operator set. This is the exact trap that made every dropdown in the app
+     ignore the blur slider.
+     So the tint is composited over the page ground instead. Same colour the
+     theme derived, opaque by construction, no backdrop root created, and it
+     still tracks the operator's palette because both halves are tokens. */
+  background: linear-gradient(var(--surface-raised), var(--surface-raised)), var(--bg);
+  box-shadow: var(--shadow-md);
+}
+
+.lcdraft-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--control-h-sm);
+}
+
+.lcdraft-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-right: auto;
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.lcdraft-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Deliberately a step under `--control-h-sm`, which the composer row's own
+     controls use: these are the strip's secondary verbs and DESIGN §7 asks
+     hierarchy to do the separating. Derived from the same fluid unit rather
+     than a literal, so it scales with everything else — a bare 26px here is a
+     value that cannot scale, which is how the stylesheet once acquired
+     sixty-eight font sizes. */
+  width: calc(var(--fs-unit) * 1.5);
+  height: calc(var(--fs-unit) * 1.5);
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.lcdraft-icon:hover { color: var(--primary); border-color: var(--primary-border); }
+/* Lit, not thickened — DESIGN §3. The steering field being open is a state,
+   and a heavier border here would shift the head row's baseline by a pixel
+   every time it toggled. */
+.lcdraft-icon.is-on { color: var(--primary); border-color: var(--primary-border); box-shadow: var(--glow-sm); }
+
+.lcdraft-body {
+  /* Capped and scrollable: a model asked to answer a vague question can write
+     six paragraphs, and a strip that grows to fit them covers the whole
+     transcript it is floating over. Four-ish lines, then it scrolls — the
+     component keeps it pinned to the bottom while it streams. */
+  max-height: 8.5em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* The streaming caret. A block rather than a glyph so it cannot be selected
+   into a copied draft. */
+.lcdraft-cursor {
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--primary);
+  animation: lcdraft-blink 1s steps(2, start) infinite;
+}
+@keyframes lcdraft-blink { to { visibility: hidden; } }
+
+.lcdraft-thinking {
+  margin: 0;
+  font-size: var(--fs-3xs);
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.lcdraft-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1);
+  margin: 0;
+  font-size: var(--fs-3xs);
+  color: var(--danger);
+}
+
+.lcdraft-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.lcdraft-notes { margin: 0; font-size: var(--fs-xs); }
+
+.lcdraft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.lcdraft-note {
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+}
+
+/* The trigger carries `.lc-attach` and nothing else — same box, same hover,
+   same 44px step-up on touch as the paperclip beside it. There is deliberately
+   no rule here: three controls each a pixel or two off is what DESIGN §7 calls
+   a homemade toolbar, and a `.lc-draft-btn` block would be the first pixel.
+   The class exists on the element only as a hook for anyone who later needs
+   one. */
+
+/* ── Motion ────────────────────────────────────────────────────────────────
+ *
+ * The strip rises from the composer it belongs to, which is where the press
+ * was — DESIGN §2, animate the thing that is actually happening. `--ease-spring`
+ * because it is a small object arriving, and transform + opacity only.
+ * `[data-reveal]` is the app's existing arrival hook. */
+.lcdraft[data-reveal] {
+  animation: lcdraft-rise var(--dur-2) var(--ease-spring) both;
+}
+@keyframes lcdraft-rise {
+  from { opacity: 0; transform: translateY(var(--sp-2)) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* End state restored explicitly: an `animation: … both` that is simply
+     switched off leaves the strip at its `from` keyframe and the draft never
+     appears. The caret keeps blinking on purpose — it is the only signal that
+     text is still arriving, and a frozen one reads as a hung request, which is
+     the same reasoning DESIGN §2 gives for leaving loaders alone. */
+  .lcdraft[data-reveal] { animation: none; opacity: 1; transform: none; }
+}
+
+/* On a phone the widget is full-width and the strip goes with it. The message
+   list behind it is shorter, so the body cap comes down — half the transcript
+   covered by a draft is worse than scrolling the draft. */
+@media (hover: none) {
+  .lcdraft-body { max-height: 6em; }
+  /* The touch floor. Not 44px: these sit inside a strip whose own primary
+     verbs are full-size buttons below them, and the row would be taller than
+     the draft it heads. `--control-h-sm` is already stepped up to 40px on
+     coarse pointers by 01-tokens.css, which is the same compromise the
+     paperclip makes. */
+  .lcdraft-icon { width: var(--control-h-sm); height: var(--control-h-sm); }
+}

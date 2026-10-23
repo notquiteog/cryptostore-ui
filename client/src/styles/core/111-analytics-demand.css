@@ -1,0 +1,316 @@
+/* ===============================
+   ANALYTICS — what people want
+   ===============================
+   The demand band (components/admin/DemandBand.jsx): restock subscriptions,
+   price watches, wishlists, live carts, product opens and units per day.
+
+   It reuses the band furniture from 96-analytics-insights.css — `.anx-head`,
+   `.anx-title`, `.anx-lede`, `.anx-window`, `.anx-error`, `.anx-grid`,
+   `.anx-card`, `.anx-empty`, `.anx-foot`, `.anx-link`. Those are not specific
+   to the band they were written for; copying them here would have produced a
+   second set of the same eleven rules, drifting apart by a spacing step each
+   time one of the two bands was touched. What lives in THIS file is only what
+   the demand band actually adds: the six-number table, its sortable headers,
+   and the counting notice.
+
+   What the shapes prevent:
+
+   · The table is `.admin-rtable rtable-skin`, so under 720px each row becomes
+     its own card with every cell labelled from `data-label`. Seven columns of
+     numbers hidden behind a horizontal scrollbar on a phone is the failure
+     DESIGN §5 names, and the responsive table is the answer that already
+     exists — this file does not re-implement it. Every rule here that sets a
+     WIDTH or a PADDING on a cell is therefore inside `@media (min-width:
+     721px)`: unscoped they are specific enough to beat the card rules and did,
+     turning one phone row into 490px of stacked labels.
+   · Numbers are `--font-mono` with `tnum`, so a column of counts aligns on the
+     digit rather than wandering. That is the whole reason a six-number row is
+     scannable at all.
+   · A zero is drawn as a muted em dash rather than a bold `0`. Six bold zeros
+     across a row is a wall of ink saying nothing, and the eye should land on
+     the one column that has a figure in it.
+   · The sort control is a real `<button>` inside the `<th>`, with `aria-sort`
+     on the header. A `<th onClick>` is unreachable by keyboard and announces
+     nothing. */
+
+/* The section is the grid's container so `.anx-card-wide` can span two tracks
+   only where two tracks exist — same container query the insights band uses,
+   and it has to be repeated per section because `container-type` is set on the
+   element, not inherited. Without this the wide card conjures an implicit
+   second column and whatever follows it is laid out inside a ~50px track. */
+#analytics-demand { container-type: inline-size; }
+
+.dmd { margin-bottom: var(--sp-6); }
+.dmd .admin-stats { margin-bottom: var(--sp-4); }
+
+/* Two explicit tracks, not `auto-fill`.
+   The insights band fills with `repeat(auto-fill, minmax(320px, 1fr))` because
+   its five cards are peers and any of them may be missing — a withheld grant
+   should leave no hole. This band has three cards in a fixed hierarchy, and
+   auto-fill got it wrong in both directions: at three tracks the table sat
+   beside one rate card with the other stranded on a row of its own next to two
+   empty tracks, and each rate card was squeezed to ~400px, where the ranked
+   list truncated every product name to "Race Product …".
+
+   So: the table takes the full row, and the two rate cards are peers to each
+   other underneath at half the width each. Nothing is stranded, and the lists
+   get the ~600px their labels actually need. The breakpoint is a CONTAINER
+   query — the admin shell already takes a sidebar's worth off the window, so a
+   viewport query fires the wide rules in a box too narrow for them, which is
+   the trap 96-analytics-insights.css documents one file over. */
+.dmd-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-5);
+}
+@container (min-width: 820px) {
+  .dmd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dmd-card-full { grid-column: 1 / -1; }
+}
+
+/* ── The demand table ── */
+
+/* The wrap scrolls only when it must. `.admin-rtable` has already collapsed to
+   cards by the time the columns would not fit, so on a phone this never
+   engages; between about 720 and 900px it is the seam that keeps the seventh
+   column from being clipped rather than hidden. */
+.dmd-wrap { overflow-x: auto; }
+
+.dmd-table { border-collapse: collapse; font-size: var(--fs-sm); }
+
+/* Everything about this table's GEOMETRY is desktop-only, and the media query
+   is the whole point of the block rather than a refinement of it.
+   `38-responsive-admin-tables.css` turns every `td` into a `display: flex`
+   card line below 720px, and each rule below is more specific than the one it
+   would be overriding there — `.dmd-table td.dmd-num` (0,2,1) beats
+   `.admin-rtable td` (0,1,1). Unscoped, `width: 1%` therefore survived into
+   card mode and squeezed every numeric line to nothing: the label wrapped onto
+   its own row, the figure escaped past the card's left edge, and one row of
+   six numbers became 490px of phone. The breakpoint is 721px because that is
+   where the card rules stop, and the two must not disagree by a pixel. */
+@media (min-width: 721px) {
+  .dmd-table { width: 100%; }
+
+  /* Two classes deep to outrank 07-layout's `.glass-card > table th`, the same
+     specificity problem the insights band's small table documents: that rule
+     sets `nowrap`, and "Price watch" on one line pushes this table past its
+     card on every width where the analytics grid runs more than two across. */
+  .anx-card .dmd-table th {
+    text-align: left;
+    vertical-align: bottom;
+    white-space: normal;
+    padding: 0 var(--sp-2) var(--sp-1) 0;
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+  .anx-card .dmd-table td {
+    padding: var(--sp-2) var(--sp-2) var(--sp-2) 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .anx-card .dmd-table tr:last-child td { border-bottom: none; }
+
+  /* The name column absorbs the slack so the six figures stay a group instead
+     of being dealt out evenly across the row. DESIGN §5: stretching a table to
+     fill a wide screen puts a product name and its number a thousand pixels
+     apart, which is worse than the margin it was avoiding. `width: 1%` is the
+     standard way to say "as narrow as your content" under `table-layout:
+     auto`. */
+  .dmd-table th:first-child,
+  .dmd-table td:first-child { width: 100%; }
+  .dmd-table th.dmd-num,
+  .dmd-table td.dmd-num { width: 1%; }
+
+  /* Stacked under the count on desktop, where there is a column to stack in,
+     and right-aligned onto the column's edge with the figure above it. */
+  .dmd-fig {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+  }
+}
+
+/* Numerals tabular wherever the table is drawn. `--font-mono` is the ledger
+   face by role (DESIGN §11), and `tnum` is what makes 1,204 and 998 line up on
+   the comma — which is as useful down a phone card as across a desktop row. */
+.dmd-table .dmd-num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+}
+.dmd-table th.dmd-num { font-family: var(--font); }
+
+/* On a phone the figure and its note sit on ONE line beside the label, because
+   the card line is already a label-left/value-right flex row and stacking
+   inside it would put a third line under a heading that has no column.
+
+   The query is `max-width`, not an unqualified rule, and the pairing matters:
+   as a bare rule it sat LATER in the file than the desktop block above and
+   therefore beat it at every width — same specificity, source order decides.
+   `align-items: baseline` then landed on a column flex box, where the cross
+   axis is horizontal, so every desktop figure quietly left-aligned inside its
+   cell instead of sitting on the column's right edge. Two mutually exclusive
+   queries cannot do that to each other. */
+@media (max-width: 720px) {
+  .dmd-fig { display: inline-flex; align-items: baseline; gap: var(--sp-15); }
+}
+.dmd-fig b { font-weight: 600; }
+/* The second line is the actionable half — how many are still to hear, or the
+   price a sale has to cross — and it is deliberately quieter than the count it
+   hangs under, not louder. */
+.dmd-fig small {
+  font-family: var(--font);
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.dmd-zero { color: var(--text-muted); }
+.dmd-people { font-weight: 700; color: var(--primary); }
+
+/* Out of stock WITH people waiting on it. Colour is the second channel here,
+   not the only one: the figure is still a plain 0 and the Restock column still
+   prints the queue, so the row survives an operator flattening the palette or
+   a reader who cannot separate the hues (DESIGN §3). */
+.dmd-table td.is-gone { color: var(--danger); font-weight: 700; }
+
+.dmd-name { overflow-wrap: anywhere; }
+.dmd-name a { color: var(--text); text-decoration: none; }
+.dmd-name a:hover,
+.dmd-name a:focus-visible { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.dmd-hidden-flag {
+  display: block;
+  margin-top: var(--sp-05);
+  font-size: var(--fs-3xs);
+  color: var(--warning);
+}
+
+/* ── Sortable headers ── */
+.dmd-sort {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out);
+}
+.dmd-sort:hover { color: var(--text); }
+/* The active column is named by weight and colour AND by the caret below, so
+   it is still identifiable with glow at zero and with the palette flattened. */
+.dmd-sort.is-on { color: var(--primary); }
+.dmd-sort.is-on::after {
+  content: "";
+  display: block;
+  margin: 2px 0 0 auto;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid var(--primary);
+}
+.dmd-sort:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Under 720px `.admin-rtable` turns every row into a card and every cell into
+   a labelled line, so the header — and with it the only sort control — is
+   clipped away. The band keeps working (the server's default order is by
+   people, which is the order a phone reader wants), but a control that exists
+   on one viewport and silently not on the other should at least not leave a
+   dead 0×0 button behind in the accessibility tree. */
+@media (max-width: 720px) {
+  .dmd-table thead .dmd-sort { pointer-events: none; }
+
+  /* A signal a product does not have prints no line on a phone.
+     This is NOT the "hiding columns silently deletes data" failure DESIGN §5
+     names — that is about dropping a column that has values in it. Here the
+     column is intact and the value is nothing: on desktop the em dash has to
+     be drawn because a table cell holds a column's place, and in card mode
+     there is no place to hold. A typical row carries one or two of the four
+     signals, so without this three quarters of every phone card is the word
+     "—" under a heading, and the two figures that matter are buried in it. */
+  .dmd-table td:has(.dmd-zero) { display: none; }
+}
+
+/* ── Prose under a card ──
+   `.anx-foot` is a flex row, which is right for the insights band's one-line
+   feet — an icon, a sentence, two links — and wrong here: every JSX text node
+   between a `<strong>` or a `<Link>` becomes its own flex item, so a sentence
+   with emphasis in the middle of it breaks onto a new line at every tag and
+   comes out as ragged fragments. These footnotes are paragraphs, so they are
+   drawn as paragraphs. */
+.dmd-note {
+  margin: var(--sp-3) 0 0;
+  /* A line of prose under a full-width table would otherwise run the table's
+     own measure — about 190 characters, near three times what anyone reads
+     across. DESIGN §5's `--shell-prose` is a page wrapper; this is the same
+     rule applied to a paragraph inside a card. */
+  max-width: 84ch;
+  font-size: var(--fs-2xs);
+  line-height: 1.55;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.dmd-note strong { color: var(--text-secondary); font-weight: 600; }
+.dmd-note a { color: var(--text-secondary); }
+
+/* The one-line summary directly under a ranked list: the storefront split, or
+   what the velocity means for the shelf. Closer and slightly louder than the
+   footnote below it, because it is a figure rather than a caveat. */
+.dmd-split {
+  margin: var(--sp-25) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+/* The toggle sits on its own line under the footnote, never inline in it:
+   a button dropped into a paragraph of muted 10px prose is a control nobody
+   sees and everybody clicks by accident. */
+.dmd .dmd-track-btn { margin-top: var(--sp-3); }
+
+/* ── The ranked lists on a phone ──
+   `RankedBars` splits its row 1.6fr / 1fr / auto, which is right in a desktop
+   card at ~600px and wrong at 346px: the name track lands near 150px and every
+   product truncates to "Race Prod…". The full text is on the row's `title`,
+   and a title is a hover — which a phone does not have (DESIGN §4), so on
+   touch that is the name simply gone.
+
+   The bar is the element that can afford to lose the width. It is a
+   proportion, and a proportion still reads at forty pixels; a name does not
+   read at nothing. Scoped to this band rather than changed in the widget,
+   because the insights band's ranked lists carry brand names and bucket
+   labels that already fit. */
+@media (max-width: 720px) {
+  .dmd .wdg-rank-row { grid-template-columns: minmax(0, 2.6fr) minmax(40px, 1fr) auto; }
+}
+
+/* ── The counting notice ── */
+.dmd-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid rgba(var(--warning-rgb), 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--warning-rgb), 0.07);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.dmd-notice svg { flex-shrink: 0; color: var(--warning); }
+.dmd-notice span { flex: 1 1 16ch; min-width: 0; }
+.dmd-track-btn { flex-shrink: 0; }

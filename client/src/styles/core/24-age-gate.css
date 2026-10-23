@@ -1,0 +1,274 @@
+/* ===============================
+   AGE GATE
+   ===============================
+   A blocking, full-viewport confirmation. It paints its own ground rather than
+   relying on a translucent scrim, because the whole point is that the catalog
+   behind it must not be legible. */
+.age-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-5);
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  animation: age-gate-in 0.35s var(--ease-panel);
+  overflow-y: auto;
+}
+@keyframes age-gate-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Two slow-drifting brand orbs behind the card. */
+.age-gate::before,
+.age-gate::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.age-gate::before {
+  width: 42vmax;
+  height: 42vmax;
+  top: -14vmax;
+  left: -12vmax;
+  background: var(--primary-glow);
+  animation: age-orb-a 1.6s var(--ease-panel) both;
+}
+.age-gate::after {
+  width: 36vmax;
+  height: 36vmax;
+  bottom: -14vmax;
+  right: -10vmax;
+  background: var(--secondary-glow);
+  animation: age-orb-b 1.9s var(--ease-panel) both;
+}
+/* One settle, then still. A gate the visitor has to read is the worst place
+   for something that keeps moving at the edge of their vision. */
+@keyframes age-orb-a {
+  from { opacity: 0; transform: translate3d(-3vmax, -2vmax, 0) scale(0.86); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes age-orb-b {
+  from { opacity: 0; transform: translate3d(3vmax, 2vmax, 0) scale(0.9); }
+  to   { opacity: 1; transform: none; }
+}
+
+.age-gate-card {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  padding: var(--sp-10) var(--sp-8) var(--sp-8);
+  text-align: center;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  box-shadow: var(--glass-shadow), 0 0 48px var(--card-glow);
+  animation: age-card-in 0.45s var(--ease-panel) both;
+}
+@keyframes age-card-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+/* Brand hairline along the top edge. */
+.age-gate-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+}
+
+/* The brand mark is the card's focal point. There is no emblem disc behind it:
+   the age is already stated in the headline, and a second circular badge only
+   competed with the logo for the same spot. */
+.age-gate-brand {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin: 0 auto var(--sp-6);
+  min-height: 60px;
+}
+/* Soft brand halo pooled under the mark. Static — it reads as light spill from
+   the logo rather than as something asking to be looked at. */
+.age-gate-brand::before {
+  content: '';
+  position: absolute;
+  width: 190px;
+  height: 96px;
+  max-width: 100%;
+  border-radius: 50%;
+  background: var(--primary-glow);
+  filter: blur(38px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.age-gate-brand > * { position: relative; }
+
+.age-gate-logo {
+  height: 60px;
+  width: auto;
+  max-width: min(220px, 100%);
+  object-fit: contain;
+}
+.age-gate-logo-round { border-radius: 50%; }
+
+/* Same masking trick as the navbar: paint the brand colour *through* the
+   logo's own shape so a fixed-colour file follows a re-themed palette. Keyed
+   off the same `navbar_logo_dynamic_color` setting, because an admin who asked
+   for a recoloured logo meant the logo, not one particular bar it sits in. */
+.age-gate-logo-dynamic {
+  height: 60px;
+  width: min(220px, 100%);
+  /* Rides `--logo-color` with the navbar — one setting recolours the mark
+     everywhere it appears, or the two drift the first time someone tunes one. */
+  background-color: var(--logo-color, var(--primary));
+  -webkit-mask-image: var(--logo-src);
+  mask-image: var(--logo-src);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  transition: background-color var(--transition);
+}
+/* A mask has no intrinsic shape to round. */
+.age-gate-logo-dynamic.age-gate-logo-round { border-radius: 0; }
+
+/* Fallback focal point for a store with no logo uploaded. */
+.age-gate-wordmark {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+/* Small inline chip above the headline — carries the shield without becoming a
+   second focal point. */
+.age-gate-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-1) var(--sp-3);
+  margin-bottom: var(--sp-4);
+  border-radius: var(--pill);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+}
+.age-gate-denied .age-gate-chip {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
+.age-gate-denied .age-gate-brand::before {
+  background: color-mix(in srgb, var(--danger) 40%, transparent);
+  opacity: 0.35;
+}
+
+.age-gate-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  line-height: 1.2;
+  margin-bottom: var(--sp-25);
+}
+.age-gate-message {
+  color: var(--text-secondary);
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  margin-bottom: var(--sp-6);
+}
+.age-gate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-25);
+}
+.age-gate-confirm {
+  width: 100%;
+  justify-content: center;
+  padding: var(--sp-3) var(--sp-6) !important;
+  font-size: var(--fs-md) !important;
+  font-weight: 600;
+}
+.age-gate-decline {
+  width: 100%;
+  justify-content: center;
+  background: transparent !important;
+  border-color: var(--border) !important;
+  color: var(--text-muted) !important;
+}
+.age-gate-decline:hover:not(:disabled) {
+  color: var(--text-secondary) !important;
+  border-color: var(--border-hover) !important;
+}
+
+/* Date-of-birth variant. */
+.age-gate-dob {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: center;
+  margin-bottom: var(--sp-4);
+}
+.age-gate-dob .glass-input {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum";
+}
+.age-gate-dob-day   { width: 74px; }
+.age-gate-dob-month { width: 74px; }
+.age-gate-dob-year  { width: 96px; }
+
+.age-gate-error {
+  color: var(--danger);
+  font-size: var(--fs-base);
+  margin-bottom: var(--sp-4);
+  min-height: 1.2em;
+}
+.age-gate-fineprint {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+
+@media (max-width: 480px) {
+  .age-gate-card { padding: var(--sp-8) var(--sp-5) var(--sp-6); }
+  .age-gate-title { font-size: var(--fs-xl); }
+  .age-gate-logo,
+  .age-gate-logo-dynamic { height: 50px; }
+  .age-gate-wordmark { font-size: var(--fs-2xl); }
+  /* Three date boxes plus gaps must fit 320px minus the card's own padding. */
+  .age-gate-dob { gap: var(--sp-15); }
+  .age-gate-dob-day,
+  .age-gate-dob-month { width: 64px; }
+  .age-gate-dob-year { width: 84px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .age-gate,
+  .age-gate-card,
+  .age-gate::before,
+  .age-gate::after { animation: none !important; }
+}
+

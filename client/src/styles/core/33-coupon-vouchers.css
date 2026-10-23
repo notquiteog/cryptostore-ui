@@ -1,0 +1,754 @@
+/* ===============================
+   COUPON VOUCHERS (admin)
+   ===============================
+   A coupon is a physical object, so it is drawn as one: a ticket with a
+   tear-off stub, punched notches either side of the perforation, and a
+   barcode derived from the code itself. The same component prints, which is
+   why the geometry is built from a mask rather than from overlaid circles —
+   a mask actually removes the notch, so the page (or the paper) shows
+   through it and the cut line is honest.
+
+   Every custom property here is `--cpn-` prefixed. Names like `--accent`
+   would shadow the theme for every descendant, and any whose value is itself
+   a theme token would resolve to a cyclic reference and silently drop. */
+
+.coupon-grid {
+  display: grid;
+  /* min() keeps a single column from demanding 340px on a 320px phone. */
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  gap: var(--sp-5);
+}
+
+/* The shell carries the shadow. A mask clips everything the element paints,
+   box-shadow included, so the glow has to live on a parent — as a
+   drop-shadow filter, which follows the masked silhouette instead of the
+   rectangle and so hugs the notches. */
+.coupon-shell {
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.34));
+  transition: transform 0.28s var(--ease-panel), filter 0.28s var(--ease-panel);
+  will-change: transform;
+}
+.coupon-shell:hover {
+  transform: translateY(-4px);
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.42))
+          drop-shadow(0 0 18px var(--cpn-glow, transparent));
+}
+:root[data-theme="light"] .coupon-shell {
+  filter: drop-shadow(0 6px 14px rgba(15, 23, 42, 0.16));
+}
+:root[data-theme="light"] .coupon-shell:hover {
+  filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.22))
+          drop-shadow(0 0 16px var(--cpn-glow, transparent));
+}
+
+.coupon {
+  --cpn-tone: var(--primary);
+  --cpn-glow: var(--primary-glow);
+  /* The voucher's own proportions, in type units rather than pixels: a
+     printed-ticket metaphor only holds together if the stub, the body and the
+     code down its edge grow together. Pinned at 96/178/88 the stub stayed a
+     laptop's stub while the code inside it grew with the interface, and at
+     7680 the vertical code was clipped by its own max-height. These evaluate
+     to exactly the old numbers at desktop scale. */
+  --cpn-stub: calc(var(--fs-unit) * 6);
+  --cpn-notch: 13px;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--cpn-stub);
+  min-height: calc(var(--fs-unit) * 11.125);
+  border-radius: var(--radius);
+  overflow: hidden;
+  color: var(--text);
+  background:
+    radial-gradient(120% 90% at 0% 0%,
+      color-mix(in srgb, var(--cpn-tone) 20%, transparent) 0%, transparent 62%),
+    linear-gradient(180deg,
+      rgba(var(--tint-rgb), 0.075) 0%, rgba(var(--tint-rgb), 0.028) 100%);
+  box-shadow: inset 0 0 0 1px var(--border);
+
+  /* Two half-height layers, each punching one notch on the perforation line.
+     Multiple mask layers union, so a pixel hides only where both are clear. */
+  -webkit-mask:
+    radial-gradient(circle var(--cpn-notch) at calc(100% - var(--cpn-stub)) 0,
+      transparent 98%, #000 100%) top / 100% 50.5% no-repeat,
+    radial-gradient(circle var(--cpn-notch) at calc(100% - var(--cpn-stub)) 100%,
+      transparent 98%, #000 100%) bottom / 100% 50.5% no-repeat;
+  mask:
+    radial-gradient(circle var(--cpn-notch) at calc(100% - var(--cpn-stub)) 0,
+      transparent 98%, #000 100%) top / 100% 50.5% no-repeat,
+    radial-gradient(circle var(--cpn-notch) at calc(100% - var(--cpn-stub)) 100%,
+      transparent 98%, #000 100%) bottom / 100% 50.5% no-repeat;
+}
+
+.coupon-flat { --cpn-tone: var(--success); --cpn-glow: rgba(var(--success-rgb), 0.34); }
+
+/* Spent, switched off or out of date: the ticket stays legible but stops
+   competing with the live ones for attention. */
+.coupon-dead {
+  --cpn-tone: var(--text-muted);
+  --cpn-glow: transparent;
+}
+.coupon-dead .coupon-body > *:not(.coupon-stamp) { opacity: 0.55; }
+.coupon-dead .coupon-stub { opacity: 0.5; }
+
+.coupon-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+  min-width: 0;
+}
+
+.coupon-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.coupon-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--cpn-tone);
+}
+
+.coupon-state {
+  flex-shrink: 0;
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--cpn-tone);
+  background: color-mix(in srgb, var(--cpn-tone) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cpn-tone) 34%, transparent);
+}
+
+/* The number is the whole point of the card, so it is sized like a headline
+   and clamped so a three-digit flat discount cannot push the stub off. */
+.coupon-amount {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--cpn-tone);
+  text-shadow: 0 0 26px var(--cpn-glow);
+  min-width: 0;
+}
+.coupon-amount-num {
+  font-size: clamp(2.1rem, 9vw, 2.9rem);
+  font-feature-settings: "tnum";
+}
+.coupon-amount-unit {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.coupon-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.coupon-term {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.coupon-term svg { flex-shrink: 0; opacity: 0.7; }
+.coupon-term.is-warn { color: var(--warning); }
+
+/* Redemption meter — only drawn when the coupon actually has a ceiling. */
+.coupon-meter {
+  height: 4px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.1);
+  overflow: hidden;
+}
+.coupon-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cpn-tone);
+  box-shadow: 0 0 10px var(--cpn-glow);
+  transition: width 0.5s var(--ease-panel);
+}
+.coupon-meter-fill.is-full { background: var(--warning); box-shadow: none; }
+
+.coupon-code-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin-top: auto;
+  min-width: 0;
+}
+.coupon-code {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-15) var(--sp-25);
+  border-radius: var(--radius-sm);
+  border: 1px dashed color-mix(in srgb, var(--cpn-tone) 45%, transparent);
+  background: color-mix(in srgb, var(--cpn-tone) 9%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--text);
+  text-align: center;
+  /* A long code shortens rather than widening the card past its column. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coupon-copy {
+  flex-shrink: 0;
+  padding: var(--sp-15) !important;
+  line-height: 0;
+}
+
+/* ── Tear-off stub ── */
+.coupon-stub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-15);
+  min-width: 0;
+  border-left: 2px dashed color-mix(in srgb, var(--cpn-tone) 40%, transparent);
+  background: color-mix(in srgb, var(--cpn-tone) 7%, transparent);
+  color: var(--cpn-tone);
+}
+
+/* A real Code 128 of the coupon code (utils/code128), painted top-to-bottom
+   on the vertical stub. Full size and `no-repeat`: a code that tiles scans
+   twice. The code is printed beside it in text for a human. */
+.coupon-barcode {
+  flex: 1;
+  width: 100%;
+  min-height: 42px;
+  background-image: linear-gradient(180deg, var(--cpn-bars));
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  opacity: 0.85;
+}
+
+.coupon-stub-code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  max-height: calc(var(--fs-unit) * 5.5);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Rubber stamp for a ticket that can no longer be redeemed. */
+.coupon-stamp {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-13deg);
+  padding: var(--sp-05) var(--sp-25);
+  border: 3px solid currentColor;
+  border-radius: 7px;
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 4.6vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--danger);
+  opacity: 0.42;
+  pointer-events: none;
+}
+.coupon-stamp.is-muted { color: var(--text-muted); opacity: 0.5; }
+
+/* ── Row of actions under each ticket ── */
+.coupon-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+  margin-top: var(--sp-25);
+}
+.coupon-actions .glass-btn { flex: 1 1 auto; justify-content: center; }
+
+/* ── Narrow screens: the stub moves under the body and the perforation with
+   it, so the ticket keeps its shape instead of squeezing to a sliver. ── */
+@media (max-width: 560px) {
+  .coupon {
+    --cpn-stub: 62px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) var(--cpn-stub);
+    -webkit-mask:
+      radial-gradient(circle var(--cpn-notch) at 0 calc(100% - var(--cpn-stub)),
+        transparent 98%, #000 100%) left / 50.5% 100% no-repeat,
+      radial-gradient(circle var(--cpn-notch) at 100% calc(100% - var(--cpn-stub)),
+        transparent 98%, #000 100%) right / 50.5% 100% no-repeat;
+    mask:
+      radial-gradient(circle var(--cpn-notch) at 0 calc(100% - var(--cpn-stub)),
+        transparent 98%, #000 100%) left / 50.5% 100% no-repeat,
+      radial-gradient(circle var(--cpn-notch) at 100% calc(100% - var(--cpn-stub)),
+        transparent 98%, #000 100%) right / 50.5% 100% no-repeat;
+  }
+  .coupon-stub {
+    flex-direction: row;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-4);
+    border-left: none;
+    border-top: 2px dashed color-mix(in srgb, var(--cpn-tone) 40%, transparent);
+  }
+  .coupon-barcode {
+    min-height: 0;
+    height: 100%;
+    background-image: linear-gradient(90deg, var(--cpn-bars));
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+  }
+  .coupon-stub-code {
+    writing-mode: horizontal-tb;
+    transform: none;
+    max-height: none;
+    max-width: 45%;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coupon-shell,
+  .coupon-shell:hover { transform: none; transition: none; }
+  .coupon-meter-fill { transition: none; }
+}
+
+/* ── Tearing a ticket in half ────────────────────────────────────────────
+   What a delete looks like: the ticket rips along the perforation it already
+   has, and the two halves rotate apart and fall out of the grid.
+
+   The parent cannot hold them through this. `.coupon` clips twice — once with
+   `overflow`, again with the notch mask — and both clip at its own border
+   box, which the halves are about to leave entirely. So for the length of the
+   rip the ticket's paint moves down onto the halves themselves. Nothing new
+   is drawn: the notch circles are centred on the seam, so half a circle on
+   each half's seam edge rebuilds exactly the silhouette the mask was cutting,
+   and the background is the same two layers `.coupon` was painting.
+
+   The duration here is mirrored by TEAR_MS in pages/admin/Coupons.jsx, which
+   is what keeps the row in the grid until the halves have landed. Shortening
+   one without the other either strands the halves mid-air or leaves an empty
+   cell sitting in the grid after they have gone. */
+
+.coupon-shell.is-tearing {
+  /* Lifts the falling halves over the neighbouring tickets rather than
+     letting them slide behind the next row. */
+  position: relative;
+  z-index: 4;
+  pointer-events: none;
+  /* The hover lift would fight the fall. The drop-shadow is left alone on
+     purpose — a filter follows what its subtree actually renders, so the
+     shadow travels with each half instead of staying behind as a rectangle. */
+  transform: none;
+  transition: none;
+}
+.coupon-shell.is-tearing .coupon-actions {
+  animation: coupon-tear-fade 200ms ease-out forwards;
+}
+@keyframes coupon-tear-fade {
+  to { opacity: 0; }
+}
+
+.coupon.is-tearing {
+  overflow: visible;
+  background: none;
+  box-shadow: none;
+  -webkit-mask: none;
+  mask: none;
+}
+
+/* The rip: a hairline of the ticket's own tone flaring down the seam and gone
+   again inside a quarter second. It is the one frame that says these two
+   halves were a single object a moment ago. */
+.coupon.is-tearing::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(100% - var(--cpn-stub));
+  width: 2px;
+  margin-left: -1px;
+  background: var(--cpn-tone);
+  box-shadow: 0 0 10px var(--cpn-tone);
+  opacity: 0;
+  pointer-events: none;
+  animation: coupon-tear-seam 260ms ease-out forwards;
+}
+@keyframes coupon-tear-seam {
+  0%   { opacity: 0;    transform: scaleX(1); }
+  22%  { opacity: 0.85; transform: scaleX(2.6); }
+  100% { opacity: 0;    transform: scaleX(1); }
+}
+
+/* Each half picks up the ticket's hairline, its own outer corners, and its
+   share of the notch. The inset hairline now runs down the seam edge too,
+   which is what draws the torn edges as the two pull apart. */
+.coupon.is-tearing > .coupon-body,
+.coupon.is-tearing > .coupon-stub {
+  box-shadow: inset 0 0 0 1px var(--border);
+  animation-duration: 760ms;
+  animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.4);
+  animation-fill-mode: forwards;
+}
+
+.coupon.is-tearing > .coupon-body {
+  border-radius: var(--radius) 0 0 var(--radius);
+  background-image:
+    radial-gradient(120% 90% at 0% 0%,
+      color-mix(in srgb, var(--cpn-tone) 20%, transparent) 0%, transparent 62%),
+    linear-gradient(180deg,
+      rgba(var(--tint-rgb), 0.075) 0%, rgba(var(--tint-rgb), 0.028) 100%);
+  -webkit-mask:
+    radial-gradient(circle var(--cpn-notch) at 100% 0,
+      transparent 98%, #000 100%) top / 100% 50.5% no-repeat,
+    radial-gradient(circle var(--cpn-notch) at 100% 100%,
+      transparent 98%, #000 100%) bottom / 100% 50.5% no-repeat;
+  mask:
+    radial-gradient(circle var(--cpn-notch) at 100% 0,
+      transparent 98%, #000 100%) top / 100% 50.5% no-repeat,
+    radial-gradient(circle var(--cpn-notch) at 100% 100%,
+      transparent 98%, #000 100%) bottom / 100% 50.5% no-repeat;
+  transform-origin: 85% 50%;
+  animation-name: coupon-tear-body;
+}
+
+.coupon.is-tearing > .coupon-stub {
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background-image:
+    linear-gradient(180deg,
+      rgba(var(--tint-rgb), 0.075) 0%, rgba(var(--tint-rgb), 0.028) 100%);
+  -webkit-mask:
+    radial-gradient(circle var(--cpn-notch) at 0 0,
+      transparent 98%, #000 100%) top / 100% 50.5% no-repeat,
+    radial-gradient(circle var(--cpn-notch) at 0 100%,
+      transparent 98%, #000 100%) bottom / 100% 50.5% no-repeat;
+  mask:
+    radial-gradient(circle var(--cpn-notch) at 0 0,
+      transparent 98%, #000 100%) top / 100% 50.5% no-repeat,
+    radial-gradient(circle var(--cpn-notch) at 0 100%,
+      transparent 98%, #000 100%) bottom / 100% 50.5% no-repeat;
+  transform-origin: 15% 50%;
+  animation-name: coupon-tear-stub;
+}
+
+/* The stub is the lighter half, so it goes further and turns more on the way
+   down. Both start with a jolt rather than easing off the mark — paper that
+   is torn separates before it falls. */
+@keyframes coupon-tear-body {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  9%   { transform: translate3d(-2px, 0, 0) rotate(-1deg); opacity: 1; }
+  20%  { transform: translate3d(-4px, 2px, 0) rotate(-2deg); opacity: 1; }
+  100% { transform: translate3d(-30px, 128%, 0) rotate(-16deg); opacity: 0; }
+}
+@keyframes coupon-tear-stub {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  9%   { transform: translate3d(3px, -1px, 0) rotate(2deg); opacity: 1; }
+  20%  { transform: translate3d(6px, 1px, 0) rotate(4deg); opacity: 1; }
+  100% { transform: translate3d(40px, 150%, 0) rotate(28deg); opacity: 0; }
+}
+
+/* Narrow screens: the perforation is horizontal and the stub sits underneath,
+   so the notches move to the seam's two ends and the corners swap rows. The
+   fall keyframes are reused as they are — they read the same whichever way
+   the ticket was split. */
+@media (max-width: 560px) {
+  .coupon.is-tearing::after {
+    top: calc(100% - var(--cpn-stub));
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 2px;
+    margin-left: 0;
+    margin-top: -1px;
+    animation-name: coupon-tear-seam-h;
+  }
+  .coupon.is-tearing > .coupon-body {
+    border-radius: var(--radius) var(--radius) 0 0;
+    -webkit-mask:
+      radial-gradient(circle var(--cpn-notch) at 0 100%,
+        transparent 98%, #000 100%) left / 50.5% 100% no-repeat,
+      radial-gradient(circle var(--cpn-notch) at 100% 100%,
+        transparent 98%, #000 100%) right / 50.5% 100% no-repeat;
+    mask:
+      radial-gradient(circle var(--cpn-notch) at 0 100%,
+        transparent 98%, #000 100%) left / 50.5% 100% no-repeat,
+      radial-gradient(circle var(--cpn-notch) at 100% 100%,
+        transparent 98%, #000 100%) right / 50.5% 100% no-repeat;
+    transform-origin: 50% 85%;
+  }
+  .coupon.is-tearing > .coupon-stub {
+    border-radius: 0 0 var(--radius) var(--radius);
+    -webkit-mask:
+      radial-gradient(circle var(--cpn-notch) at 0 0,
+        transparent 98%, #000 100%) left / 50.5% 100% no-repeat,
+      radial-gradient(circle var(--cpn-notch) at 100% 0,
+        transparent 98%, #000 100%) right / 50.5% 100% no-repeat;
+    mask:
+      radial-gradient(circle var(--cpn-notch) at 0 0,
+        transparent 98%, #000 100%) left / 50.5% 100% no-repeat,
+      radial-gradient(circle var(--cpn-notch) at 100% 0,
+        transparent 98%, #000 100%) right / 50.5% 100% no-repeat;
+    transform-origin: 50% 15%;
+  }
+}
+@keyframes coupon-tear-seam-h {
+  0%   { opacity: 0;    transform: scaleY(1); }
+  22%  { opacity: 0.85; transform: scaleY(2.6); }
+  100% { opacity: 0;    transform: scaleY(1); }
+}
+
+/* Reduced motion: nothing is thrown. The halves keep the paint and the notch
+   they were just handed, so the ticket looks untouched — it only dims to say
+   the delete is in flight, and disappears when the server answers. */
+@media (prefers-reduced-motion: reduce) {
+  .coupon-shell.is-tearing { opacity: 0.4; }
+  .coupon-shell.is-tearing .coupon-actions,
+  .coupon.is-tearing > .coupon-body,
+  .coupon.is-tearing > .coupon-stub { animation: none; }
+  .coupon.is-tearing::after { display: none; }
+}
+
+
+/* ── The wall of codes ───────────────────────────────────────────────────────
+   The second half of the DESIGN §6 answer recorded at the top of
+   `pages/admin/Coupons.jsx`: the ticket above is what one coupon looks like,
+   and this is what forty look like. The structure — the frame, the hairline,
+   the hover, the truncation and the phone shape — is the shared `.lrows` /
+   `.lrow` primitive in 74-list-views.css; what lives here is only what is
+   specific to a coupon.
+
+   Nothing is dropped on the way from the ticket to the line. Code, kind,
+   discount, redemption meter, expiry, state, minimum order and per-customer
+   limit are all still on screen, re-flowed along one axis instead of stacked —
+   §5, because a "compact view" that quietly deletes the redemption count is
+   the view an operator cannot use to decide anything. */
+
+/* The code is the record's identity, so it is the one thing sized up rather
+   than down, and it is mono because a wall of them is read character by
+   character — O against 0 is the difference between a code that works and a
+   support ticket. */
+.cpn-lrow-code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Spent, switched off or out of date: the code steps back a contrast stop
+   rather than the whole row fading. Dimming the line would take the meter and
+   the expiry down with it, and those are exactly what somebody deciding
+   whether to delete the thing is reading. */
+.cpn-lrow.is-spent .cpn-lrow-code { color: var(--text-secondary); }
+
+/* The state pill fills its track so the column reads as one edge instead of
+   five ragged pills. `.coupon-state` is the ticket's own pill, reused: it
+   already takes its colour from `--cpn-tone`, which the row sets. */
+.cpn-lrow-state { text-align: center; }
+
+/* The figure the discount is worth. `--font-display` on the ticket, because
+   there it is a headline; mono here, because here it is a column. */
+.cpn-lrow-value { font-weight: 700; }
+
+/* Redemptions: the count over the meter the ticket already draws, at a third
+   of the height. Two channels for one fact — §3, so the bar can go to zero
+   glow and the numbers still say how much is left. */
+.cpn-lrow-uses {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.cpn-lrow-uses small {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-align: right;
+}
+.cpn-lrow-meter { height: 3px; }
+
+/* Dates in mono so a column of them lines up, with the relative reading under
+   it — nobody should have to subtract today from a date forty times. */
+.cpn-lrow-exp {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+}
+.cpn-lrow-exp .is-warn { color: var(--warning); }
+
+/* Minimum order and per-customer limit — the two conditions that decide
+   whether a code fires at all. Terse and mono: it is a spec line, not prose. */
+.cpn-lrow-scope {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+}
+
+/* Icon-only actions, so four controls per line cost about the width of one
+   labelled button. `.glass-btn-sm`'s own padding is sized for a word beside
+   the glyph. */
+.cpn-lrow .lrow-actions .glass-btn {
+  padding-inline: var(--sp-2);
+  gap: 0;
+}
+
+/* Right-aligned headings over the right-aligned numerals, and a centred one
+   over the pill — a heading that does not sit above its own column is worse
+   than none. */
+.cpn-rows .lrows-head .cpn-lrow-h-num { text-align: right; }
+.cpn-rows .lrows-head .cpn-lrow-h-mid { text-align: center; }
+
+/* The phone shape. 74-list-views.css collapses the row to `1fr auto` at this
+   container width and every cell is still present; the DOM order was chosen so
+   that collapse lands somewhere readable — code beside its state on the first
+   line, then the discount beside what is left of it, then expiry, scope and
+   the controls each on their own. All that is left to fix here is the
+   alignment: a right-aligned figure in the wide first column reads as
+   belonging to the cell on its right. */
+@container (max-width: 560px) {
+  .cpn-lrow .cpn-lrow-value { text-align: left; }
+  .cpn-lrow .cpn-lrow-state { text-align: right; justify-self: end; }
+  .cpn-lrow .cpn-lrow-scope,
+  .cpn-lrow .cpn-lrow-exp { grid-column: 1 / -1; }
+}
+
+/* §9 again: the empty state's ways out, laid in a row rather than stacked.
+   `.empty-state`'s own rule puts 1.25rem above every button it contains, which
+   in a flex row would be applied to each of three. */
+.cpn-empty-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+.cpn-empty-acts .glass-btn,
+.cpn-empty-acts a.glass-btn { margin-top: 0; }
+
+/* ── What the codes did ─────────────────────────────────────────────────────
+ *
+ * The performance panel above the coupon cards. Deliberately quiet: it is a
+ * report beside the page's real work, and the vouchers below it are what an
+ * operator came here to handle. Same construction as the pack bench's shift
+ * panel (`.pks-*` in 67-fulfilment.css) — a head, a list of wrapping rows,
+ * and a footnote — because it is the same kind of object and re-inventing the
+ * layout would have it drift from that one at the first responsive fix.
+ */
+.cpf-panel {
+  padding: var(--sp-4);
+}
+
+.cpf-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+/* The Ask button sits at the far end of the head, where every other console
+   card puts it. */
+.cpf-ask {
+  margin-left: auto;
+}
+
+.cpf-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* A code and a run of figures, wrapping rather than scrolling — on a phone
+   these stack, and a horizontal scroller would hide the money, which is the
+   column somebody opened the panel for. */
+.cpf-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--glass-border);
+}
+.cpf-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.cpf-code {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  min-width: 8ch;
+}
+
+.cpf-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.cpf-stat em {
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+}
+
+/* First orders are the one figure here that is good news rather than a cost,
+   so it is the one that gets a colour. DESIGN §3: the tone says "this is the
+   thing worth noticing", not "this is an alarm". */
+.cpf-stat.is-new {
+  color: var(--success);
+}
+
+.cpf-more {
+  margin: var(--sp-2) 0 0;
+}
+
+/* The comparison, and the sentence refusing to turn it into a verdict. Quiet
+   like the bench panel's caveat, and present for the same reason: a figure
+   shown beside another figure invites a causal reading, and this says plainly
+   that the shop does not know. */
+.cpf-baseline {
+  margin: var(--sp-3) 0 0;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--glass-border);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}

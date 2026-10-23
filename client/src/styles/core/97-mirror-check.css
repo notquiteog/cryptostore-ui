@@ -1,0 +1,248 @@
+/* ===============================
+   THE ADDRESS CHECK — a bar on the auth card
+   ===============================
+   components/MirrorCheck.jsx, mounted as the last child of every
+   `.auth-card`. Folded, it is a thin strip fused to the card's bottom edge:
+   the host, a word, a colour. Green means the address is in the store's
+   signed mirror list, red means it is not, neutral means local or
+   unverifiable. Pressed, it unfolds the full check beneath it and folds
+   back on a second press.
+
+   Fused, not floated: the strip bleeds out to the card's edges with
+   negative margins the size of the card's own padding (`--auth-card-pad`,
+   declared on .auth-card), and `.glass-card`'s overflow: hidden clips its
+   corners to the card's radius. It reads as part of the card because it is.
+
+   The colour is never the only channel: the word is in the bar, the glyph
+   changes with it, and the red state also lifts its border — so a store
+   flattened to --glow-strength: 0, or a palette where red and green sit
+   close, still says which it is (DESIGN §3). */
+
+.auth-card { --auth-card-pad: 1.5rem; padding: var(--auth-card-pad); }
+
+.mirror-check {
+  margin: var(--sp-5) calc(-1 * var(--auth-card-pad)) calc(-1 * var(--auth-card-pad));
+  container-type: inline-size;
+}
+
+/* ── The bar ── */
+.mc-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 30px;
+  padding: 0 var(--auth-card-pad);
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.06);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.mc-bar > svg { flex-shrink: 0; }
+.mc-bar-host {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mc-bar-word { flex-shrink: 0; opacity: 0.85; }
+.mc-bar-word::before { content: '·'; margin-right: var(--sp-2); opacity: 0.6; }
+.mc-bar-chev {
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: transform var(--dur-2) var(--ease-spring);
+}
+.is-open .mc-bar-chev { transform: rotate(180deg); }
+.mc-bar:hover { background: rgba(var(--tint-rgb), 0.1); color: var(--text-secondary); }
+.mc-bar:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* The two verdict colours are laid on thick enough to read at a glance on a
+   muted palette — a 13% wash of a soft-green success token was grey in a
+   screenshot — and each state also rules the card's bottom edge in its
+   colour, so the verdict is a stripe as well as a fill. */
+.is-ok .mc-bar {
+  border-top-color: rgba(var(--success-rgb), 0.45);
+  background: rgba(var(--success-rgb), 0.22);
+  color: var(--success);
+  font-weight: 600;
+  box-shadow: inset 0 -3px 0 var(--success);
+}
+.is-ok .mc-bar:hover { background: rgba(var(--success-rgb), 0.3); }
+.is-bad .mc-bar {
+  border-top-color: rgba(var(--danger-rgb), 0.6);
+  background: rgba(var(--danger-rgb), 0.26);
+  color: var(--danger);
+  font-weight: 600;
+  box-shadow: inset 0 -3px 0 var(--danger);
+}
+.is-bad .mc-bar:hover { background: rgba(var(--danger-rgb), 0.34); }
+/* The one glow on the card: the address is wrong, which is the state §3
+   reserves glow for. */
+.is-bad .mc-bar > svg { filter: drop-shadow(0 0 6px rgba(var(--danger-rgb), 0.55)); }
+
+/* ── The fold ── */
+/* The receipt's trick: the panel is a grid whose one row track goes 0fr →
+   1fr, so it reveals its natural height with nothing measured in JS. */
+.mc-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-3) var(--ease-settle);
+}
+.is-open .mc-panel { grid-template-rows: 1fr; }
+.mc-panel-clip { min-height: 0; overflow: hidden; }
+.mc-inner {
+  padding: var(--sp-4) var(--auth-card-pad) var(--sp-4);
+  border-top: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.is-ok .mc-inner { border-top-color: rgba(var(--success-rgb), 0.25); }
+.is-bad .mc-inner { border-top-color: rgba(var(--danger-rgb), 0.35); background: rgba(var(--danger-rgb), 0.05); }
+
+.mc-detail {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.is-bad .mc-detail { color: var(--text); }
+.mc-host {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text);
+}
+.is-bad .mc-host { color: var(--danger); }
+
+/* ── The list and the box ── */
+.mc-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+/* The card is 420px at most, so this only ever fires on a wider host. */
+@container (min-width: 520px) {
+  .mc-body { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+}
+
+.mc-body h4,
+.mc-check label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.mc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mc-mirror {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.mc-mirror:hover,
+.mc-mirror:focus-visible { background: rgba(var(--tint-rgb), 0.06); color: var(--text); }
+.mc-list li.is-here .mc-mirror { background: rgba(var(--success-rgb), 0.08); color: var(--text); }
+.mc-kind {
+  flex-shrink: 0;
+  min-width: 2.6rem;
+  padding: 0 var(--sp-1);
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  align-self: center;
+}
+.mc-kind-onion { color: var(--secondary); border-color: rgba(var(--secondary-rgb), 0.4); }
+.mc-mirror-host {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  /* A v3 onion is 62 characters; it wraps at the group rather than pushing
+     the card wide, and the whole thing is in the link's title too. */
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.mc-mirror-label { flex-shrink: 0; font-size: var(--fs-2xs); color: var(--text-muted); }
+
+.mc-check { display: flex; flex-direction: column; min-width: 0; }
+.mc-input { width: 100%; margin: 0; font-family: var(--font-mono); font-size: var(--fs-xs); }
+.mc-result {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.mc-result svg { flex-shrink: 0; margin-top: 2px; }
+.mc-result.is-ok svg { color: var(--success); }
+.mc-result.is-bad { color: var(--danger); }
+.mc-result.is-bad .mc-host { color: var(--danger); }
+.mc-result.is-bad svg { color: var(--danger); }
+.mc-privacy {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* ── The foot: key, list, the caveat ── */
+.mc-foot {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  margin: var(--sp-3) 0 0;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.mc-fp { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-1); min-width: 0; }
+.mc-fp-label { white-space: nowrap; }
+.mc-fp code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.mc-foot a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.mc-unsigned { color: var(--warning); }
+.mc-how { flex: 1 1 100%; line-height: 1.45; text-wrap: pretty; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-panel, .mc-bar, .mc-bar-chev, .mc-mirror { transition: none; }
+}

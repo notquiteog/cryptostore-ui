@@ -1,0 +1,99 @@
+/* ── Checkout recovery ─────────────────────────────────────────────────────
+   What the checkout says after a dropped connection, and what it says beside
+   a field it cannot accept.
+
+   The recovered-order banner replaces uncertainty: the buyer whose page
+   reloaded mid-checkout used to see a blank form and either paid twice or
+   walked away from an order they did not know existed. It is the one lit
+   thing on the page while it is there — glow means "needs attention", and
+   nothing else on a checkout with no cart should compete with it.
+
+   Field errors sit under the field they belong to, in the field's own
+   column, so the eye does not have to travel to a toast that has already
+   faded. The first invalid field also takes focus (Checkout.jsx). */
+
+.ck-recovered {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid rgba(var(--primary-rgb), 0.4);
+  background: rgba(var(--primary-rgb), 0.08);
+  box-shadow: 0 0 24px rgba(var(--primary-rgb), calc(0.22 * var(--glow-strength)));
+  animation: rise-in var(--dur-3) var(--ease-settle) both;
+}
+.ck-recovered > svg { flex-shrink: 0; color: var(--primary); }
+.ck-recovered p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.ck-recovered strong { color: var(--text); }
+.ck-recovered b { font-family: var(--font-mono); font-weight: 700; color: var(--text); }
+.ck-recovered-acts { display: flex; gap: var(--sp-2); flex-shrink: 0; flex-wrap: wrap; }
+.ck-recovered.is-alone {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--sp-5);
+}
+.ck-recovered.is-alone p { font-size: var(--fs-base); }
+
+/* The sealed-address offer and its keep-checkbox. */
+.ck-stash {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(var(--tint-rgb), 0.2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.ck-stash > svg { flex-shrink: 0; color: var(--text-muted); }
+.ck-stash p { flex: 1 1 20ch; min-width: 0; margin: 0; }
+.ck-stash-acts { display: flex; gap: var(--sp-2); }
+.ck-keep {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ck-keep input { margin-top: 3px; flex-shrink: 0; }
+.ck-keep strong { color: var(--text); }
+.ck-keep-note { display: block; margin-top: var(--sp-05); color: var(--text-muted); }
+
+/* Inline field errors. The border says which field; the line says why. */
+.glass-input.is-invalid,
+.pm-grid.is-invalid {
+  border-color: rgba(var(--danger-rgb), 0.6);
+  background: rgba(var(--danger-rgb), 0.05);
+}
+.glass-input.is-invalid:focus { box-shadow: 0 0 0 3px rgba(var(--danger-rgb), 0.25); }
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--danger);
+}
+.field-error svg { flex-shrink: 0; margin-top: 2px; }
+.pm-grid { border-radius: var(--radius-sm); border: 1px solid transparent; }
+.pm-grid:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-recovered { animation: none; }
+}

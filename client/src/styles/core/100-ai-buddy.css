@@ -1,0 +1,1678 @@
+/*
+ * The assistant buddy: the navbar animal and the panel it opens.
+ *
+ * ── Why an animal and not a chat bubble ─────────────────────────────────────
+ *
+ * `docs/DESIGN.md` §1 says the result must not look like AI made it, and a
+ * floating bubble with a sparkle on it fails that before it renders — not
+ * because it is a separate surface but because it is GENERIC. §10 asks for the
+ * opposite: a small number of moments that could only exist in this product.
+ *
+ * What earns the animal its place is §10's actual test — a flourish must do a
+ * job. This one is the AI system's only visible status light. Absent means the
+ * capability is off; asleep means the model is unreachable; awake means ready;
+ * thinking means generating. Every state is read from something real, so it
+ * cannot flatter and cannot lie, and an operator whose tunnel has dropped sees
+ * a dozing animal rather than a silent failure.
+ *
+ * ── Motion ──────────────────────────────────────────────────────────────────
+ *
+ * The frames sit side by side in one strip and a `steps()` animation walks it
+ * left by one frame width per tick, driven from BuddySprite.jsx — which is
+ * also where the note on the `animation-delay` version that silently did
+ * nothing lives. Under `prefers-reduced-motion: reduce` every loop pins to
+ * frame one EXCEPT thinking, by §2's rule that loaders are left alone: a
+ * frozen spinner reads as a hung page, and a frozen companion during a
+ * generation reads as a broken one.
+ *
+ * The three decorative states — `perk` on hover, `greet` when the panel opens,
+ * `happy` when somebody clicks the animal — are declined by the caller under
+ * that preference rather than merely paused here, because a one-shot that is
+ * paused never ends. The selectors below are still listed for them, for the
+ * component that is added later and forgets to ask.
+ */
+
+/* ── The navbar button ─────────────────────────────────────────────────────
+ *
+ * The one control on the bar with NO plate behind it. Every other icon and
+ * button gets an opaque backing so the roaming animal cannot walk through it
+ * and take it with it (`.navbar:has(.buddy-roam)` in 08-navbar.css) — but the
+ * parked sprite is drawn in the roaming layer, one z-index BELOW the bar's
+ * contents, standing exactly here. A plate on this button would hide the
+ * companion whenever it was at home, which is most of the time.
+ */
+
+.buddy-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+/* §4: hover reveals, it does not merely change opacity. The animal gets a
+   surface to sit on and a rim, the way every other nav affordance does. */
+.buddy-button:hover,
+.buddy-button:focus-visible {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.buddy-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.buddy-button[aria-expanded='true'] {
+  background: var(--surface-active);
+  border-color: var(--primary-border);
+}
+
+/*
+ * The perch.
+ *
+ * While the companion is off wandering, its button is an empty 40px hole in
+ * the navbar — and a hover target nobody can see is a hover target nobody
+ * uses. A faint ring says "it lives here", which is also the thing you are
+ * meant to hover to call it back.
+ */
+.buddy-button[data-away='true'] {
+  border-color: var(--border);
+  border-style: dashed;
+}
+
+.buddy-button[data-away='true']:hover,
+.buddy-button[data-away='true']:focus-visible {
+  border-style: solid;
+  border-color: var(--primary-border);
+}
+
+/*
+ * The same button on the admin rail.
+ *
+ * The navbar's 2.5rem square is sized for a row of navigation icons; the rail
+ * puts this on a line of 10px uppercase status text, where a 40px box is a
+ * hole in the header. It keeps every state above — the hover surface, the rim,
+ * the open-panel treatment and the focus ring — because the affordance is the
+ * same one, and only the box it is drawn in changes.
+ */
+.buddy-button-admin {
+  width: auto;
+  height: auto;
+  padding: var(--sp-05);
+}
+
+/* The sprite itself. `image-rendering` is belt and braces with the SVG's own
+   shape-rendering: some engines resample the rasterised result on transform. */
+.buddy-sprite {
+  display: block;
+  /* MUST clip. The frames are laid out side by side inside the group and the
+     viewBox is one frame wide, so `overflow: visible` here would show the
+     whole strip at once — every frame in a row across the navbar. */
+  overflow: hidden;
+  image-rendering: pixelated;
+}
+
+/*
+ * One frame per step.
+ *
+ * The animation shorthand is set inline by BuddySprite.jsx, because `steps()`
+ * needs the frame count as a literal and only the component knows it. What
+ * lives here is the single keyframe, which is the same for every state: walk
+ * the strip left by its own full width, in as many steps as it has frames.
+ */
+@keyframes buddy-scroll {
+  to { transform: translateX(var(--buddy-shift)); }
+}
+
+/* The sleeping animal is dimmed as well as still: "unreachable" should read as
+   quiet, not as a second thing demanding attention. */
+.buddy-sprite-sleep {
+  opacity: 0.55;
+}
+
+/*
+ * The thinking companion sits in a soft halo.
+ *
+ * This is the one piece of motion in the sprite that is NOT on the frame tick,
+ * and it is deliberately not on the animal: a smoothly-easing glow behind a
+ * hard-stepping 16px sprite reads as depth, while the same easing applied to
+ * the sprite itself would blur the pixels and undo `crispEdges`. It also does
+ * the job the state needs doing — "something is happening right now" is
+ * legible from across a room, which a four-pixel change of pose is not.
+ *
+ * `drop-shadow` rather than `box-shadow` so the halo follows the ANIMAL rather
+ * than its bounding box, and it costs nothing at `--glow-strength: 0` because
+ * it is composed from the brand triple and not from the glow token — a store
+ * running glow at zero has switched off decoration, not status.
+ */
+.buddy-sprite-think {
+  animation: buddy-think-glow 1.4s var(--ease-panel) infinite;
+}
+
+@keyframes buddy-think-glow {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(var(--primary-rgb), 0)); }
+  50% { filter: drop-shadow(0 0 3px rgba(var(--primary-rgb), 0.55)); }
+}
+
+/*
+ * Something is waiting. A dot, not a number and not the content.
+ *
+ * docs/AI.md §9: the badge says THAT something is waiting, never WHAT. On a
+ * shop whose buyers care about who is looking over their shoulder, a mascot
+ * announcing "your order shipped" on a shared screen is a leak with a face on
+ * it. The content appears on click, in the panel, like everything else.
+ */
+.buddy-badge {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--nav-bg);
+}
+
+/* ── The panel ───────────────────────────────────────────────────────────────
+ *
+ * One surface, three bands — head, transcript, composer — and the whole point
+ * of this section is that they are built out of the same four things rather
+ * than out of whatever each band happened to need on the day it was written.
+ *
+ * What it looked like before, and why that read as homemade rather than as a
+ * product: the head's furniture was a label, two bare 44px ghost squares with
+ * negative margins, a bordered `<select>` clipped to 11ch (so "think: default"
+ * rendered as "think: defa"), a muted status word and — on the sheet only — a
+ * third ghost square, with `margin-left: auto` declared twice in one flex row.
+ * The composer under it was a 37px field between two 29px buttons, because
+ * `.glass-input` sits on `--control-h` and `.glass-btn-sm` on `--control-h-sm`.
+ * The three bands did not even share an inline padding: `--sp-3`, `--sp-3` and
+ * `--sp-25`, so the field's left edge missed the transcript's by two pixels on
+ * every store. None of that is a bug anybody can point at. Together it is the
+ * "three heights in one strip" §7 names.
+ *
+ * So the rules this section keeps:
+ *
+ *   · ONE inline padding, `--buddy-pad`, for all three bands. Their left edges
+ *     line up because they are the same number and not because somebody
+ *     matched them by eye.
+ *   · ONE control height per band. The composer's field, microphone and Ask
+ *     button are all `--control-h`, which is `max(44px, …)` on a coarse
+ *     pointer (01-tokens.css) — so the touch floor is what the design IS,
+ *     rather than a `@media (pointer: coarse)` block bolted on afterwards to
+ *     patch it up to 44. The head's tools are all `--buddy-tool`.
+ *   · THREE radii, one meaning each, and nothing here invents a fourth:
+ *       --radius-lg   the shell, the same one every navbar popover takes
+ *       --radius      speech — the two turn bubbles, and the composer they are
+ *                     typed into
+ *       --radius-sm   objects — tools, product cards, suggested questions
+ *   · The head reads like `.lc-head` next door (77-live-chat.css): a state dot,
+ *     a display-font title, tools hard right. The two chat surfaces in this app
+ *     should not be two different ideas of what a chat head is.
+ */
+
+.buddy-panel {
+  /* The three bands' shared inline padding, and the head's tool size. Declared
+     here rather than in each rule so a phone or the admin rail can move both
+     with one line. */
+  --buddy-pad: var(--sp-3);
+  --buddy-tool: var(--control-h-sm);
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -8px;
+  z-index: var(--z-drawer);
+  /*
+   * Measured in `--fs-unit`, not in `rem`. DESIGN §5: a literal is a value
+   * that cannot scale, and this panel is a reading surface — on a 3840px
+   * monitor the fluid unit has grown the text inside it by 40% and a fixed
+   * 26rem box would have been cropping lines the rest of the app had room for.
+   */
+  width: min(calc(var(--fs-unit) * 26), calc(100vw - var(--sp-8)));
+  max-height: min(calc(var(--fs-unit) * 34), calc(100vh - var(--sp-16)));
+  display: flex;
+  flex-direction: column;
+  /*
+   * The same surface as every other navbar popover — see `.nav-pop` in
+   * 63-nav-popovers.css. `--overlay-bg` and the LARGE blur, not `--glass-bg`
+   * and the ordinary one.
+   *
+   * This was written from scratch first and it was wrong twice over.
+   * `--glass-bg` is a 5% white TINT meant to sit on the page's own background;
+   * a floating panel has arbitrary page content behind it instead, and the
+   * answer rendered with "No sub-users yet" showing straight through the text.
+   * `--surface-raised` at 0.68 was better and still not enough over a stats
+   * grid.
+   *
+   * The lesson is docs/DESIGN.md §11's, not a new one: inventing a surface
+   * next to a token that already says the same thing is how this system
+   * degrades. There was already a popover surface; this should have used it.
+   *
+   * ORDER MATTERS on the backdrop-filter pair — `-webkit-` FIRST, standard
+   * LAST (06-glass-primitives.css). client/test/backdropFilter.test.mjs fails
+   * the build if it is reordered.
+   */
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--rim-inset), var(--shadow-lg);
+  overflow: hidden;
+  /* §2: everything arrives. --ease-spring for a small object, which is what a
+     popover is. */
+  animation: buddy-panel-in var(--dur-2) var(--ease-spring) both;
+}
+
+@keyframes buddy-panel-in {
+  from { opacity: 0; transform: translateY(-0.5rem) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/*
+ * ── Opened from the console ─────────────────────────────────────────────────
+ *
+ * The one thing both admin placements need, which is to be ABOVE the console's
+ * mobile drawer. That drawer is `z-index: 300` and its backdrop 250
+ * (15-admin-layout.css), and the button that opens this panel is INSIDE the
+ * drawer on every width below 900px — so at the shared `--z-drawer` of 200 the
+ * phone sheet rose behind the menu it was opened from and could not be seen at
+ * all. It is on the class rather than on the dock below because the sheet and
+ * the dock take turns and both are opened from the same place.
+ *
+ * A shade under `--z-modal`, not over it: a dialog the operator opened on top
+ * of this is still the thing they are answering.
+ */
+.buddy-panel-admin {
+  z-index: calc(var(--z-modal) - 1);
+}
+
+/*
+ * ── Docked, on the admin rail ───────────────────────────────────────────────
+ *
+ * `position: fixed` here is only correct because Buddy.jsx PORTALS the panel
+ * to `document.body` whenever it carries this class — the same pairing the
+ * phone sheet below has, and for a sharper reason. `.admin-sidebar` scrolls
+ * vertically, and a box that scrolls in one axis clips the other, so the
+ * ordinary popover was cut off at a rail narrower than the panel is wide.
+ *
+ * Beside the rail rather than over it: the console's own content shifts right
+ * by `--admin-rail-w` (15-admin-layout.css), so this is the first column of
+ * the page, which reads as a drawer hanging off the navigation the operator
+ * opened it from. The rail is `position: fixed` too, so nothing here has to
+ * account for the page having been scrolled.
+ *
+ * The z-index it needs is on `.buddy-panel-admin` above, because the sheet
+ * needs exactly the same one.
+ */
+.buddy-panel-dock {
+  position: fixed;
+  top: var(--sp-5);
+  right: auto;
+  left: calc(var(--admin-rail-w) + var(--sp-3));
+  max-height: min(calc(var(--fs-unit) * 34), calc(100vh - var(--sp-10)));
+}
+
+@media (max-width: 900px) {
+  /* The rail is a drawer now, covering the left edge from 0 to 270px — so the
+     dock crosses to the other side rather than opening underneath the thing
+     that opened it. */
+  .buddy-panel-dock {
+    left: auto;
+    right: var(--sp-4);
+  }
+}
+
+/* ── The head ────────────────────────────────────────────────────────────────
+ *
+ * Dot, title, state word, tools. The dot is the load-bearing half of the
+ * status and the word is disclosure: on the phone sheet the word for the
+ * ordinary case is dropped (see the phone block) because at 320px it was
+ * competing with the title for the same 90 pixels, and "ready" is the one
+ * state nobody opened the panel to be told.
+ */
+.buddy-head {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-15) var(--buddy-pad);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.buddy-head-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.buddy-head-id {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  /* Flexes and truncates, so the tools never move and never wrap. An operator
+     may call the companion anything; "Ask Bartholomew" must cost the head
+     nothing — and the state word beside it is `flex: none`, so what gives is
+     always the name and never the status. */
+  flex: 1;
+  min-width: 0;
+}
+
+.buddy-head-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * The state, in two channels.
+ *
+ * Fill AND ring, the same pair `.lc-dot` uses next door, so the light survives
+ * `--glow-strength: 0` — and the word survives an operator who has turned the
+ * colour down to nothing at all. A status that is only a colour is a status
+ * half the people looking at it cannot read.
+ */
+.buddy-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: none;
+  /* The dot travels with the title; the word is a second element hard against
+     the tools, so the phone can drop the word and keep the light. */
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.buddy-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--text-muted);
+}
+
+.buddy-state[data-state='ready'] .buddy-dot {
+  background: var(--success);
+  border-color: var(--success);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--success) 60%, transparent);
+}
+
+.buddy-state[data-state='thinking'],
+.buddy-state[data-state='transcribing'] { color: var(--primary); }
+.buddy-state[data-state='thinking'] .buddy-dot,
+.buddy-state[data-state='transcribing'] .buddy-dot {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.buddy-state[data-state='listening'] { color: var(--danger); }
+.buddy-state[data-state='listening'] .buddy-dot {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+/* Asleep is the unlit ring and nothing else. The model being unreachable is
+   the one state that must not look like a colour scheme. */
+.buddy-state[data-state='asleep'] { color: var(--warning); }
+.buddy-state[data-state='asleep'] .buddy-dot { border-color: var(--warning); }
+
+/* Live work breathes. This is a loader in the sense §2 means — it is bound to
+   a request that is actually in flight — so it is one of the few animations
+   here that the reduced-motion block below deliberately leaves running. */
+.buddy-state[data-state='thinking'] .buddy-dot,
+.buddy-state[data-state='transcribing'] .buddy-dot,
+.buddy-state[data-state='listening'] .buddy-dot {
+  animation: buddy-breathe 1.4s var(--ease-out) infinite;
+}
+
+@keyframes buddy-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ── Head tools ──────────────────────────────────────────────────────────────
+ *
+ * Every icon control in the head is this, at one size, so the row is a row
+ * rather than a collection. Ghost until pointed at — §4: the panel is here to
+ * be read, and four lit buttons across the top of it compete with the answer.
+ */
+.buddy-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-05);
+  flex: none;
+  /* The last tool's optical edge, not its box edge, lands on `--buddy-pad`. */
+  margin-right: calc(var(--sp-1) * -1);
+}
+
+.buddy-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--buddy-tool);
+  height: var(--buddy-tool);
+  flex: none;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+
+.buddy-tool:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-hover);
+  border-color: var(--border);
+}
+
+.buddy-tool:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  color: var(--text);
+}
+
+.buddy-tool:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/*
+ * ── The per-request thinking dial ───────────────────────────────────────────
+ *
+ * Beside the status rather than under the input because it describes how the
+ * NEXT answer will be produced, which is the same thing the status word is
+ * about. Whether it is rendered at all is decided server-side for this viewer.
+ *
+ * A native `<select>` laid transparent over drawn chrome, rather than a styled
+ * select. Two reasons, and the first is why the old one was visibly broken: a
+ * native select sizes to its widest OPTION, so "think: default" needed a
+ * `max-width` to stop it eating the head, and the `11ch` it got clipped the
+ * value it was showing. Drawing the value ourselves means the control is as
+ * wide as the word it is currently displaying and cannot clip. The second is
+ * that the picker stays the platform's own — which on a phone is the wheel
+ * people expect, and is one less thing to get wrong on a surface that has to
+ * work on a browser nobody here has tested.
+ */
+.buddy-dial {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  height: var(--buddy-tool);
+  padding-inline: var(--sp-15);
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+
+.buddy-dial:hover,
+.buddy-dial:focus-within {
+  color: var(--text);
+  background: var(--surface-hover);
+  border-color: var(--border);
+}
+
+/* The ring belongs to the wrapper, because the thing that has focus is the
+   invisible select on top of it. */
+.buddy-dial:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.buddy-dial svg { flex: none; }
+
+.buddy-dial-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+  /* Safari draws a native control here whatever the opacity unless the
+     appearance is reset, and on iOS a select with a real appearance also
+     insists on its own minimum height. */
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.buddy-dial:has(.buddy-dial-select:disabled) { opacity: 0.4; }
+
+/* ── The transcript ────────────────────────────────────────────────────────*/
+
+.buddy-log {
+  flex: 1;
+  min-height: calc(var(--fs-unit) * 7);
+  overflow-y: auto;
+  /* The scroll stops at the ends of the transcript instead of handing the
+     gesture to the page underneath. On the phone sheet that page is a whole
+     storefront behind a fixed panel, so a flick that ran past the last answer
+     used to scroll the shop out from under the sheet — and on iOS it takes the
+     rubber-band with it, lifting the sheet off the bottom edge mid-gesture. */
+  overscroll-behavior: contain;
+  padding: var(--buddy-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-25);
+}
+
+/*
+ * One turn: a column that owns its side of the panel.
+ *
+ * The bubble, the working-out, the error and the cards are SIBLINGS inside it
+ * rather than children of the bubble. That is what keeps a product card out of
+ * a speech bubble inside a panel — three nested claims that something is a
+ * discrete object, of which §1 says two would be false.
+ */
+.buddy-turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+  min-width: 0;
+  animation: buddy-turn-in var(--dur-1) var(--ease-out) both;
+}
+
+.buddy-turn-you { align-items: flex-end; align-self: flex-end; max-width: 85%; }
+.buddy-turn-them { align-items: stretch; align-self: stretch; }
+
+@keyframes buddy-turn-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/*
+ * The two bubbles are ONE object with two fills.
+ *
+ * Before this the question was a bordered bubble and the answer was bare text,
+ * which made a conversation look like two unrelated widgets stacked. Same
+ * radius, same padding, same size; the side and the fill carry who said it,
+ * and the tightened near corner points at the speaker without a drawn tail.
+ *
+ * The answer is not narrowed to match the question. It is the long half —
+ * `.lc-msg` next door refuses alternating alignment outright for exactly this
+ * reason — so the buyer's short question takes 85% on the right and the shop's
+ * answer takes the column.
+ */
+.buddy-bubble {
+  padding: var(--sp-2) var(--sp-25);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.buddy-turn-you .buddy-bubble {
+  background: rgba(var(--primary-rgb), 0.14);
+  border-color: var(--primary-border);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.buddy-turn-them .buddy-bubble {
+  background: var(--surface);
+  border-color: var(--border);
+  border-bottom-left-radius: var(--radius-sm);
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+/*
+ * Waiting for the first token.
+ *
+ * A reasoning model emits nothing for a long stretch and the panel used to
+ * render an empty bubble at that moment — the buyer's own question, then a
+ * blank, then eventually words. Three dots is a loader and stays moving under
+ * `prefers-reduced-motion` for the reason §2 gives: a frozen loader reads as a
+ * hung page, which is precisely the wrong thing to say here.
+ */
+.buddy-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-25) var(--sp-25);
+}
+
+.buddy-typing i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: buddy-breathe 1.2s var(--ease-out) infinite;
+}
+.buddy-typing i:nth-child(2) { animation-delay: 0.16s; }
+.buddy-typing i:nth-child(3) { animation-delay: 0.32s; }
+
+/*
+ * Copy that is not the assistant speaking: the consent gate, the "this cleared
+ * itself" notice, the opening prompt. Deliberately NOT a bubble — before this
+ * they all borrowed `.buddy-turn-them` and the store's own housekeeping was
+ * dressed as something the assistant had said.
+ */
+.buddy-note {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.buddy-note p { margin: 0 0 var(--sp-2); }
+.buddy-note p:last-child { margin-bottom: 0; }
+
+.buddy-gate {
+  padding: var(--sp-25);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.buddy-gate p { margin: 0 0 var(--sp-2); }
+.buddy-gate p + p { color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* The one button on the panel a person has to press before anything else
+   works, so it takes the same touch height the composer does rather than
+   `glass-btn-sm`'s 40px. */
+.buddy-gate .glass-btn { min-height: var(--control-h); }
+
+/*
+ * ── Rows ────────────────────────────────────────────────────────────────────
+ *
+ * A suggested question, a product the answer cited and an action card are all
+ * the same thing to the person reading: a line you tap to go somewhere. They
+ * are drawn as one shape for that reason and not for tidiness — three
+ * different shapes for one gesture is what made the suggestions read as a bag
+ * of pills of unequal width sitting under a sentence.
+ */
+.buddy-rows,
+.buddy-cards,
+.buddy-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.buddy-suggestions { margin-top: var(--sp-2); }
+
+.buddy-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--control-h-sm);
+  padding: var(--sp-15) var(--sp-25);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  /*
+   * Outlined, not filled, and that is the whole hierarchy of the transcript:
+   * a FILLED box is something that was said, an OUTLINED one is somewhere you
+   * can go. Filling these too put three product cards and the answer above
+   * them on the same surface at the same weight, and the eye had no way in.
+   *
+   * It cannot be the other way round. `--surface` in light mode is
+   * rgba(246,246,253,0.2) over an `--overlay-bg` of rgba(247,246,242,0.94) —
+   * near enough the same colour that a borderless bubble would simply vanish,
+   * so the bubble is the one that has to carry the fill.
+   */
+  background: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+
+.buddy-row:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+}
+
+/* It leads somewhere, so it leans that way when pointed at (§9). A transform,
+   so the list does not reflow under the cursor (§4). */
+@media (hover: hover) and (pointer: fine) {
+  .buddy-row:hover { transform: translateX(2px); }
+}
+
+.buddy-row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.buddy-row-arrow {
+  margin-inline-start: auto;
+  flex: none;
+  color: var(--text-muted);
+  transition: color var(--transition), transform var(--transition);
+}
+.buddy-row:hover .buddy-row-arrow { color: var(--primary); }
+
+/* A suggested question wraps rather than truncates: it is the whole content of
+   the row, and half a question is not a question. */
+.buddy-suggest { white-space: normal; }
+
+/*
+ * The product cards under an answer.
+ *
+ * Every number here came from Postgres, not from the model — see
+ * services/ai/assistant.js. The cited variant leads, because that is the thing
+ * the answer was about; the rest are a tail so a product with 286 flavours
+ * does not become the whole panel.
+ */
+.buddy-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-05);
+}
+
+.buddy-card-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.buddy-card-brand {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.buddy-card-variant {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-top: var(--sp-05);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+
+/* Out of stock is stated, never hidden. A flavour selling out while its
+   siblings do not is the normal case here (docs/AI.md §7). */
+.buddy-card-out {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/*
+ * Something went wrong with THIS turn.
+ *
+ * A bordered strip rather than a coloured sentence. The messages it carries —
+ * "sign in to ask", a proof-of-work the browser could not mint, the assistant
+ * having stopped mid-answer — are all things the person can act on, and a line
+ * of warning-coloured text under a paragraph of ordinary text is the easiest
+ * thing on the panel to read straight past.
+ */
+.buddy-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-15) var(--sp-25);
+  /*
+   * Warning, not danger, and all three channels agree.
+   *
+   * It was `--danger` for the box and `--warning` for the text, which is a red
+   * strip with amber writing in it. Every message this carries — sign in to
+   * ask, the browser could not mint a proof of work, the assistant stopped
+   * mid-answer — is a thing that did not happen, not a thing that went wrong
+   * destructively, and `--danger` in this app is reserved for the second.
+   */
+  border: 1px solid rgba(var(--warning-rgb), 0.32);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--warning-rgb), 0.10);
+  color: var(--warning);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.buddy-alert svg { flex: none; margin-top: 0.15em; }
+
+/* ── The composer ────────────────────────────────────────────────────────────
+ *
+ * Field, microphone, send — three controls, one height, one radius. The height
+ * is `--control-h`, which 01-tokens.css already raises to `max(44px, …)` on a
+ * coarse pointer, so the touch floor (§5) is the design rather than a patch on
+ * top of it. That is the whole reason the `@media (pointer: coarse)` block this
+ * row used to carry is down to one declaration: the iOS font-size floor, which
+ * is a real platform fact and not a sizing choice.
+ */
+.buddy-ask {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-2) var(--buddy-pad) var(--buddy-pad);
+  border-top: 1px solid var(--border);
+  flex: none;
+}
+
+.buddy-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding-inline: var(--sp-25);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+
+/* The ring is on the box, not on the input inside it, or the focus state would
+   be drawn around something two pixels smaller than the thing it belongs to. */
+.buddy-field:focus-within {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.buddy-field input {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-base);
+}
+
+.buddy-field input::placeholder { color: var(--text-muted); }
+.buddy-field input:disabled { color: var(--text-muted); cursor: not-allowed; }
+
+.buddy-ask .glass-btn {
+  min-height: var(--control-h);
+  border-radius: var(--radius);
+  padding-inline: var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+/*
+ * The microphone is a square and the send button is the one word beside it.
+ * Both are written as descendants of `.buddy-ask` because the rule above them
+ * is too — at equal specificity the padding here would have lost.
+ */
+.buddy-ask .buddy-mic,
+.buddy-ask .buddy-send {
+  flex: none;
+}
+
+.buddy-ask .buddy-mic {
+  width: var(--control-h);
+  padding-inline: 0;
+}
+
+/* One slot, whether it says Ask or Stop: the row must not change width in the
+   middle of an answer. */
+.buddy-ask .buddy-send { min-width: calc(var(--control-h) * 1.7); }
+
+/* Stopping is not a destructive action and must not be dressed as one — it is
+   the ordinary way to end an answer that has gone somewhere unhelpful. */
+.buddy-stop { color: var(--text-secondary); }
+
+/*
+ * Touch raises everything a thumb aims at, and it is gated on the POINTER
+ * rather than on the width — DESIGN §5's rule, and the difference is a tablet
+ * at 1180px, which gets the desktop popover and has no mouse. The composer
+ * needs no entry here: it is built on `--control-h`, which 01-tokens.css has
+ * already raised to `max(44px, …)` by the time this block is read.
+ */
+@media (pointer: coarse) {
+  .buddy-panel { --buddy-tool: var(--control-h); }
+
+  /* A row and a disclosure summary are wide targets, but height is the axis a
+     thumb misses on. `--control-h-sm` is 40px here, four short of the floor. */
+  .buddy-row,
+  .buddy-thinking > summary { min-height: var(--control-h); }
+
+  /*
+   * 16px on the field is WebKit's threshold, not a design choice. Below it iOS
+   * zooms the whole page on focus — so tapping the ask field scaled the shop
+   * to 150%, slid the sheet half off the right edge, and left the person
+   * typing into a panel they could no longer see. This is the single largest
+   * cause of the sheet "flopping about" when the keyboard opens, and it is a
+   * `font-size` bug rather than a layout one. `.lc-compose` carries the same
+   * rule next door.
+   */
+  .buddy-field input { font-size: 16px; }
+
+  /* The composer clears the home indicator, since with no tab bar under it the
+     sheet runs to the physical bottom of the screen. */
+  .buddy-ask {
+    padding-bottom: calc(var(--buddy-pad) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Where the tab bar is drawn it already carries the inset (08-navbar.css,
+   `--tabbar-h`) and the sheet is docked to its top edge, so adding it again
+   was ~34px of empty panel under the field on a notched phone — the same
+   double-count `.lc-compose` has a rule for. Scoped to the bar's presence,
+   because the admin shell has no bar at this width and there the sheet does
+   run to the screen's edge. */
+@media (max-width: 768px) {
+  :root:has(.mobile-tabbar) .buddy-ask { padding-bottom: var(--buddy-pad); }
+}
+
+/* And with the keyboard up, the sheet is docked to the keyboard's top edge
+   with the whole bottom of the screen — indicator included — behind it. iOS
+   zeroes `safe-area-inset-bottom` itself in that state; an installed PWA on
+   Android drawing edge to edge does not, and there the inset was a strip of
+   dead panel between the field and the keys. Last, because it and the tab bar
+   rule above are the same specificity and this one is the later fact. */
+.buddy-panel[data-kb='true'] .buddy-ask { padding-bottom: var(--buddy-pad); }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy-panel {
+    animation: none;
+  }
+
+  /* The turn still appears; it just stops travelling. `animation: none` on an
+     `… both` would have left it at the keyframe's `opacity: 0` — §2's "restore
+     end states when you cancel a fill". */
+  .buddy-turn {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  /* The sheet's release spring, which is a response to a gesture rather than
+     an entrance, and is better as an instant snap than as nothing. */
+  .buddy-panel[data-drag='release'] { transition: none; }
+
+  /*
+   * Every state except thinking stops on frame one. Pausing rather than
+   * removing the animation is what keeps the strip at translateX(0) —
+   * `animation: none` would also work here, but a paused animation restarts
+   * correctly if the preference changes without a reload.
+   *
+   * This is the SECOND half of the rule. The callers already decline to enter
+   * `perk`, `greet` and `happy` at all when the preference is set
+   * (`motionAllowed` in utils/companion.js), so in practice nothing reaches
+   * these selectors — they are here because a component added later will not
+   * remember to ask, and a companion that ignored the preference on one
+   * surface would be worse than one that never moved anywhere.
+   */
+  .buddy-sprite-idle .buddy-strip,
+  .buddy-sprite-sleep .buddy-strip,
+  .buddy-sprite-talk .buddy-strip,
+  .buddy-sprite-perk .buddy-strip,
+  .buddy-sprite-greet .buddy-strip,
+  .buddy-sprite-happy .buddy-strip,
+  .buddy-sprite-walk .buddy-strip,
+  .buddy-sprite-lean .buddy-strip,
+  .buddy-sprite-vanish .buddy-strip,
+  .buddy-sprite-arrive .buddy-strip,
+  .buddy-sprite-yawn .buddy-strip {
+    animation-play-state: paused !important;
+  }
+
+  /*
+   * THINKING keeps moving. It is a loader, and §2 leaves loaders alone.
+   *
+   * So does WORKING, for the same reason and not as an oversight: it is bound
+   * to a proof of work in this browser or an index job on the operator's box,
+   * both of which are progress somebody is waiting on. A frozen spinner reads
+   * as a hung page; a frozen animal on a page that has stopped responding to
+   * clicks reads as a crash.
+   *
+   * The panel's own two loaders — the state dot and the typing dots — are left
+   * out of every block above for the same reason. They say a request is in
+   * flight, which is information rather than decoration.
+   */
+}
+
+/* Off on every surface that is not the sheet — the desktop popover is dragged
+   nowhere and the docked rail panel is not a sheet either. */
+.buddy-grip { display: none; }
+
+/* ── Phone ───────────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  /*
+   * A sheet on the bottom edge, not a dropdown from the top corner. The panel
+   * ends in a text field, and a field a thumb can reach with the answer above
+   * it is the whole reason this shape exists on a phone.
+   *
+   * `position: fixed` here is only correct because Buddy.jsx PORTALS the panel
+   * to `document.body` under exactly this query. A panel left inside the bar
+   * anchored its `bottom` to the bar's own 66px box and hung up off the top of
+   * the screen — everything above the ask field was cut off, which on a first
+   * visit is the entire consent notice: the one thing in here somebody has to
+   * read before they can use it.
+   *
+   * So: this query and the one in Buddy.jsx are a pair. Moving one without the
+   * other puts the sheet back off-screen.
+   *
+   * What made the bar a containing block for fixed descendants was its
+   * `backdrop-filter`, and that has since moved to a backing layer so the
+   * panels hanging off the bar can blur the page (`.glass-plate` in
+   * 06-glass-primitives.css). The portal is kept regardless: a bottom sheet
+   * belongs at body level whatever the bar happens to be, and the alternative
+   * is a phone layout that depends on a property three files away staying
+   * exactly as it is.
+   */
+  .buddy-panel {
+    position: fixed;
+    top: auto;
+    /*
+     * On the bar's top edge, not under it. `--tabbar-h` is 0px wherever the
+     * tab bar is not drawn (08-navbar.css), so this needs no presence test —
+     * the same unconditional lift `.livechat-panel` takes.
+     *
+     * `--buddy-kb` is how much of the bottom of the layout viewport the
+     * on-screen keyboard is covering, written by Buddy.jsx from the visual
+     * viewport (hooks/useKeyboardInset.js). It is `0px` with no keyboard, on
+     * the desktop path, and on any engine without `visualViewport`, so the
+     * `max()` collapses to the plain lift above and this rule is what it
+     * always was.
+     *
+     * `max()` rather than a sum, because the two are alternatives rather than
+     * things to stack: the tab bar is `position: fixed; bottom: 0` too, so
+     * while the keyboard is up the bar is BEHIND it. Adding the bar's height
+     * to the keyboard's would have left a 56px slot of page between the sheet
+     * and the keyboard it is docked to, showing whatever the page had there.
+     *
+     * Deliberately not transitioned. iOS reports the keyboard's arrival in one
+     * or two jumps and Android streams it for the length of the slide; a
+     * transition makes the first case a lurch that lands late and the second a
+     * sheet that is permanently a few frames behind the finger.
+     */
+    bottom: max(var(--tabbar-h), calc(var(--buddy-kb, 0px) - var(--buddy-clear)));
+    left: 0;
+    right: 0;
+    width: 100%;
+    /* No clearance until there is a keyboard to clear — see the block below
+       the phone query, which is where the value comes from. */
+    --buddy-clear: 0px;
+    /*
+     * Two declarations, and the order is load-bearing. The first is the floor
+     * for an engine that cannot parse `dvh`: `min()` is invalid as a whole if
+     * any argument is, so without a plain value beneath it such a browser
+     * would get NO cap at all and a sheet the height of the transcript.
+     *
+     * The second caps to what is actually on screen. `--buddy-vv` is the
+     * visual viewport's height, which is the only measure that shrinks for the
+     * keyboard — `vh` and even `dvh` are the height the page COULD have and do
+     * not move when half the screen becomes a keyboard, so the old `70vh` was
+     * a sheet nearly twice as tall as the space it had. The gap keeps a strip
+     * of the page visible above the sheet, which is the tap target that
+     * dismisses it.
+     */
+    max-height: 70vh;
+    max-height: min(70dvh, calc(var(--buddy-vv, 100dvh) - var(--sp-12) + var(--buddy-clear)));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-bottom: none;
+  }
+
+  /* The transcript's floor is a desktop nicety — it stops an empty popover
+     being a sliver. On a phone it is a hazard: landscape with the keyboard up
+     leaves about 200px of visible viewport, less than the head, the floor and
+     the ask row together, and a flex column that cannot shrink overflows its
+     own `max-height` and puts the ask field off the bottom of the screen. The
+     content gives the log its height here instead. */
+  .buddy-log {
+    min-height: 0;
+  }
+
+  /* One step up for the transcript, and only for the transcript. `--fs-base`
+     is a desktop working size — 13.7px on a 375px phone — and the answer is
+     the thing somebody opened this to read, at arm's length, with a keyboard
+     under it. The head and the status stay where they are: they are labels,
+     and growing them would just cost the log its room. */
+  .buddy-bubble {
+    font-size: var(--fs-md);
+  }
+
+  /*
+   * The state word goes; the dot stays.
+   *
+   * At 320px the head is a title, a state and four touch-sized tools, and the
+   * tools do not shrink — so the word was taking its room out of the
+   * companion's name. `ready` is also the one state nobody opened the sheet to
+   * be told: the dot says it, and the animal in the bar says it. Every other
+   * state keeps its word, because those are the ones worth the pixels.
+   */
+    .buddy-state-word[data-state='ready'] { display: none; }
+
+  /* The grip is the sheet's drag handle, and it drags — see the pointer
+     handlers in Buddy.jsx. A grabber that does not grab is decoration in a
+     workspace (§7). */
+  .buddy-grip {
+    display: block;
+    align-self: center;
+    width: calc(var(--sp-10));
+    height: 4px;
+    margin-bottom: var(--sp-15);
+    border-radius: var(--pill);
+    background: var(--border-hover);
+  }
+
+  /* §8: `touch-action: none` on the handle only, never on the list. The
+     transcript below still scrolls with a thumb; only this bar hands its
+     gestures to the drag. */
+  .buddy-head,
+  .buddy-grip {
+    touch-action: none;
+  }
+}
+
+/*
+ * Dragged.
+ *
+ * The entrance animation fills `both`, so its end state — `transform: none` —
+ * would beat any transform written on the element while the sheet is being
+ * dragged. Switching the animation off for the duration is what lets the
+ * finger move it; by the time anybody can start a drag the entrance has long
+ * finished, so nothing is interrupted.
+ */
+.buddy-panel[data-drag] {
+  animation: none;
+  transform: translateY(var(--buddy-drag, 0px));
+}
+
+.buddy-panel[data-drag='release'] {
+  transition: transform var(--dur-2) var(--ease-settle);
+}
+
+/*
+ * The keyboard clearance: the last band of the sheet, which nothing may use.
+ *
+ * The lift above is exactly right IF the browser's idea of the keyboard is the
+ * whole keyboard. On Chrome for Android it is not: Gboard's toolbar — the
+ * suggestion strip along its top — is not in the inset Chrome reports, so a
+ * sheet docked flush to the reported edge has its bottom ~48dp of itself
+ * behind that strip. On the assistant's sheet that bottom is the ask field,
+ * which is the one thing that must never be covered.
+ *
+ * There is no API that reports the true edge. `visualViewport` is the number
+ * that is short, and the VirtualKeyboard API's `boundingRect` reads zero
+ * unless the page takes `overlaysContent`, which hands the whole app's
+ * keyboard behaviour to us in exchange for the same browser measurement.
+ *
+ * So the sheet stops trusting its own bottom edge instead. It is pushed DOWN
+ * by the clearance and given that much padding back, which costs nothing
+ * visible in either direction:
+ *
+ *   · where the inset is honest, the clearance is padding hidden behind the
+ *     keyboard and the ask row sits flush on the keys, exactly as before
+ *   · where it is short by up to the clearance, the strip covers padding and
+ *     the ask row sits flush on the STRIP
+ *
+ * `--sp-16` (58px on a phone) rather than a snug 48: over-clearing is free —
+ * it is panel surface nobody can see — and under-clearing is the bug. The
+ * `max-height` above adds it back so the sheet's TOP edge does not move, and
+ * the panel keeps `overflow: hidden`, so nothing renders into the band.
+ */
+.buddy-panel[data-kb='true'] {
+  --buddy-clear: var(--sp-16);
+  padding-bottom: var(--buddy-clear);
+}
+
+/*
+ * §2: it arrives from the edge it belongs to. The shared keyframes drop it
+ * down from above, which is right for a dropdown and backwards for a sheet.
+ *
+ * Stated as `no-preference` rather than as an `animation-name` in the block
+ * above, because the reduced-motion block that switches this panel's entrance
+ * off is EARLIER in this file: at equal specificity a plain override here
+ * would have quietly handed the animation back to the one person who asked
+ * not to have it.
+ */
+@media (max-width: 640px) and (prefers-reduced-motion: no-preference) {
+  .buddy-panel {
+    animation-name: buddy-sheet-in;
+  }
+}
+
+@keyframes buddy-sheet-in {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: none; }
+}
+
+/*
+ * Push to talk.
+ *
+ * The live state is a colour and a shape change, not a pulse: a pulsing red
+ * dot in the corner of a shop is alarming, and this is a person choosing to
+ * speak rather than something going wrong. It is also the one indicator that
+ * must survive `prefers-reduced-motion`, because it says the microphone is
+ * open — which is information, not decoration.
+ */
+.buddy-mic-live {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.10);
+}
+
+/* ── Admin: the AI panel ─────────────────────────────────────────────────── */
+
+.ai-health-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+/*
+ * A health tile states what it found, in words.
+ *
+ * Not a coloured dot: four dots in a row tell an operator that something is
+ * wrong and nothing about which thing or why. The reason line carries the
+ * translated error from utils/aiOutbound — "nothing is listening there", "that
+ * certificate is for a different hostname" — which is the whole point of
+ * translating them.
+ */
+.ai-health {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-muted);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.ai-health-ok { border-left-color: var(--success); }
+
+.ai-health-label { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.ai-health-state { font-size: var(--fs-base); font-weight: 600; }
+.ai-health-detail { font-size: var(--fs-xs); color: var(--text-secondary); }
+
+.ai-index-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-4);
+}
+
+.ai-settings section { margin-bottom: var(--sp-4); }
+.ai-settings h2 { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-1); font-size: var(--fs-md); }
+.ai-settings h3 { font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: var(--sp-3) 0 var(--sp-2); }
+
+.ai-hint { font-size: var(--fs-sm); color: var(--text-muted); margin: 0 0 var(--sp-3); line-height: 1.5; }
+
+/* What the chosen model cannot do.
+   Warning colour rather than danger: nothing is broken and nothing is being
+   refused — an operator may have chosen this model deliberately. It sits
+   between the health tiles and the index line because that is the order the
+   questions arrive in: is it reachable, can it do the job, is it ready. */
+/* Adding a note by hand, and marking the ones nobody typed.
+   The tag is a plain muted chip rather than a warning colour: a noticed note
+   is not a problem, it is just a different provenance, and colouring it as an
+   alert would tell somebody their own profile is dangerous. */
+.ai-note-add { display: flex; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
+.ai-note-add .glass-input { flex: 1 1 auto; }
+.ai-note-tag {
+  display: inline-block;
+  font-size: var(--fs-xs, 0.7rem);
+  color: var(--text-muted);
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.14));
+  border-radius: var(--radius-sm, 6px);
+  padding: 0 var(--sp-1);
+  margin-right: var(--sp-2);
+  vertical-align: 0.05em;
+}
+
+/* What the shop can already answer, beside the ticket form.
+   Deliberately quiet: an inset panel in the muted palette rather than a
+   callout, because somebody filling in a support form has already decided to
+   talk to a person and a loud machine answer in front of that reads as being
+   fobbed off. It informs; it does not interrupt. */
+.asup-hint {
+  display: flex; gap: var(--sp-2);
+  padding: var(--sp-3);
+  margin: 0 0 var(--sp-4);
+  border: 1px dashed var(--glass-border, rgba(255,255,255,0.14));
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface-sunken, rgba(255,255,255,0.03));
+}
+.asup-hint > svg { flex: none; margin-top: 0.2em; color: var(--text-muted); }
+.asup-hint-lead { margin: 0 0 var(--sp-1); font-size: var(--fs-xs); color: var(--text-muted); }
+.asup-hint-body { margin: 0; white-space: pre-wrap; font-size: var(--fs-sm); }
+.asup-hint-links { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+.asup-hint-foot { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* The staff-side twin of the panel's `.buddy-dial`, on the writing tools.
+   A plain native select rather than the panel's drawn one: it sits in a
+   toolbar with room and beside other native selects, so here the platform
+   control IS the uniform choice. The panel's head is the surface where a
+   select sized to its widest option was eating the companion's name — see
+   `.buddy-dial` above for what that cost and how it is drawn instead. */
+.ai-think-dial { display: inline-flex; align-items: center; }
+.ai-think-dial-select {
+  font-size: var(--fs-xs, 0.72rem);
+  padding: var(--sp-1) var(--sp-2);
+  width: auto;
+  min-width: 13ch;
+}
+
+/* A row of actions under an admin AI card. It exists because
+   AssistantTestPanel was reaching for `.buddy-suggestions` — the storefront
+   panel's list of questions somebody can tap — to lay out three buttons, so
+   restyling that list changed a page it has nothing to do with. */
+.ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.ai-model-warnings { margin: 0 0 var(--sp-3); }
+.ai-hint-warn {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.08);
+  border: 1px solid rgba(var(--warning-rgb), 0.24);
+  border-radius: var(--radius-sm, 8px);
+  padding: var(--sp-2) var(--sp-3);
+  margin: 0 0 var(--sp-2);
+}
+.ai-hint-warn svg { flex: none; margin-top: 0.15em; }
+
+/* The line above the three model slots: what the poll found, and the way to
+   ask again. Its own row rather than a note under each field — one poll feeds
+   all three, and saying so three times would read as three different answers. */
+.ai-models-poll {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+/* The row of known hosts above a connection's fields. A convenience that
+   fills the shape and address in, so it reads as a row of shortcuts rather
+   than as the setting — the setting is the two fields underneath, and an
+   operator pointing at their own vLLM must not feel they have gone off-piste
+   by not matching a button here. */
+.ai-presets {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-3);
+}
+
+.ai-presets-label {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-right: var(--sp-1);
+}
+
+/* Lit for the host whose shape AND address are both currently set. Not a
+   radio: nothing is selected when the address is somebody's own machine, which
+   is a perfectly good configuration and not an unfinished one. */
+.ai-presets .glass-btn.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ai-presets-note {
+  flex-basis: 100%;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.ai-presets-inherited { margin-bottom: var(--sp-3); }
+
+.ai-field { margin-bottom: var(--sp-3); }
+.ai-field > label { display: block; font-size: var(--fs-sm); font-weight: 600; margin-bottom: var(--sp-1); }
+.ai-field .ai-hint { margin-top: var(--sp-1); margin-bottom: 0; }
+.ai-field input[type='checkbox'] { margin-right: var(--sp-2); }
+
+.ai-cap { display: flex; gap: var(--sp-25); align-items: flex-start; padding: var(--sp-2) 0; border-bottom: 1px solid var(--border); }
+.ai-cap:last-child { border-bottom: none; }
+.ai-cap span { display: flex; flex-direction: column; gap: var(--sp-05); }
+.ai-cap .ai-hint { margin: 0; }
+
+/* A capability switch means nothing while the master switch is off. Saying so
+   by dimming is kinder than letting somebody toggle six things and wonder why
+   nothing happened. */
+.ai-cap-inert { opacity: 0.5; }
+
+.ai-cap-consent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  font-style: normal;
+  color: var(--text-muted);
+}
+
+/* ── The assistant's working-out ─────────────────────────────────────────────
+ *
+ * A reasoning model (`ai_allow_thinking`) answers in two parts, and before
+ * this existed the first part was invisible: the buyer watched a thinking
+ * animal and an empty bubble for a minute with no way to tell that from a
+ * tunnel that had dropped. The provider now streams the two channels
+ * separately and this is where the first one goes.
+ *
+ * Deliberately quieter than the answer and shut by default once the answer
+ * starts. It is not the shop speaking — it is a model talking to itself, false
+ * starts and all — and dressing it like the reply would put words in the
+ * store's mouth that the store never said.
+ */
+.buddy-thinking {
+  margin: 0;
+  align-self: flex-start;
+  max-width: 100%;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  /* An inset rule rather than the bubble's border: the working-out is a
+     sibling of the answer inside the turn, and giving it the same box would
+     have said the model said this twice. */
+  border-inline-start: 2px solid var(--border);
+  padding-inline-start: var(--sp-2);
+}
+
+.buddy-thinking > summary {
+  cursor: pointer;
+  list-style: none;
+  /* The touch floor applies to a disclosure triangle too — this is the one
+     control in the transcript, and it used to be a 14px line of text. */
+  display: flex;
+  align-items: center;
+  min-height: var(--control-h-sm);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.buddy-thinking > summary::-webkit-details-marker { display: none; }
+.buddy-thinking > summary:hover { color: var(--text-secondary); }
+.buddy-thinking > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.buddy-thinking > p {
+  margin: var(--sp-1) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Capped and scrolled: the working-out runs to thousands of words and the
+     panel is a popover, not a document viewer. */
+  max-height: 6rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── The roaming layer ───────────────────────────────────────────────────────
+ *
+ * The companion is allowed off its button and onto the bar. It walks behind
+ * the icons, which is the whole reason this is a layer rather than a
+ * transform on the button itself.
+ *
+ * Same layering `HeaderField` already established (08-navbar.css): absolutely
+ * positioned inside the sticky `.navbar`, which is already a containing block,
+ * at `z-index: 0` against `.navbar-inner`'s 1. Above the bar's own background,
+ * below every link, field and menu on it — so the animal passes behind the
+ * cart and the wishlist and in front of the glass.
+ *
+ * `pointer-events: none` throughout. The sprite is decoration in this layer;
+ * the thing you click is still the button, which never moves and never
+ * changes size, so the navbar's layout does not depend on where the animal
+ * happens to be standing.
+ */
+.buddy-roam {
+  position: absolute;
+  /* The top row stays put when the mobile menu expands the parent navbar.
+     Keep the entire roaming lane on that row, including during travel. */
+  inset: 0 0 auto;
+  height: var(--navbar-h);
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/*
+ * The traveller.
+ *
+ * One style write per journey: `--buddy-x` is where it is going and
+ * `--buddy-dur` is how long that takes at a constant speed, so a long walk
+ * takes longer than a short one and the compositor does every frame in
+ * between. A ticker would have re-rendered React sixty times a second on
+ * every page of the shop.
+ *
+ * `translate3d` rather than `left`, because animating `left` re-lays out the
+ * navbar on every frame and the sticky bar is the most expensive thing on the
+ * page to lay out.
+ *
+ * Vertically centred by the flex parent rather than by a magic number, so a
+ * store with a taller bar does not leave its companion floating.
+ */
+.buddy-roam-body {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  transform: translate3d(var(--buddy-x, 0), 0, 0);
+  transition: transform var(--buddy-dur, 0ms) linear;
+  will-change: transform;
+}
+
+/* Facing. A flip costs nothing and saves drawing every animal twice. */
+.buddy-roam-body[data-facing='-1'] .buddy-sprite {
+  transform: scaleX(-1);
+}
+
+/*
+ * Parked, the sprite sits exactly over its own button and the two are
+ * indistinguishable — which is the point: nothing about the navbar looks
+ * different on a store where the companion never wanders.
+ *
+ * There is deliberately NO `transition: none` here. It was the obvious way to
+ * write "parked things do not slide", and it broke every departure: a
+ * transition only runs when its duration was already in effect as the position
+ * changed, so a rule that zeroed it while parked meant the first move out of
+ * home was always an instant jump. The duration is driven from `--buddy-dur`
+ * instead, one frame ahead of the position — see `move` in useCompanionRoam.js.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  /* It does not roam at all under the preference — the hook declines to start
+     rather than the transition being removed here, because a companion that
+     teleported between random points on the bar would be worse than one that
+     walked. This is the belt to that braces. */
+  .buddy-roam-body {
+    transition: none;
+  }
+}
+
+/*
+ * The empty seat inside the button.
+ *
+ * The sprite renders in the roaming layer, so the button holds a same-sized
+ * placeholder instead. Without it the button collapses to its padding the
+ * moment the animal walks off, the navbar reflows, and the hover target the
+ * person is aiming at moves out from under them.
+ */
+.buddy-perch {
+  display: block;
+}
+
+/* "Six of nine buyers said fruity" — the same evidence the product page
+   draws beside a specification chip, on the assistant's own cards. Counted
+   by the shop over its own reviews (services/tagEvidence.js), never written
+   by the model, which is what lets a number be printed here at all. */
+.buddy-card-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-top: 2px;
+  margin-bottom: var(--sp-05);
+}
+.buddy-card-chip {
+  font-family: var(--font-body);
+  font-size: var(--fs-2xs, 0.72rem);
+  line-height: 1.3;
+  padding: 1px var(--sp-15);
+  border: 1px solid rgba(var(--tint-rgb), 0.18);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ── The assistant checks panel (components/ai/SmokeRunPanel) ──────────── */
+.ai-smoke-state { margin: 0 0 var(--sp-2); color: var(--text-secondary); font-size: var(--fs-sm); }
+.ai-smoke-tools { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.ai-smoke-last p { margin: 0 0 var(--sp-2); }
+.ai-smoke-last .is-regressed { color: var(--warning); }
+.ai-smoke-list {
+  list-style: none;
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+  display: grid;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+}
+.ai-smoke-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1); }
+.ai-smoke-list li svg { flex: none; align-self: center; }
+.ai-smoke-list li.is-pass svg { color: var(--success); }
+.ai-smoke-list li.is-fail svg,
+.ai-smoke-list.is-regressed li svg { color: var(--warning); }
+.ai-smoke-list small { color: var(--text-muted); }
+.ai-smoke-all { margin-bottom: var(--sp-3); }
+.ai-smoke-all summary { cursor: pointer; color: var(--text-secondary); font-size: var(--fs-sm); margin-bottom: var(--sp-2); }

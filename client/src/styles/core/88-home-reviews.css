@@ -1,0 +1,469 @@
+/* ===============================
+   HOME — RECENT REVIEWS
+   ===============================
+   The tally and the quotes, above the promises band.
+
+   ── What this shape is avoiding ──────────────────────────────────────────
+   The default version of this section is three testimonial cards on a slider.
+   That is DESIGN §1's row-of-three, and it is unfalsifiable besides: curated
+   praise and all-the-praise-there-is look identical. Here the tally holds one
+   column and the quotes run down the other, so the mean and the full rating
+   spread — including the buckets an operator would rather not quote — are
+   drawn beside whatever the quotes happen to say.
+
+   ── Elevation ───────────────────────────────────────────────────────────
+   Not a glass card, and neither are the quotes inside it. The featured cards
+   above are the md tier and they are the merchandise; this band is evidence
+   about the merchandise, so it sits flat on the page and separates its rows
+   with hairlines. Cards here would be a third identical elevation and cards
+   nested in a card — two of DESIGN §3's failures at once, and the same
+   reasoning `87-home-promises.css` records for the band below.
+
+   ── Where the glow goes ─────────────────────────────────────────────────
+   Exactly one thing in here lights: the `Signed` mark on a review whose PGP
+   signature the server verified against the author's key and bound to the
+   text being quoted. Glow means verified, and that is the only verified
+   claim on screen. The mark also carries a border and the word "Signed", so
+   at `--glow-strength: 0` it loses its light and keeps its meaning.
+
+   ── Sizing ──────────────────────────────────────────────────────────────
+   Container queries, not viewport ones (DESIGN §5). The band is drawn at
+   `.container` width on the home page and inside the admin editor's preview
+   pane, which is a good deal narrower on the same monitor — a viewport query
+   would answer for the window and lay the preview out as if it had 1200px. */
+
+.rvb {
+  container-type: inline-size;
+  position: relative;
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-8);
+  border-top: 1px solid var(--border);
+}
+
+/* A single wash rising behind the tally, so the band reads as its own ground
+   without drawing a frame around itself. Mirrored from the promises section
+   deliberately: two adjacent bands lit from two different corners look like
+   two pages that got stapled together. */
+.rvb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 55% 65% at 15% 0%,
+    rgba(var(--primary-rgb), 0.045),
+    transparent 70%
+  );
+}
+
+.rvb-grid {
+  position: relative;
+  display: grid;
+  /* Asymmetric (DESIGN §1): the quotes are the substance and the tally is the
+     frame around them. Equal columns would claim the two weigh the same. */
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: var(--sp-8);
+  align-items: start;
+}
+
+/* ── The tally column ── */
+
+.rvb-tally {
+  min-width: 0;
+  /* At twelve quotes the feed is taller than the viewport, and a spread that
+     has scrolled away is a column of opinions with nothing saying how
+     representative they are. Does nothing on a short feed, which is correct. */
+  position: sticky;
+  top: var(--sp-8);
+}
+
+.rvb-eyebrow {
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+}
+
+.rvb-heading {
+  margin: 0 0 var(--sp-5);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.rvb-score {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+
+/* The one genuinely large thing on the page below the fold.
+   Deliberately NOT `tabular-nums`, which is the reflex everywhere else in this
+   codebase and is wrong here: tabular figures give the decimal point a full
+   figure's width, so "4.0" sets as "4 . 0" with a hole either side of the dot
+   at this size. Tabular exists to align digits down a column and there is no
+   column here — it is one number, once. The proportional cut closes the gap
+   and the score reads as a score. */
+.rvb-score-num {
+  font-family: var(--font-display);
+  font-size: var(--fs-4xl);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.rvb-score-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.rvb-score-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+
+/* ── Stars ──
+   One shape, five times, sized from `--star-size` so a row of metadata can
+   ask for small stars without the component inventing a second scale. */
+.rvb-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  line-height: 0;
+  flex-shrink: 0;
+}
+.rvb-stars .is-on { color: var(--warning); }
+/* An unfilled star is a glyph, not an edge — the same finding `StarRating`
+   records: `--border` composites to about 1.3:1 on a card, so outlined stars
+   simply vanished and a two-star rating read as two stars floating in a gap.
+   `--text-muted` is solved to 4.5:1 against the ground in both modes. */
+.rvb-stars .is-off { color: var(--text-muted); }
+
+/* ── The distribution ── */
+
+.rvb-dist {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: var(--sp-4);
+}
+
+.rvb-dist-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.rvb-dist-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.rvb-dist-rating svg { color: var(--warning); }
+
+/* Geometry, track and fill are lifted from `.pd-rb-track` / `.pd-rb-fill` in
+   `12-product-detail.css` rather than re-picked here. That is the SAME
+   graphic — a five-bucket rating spread over the same denominator — and this
+   repo's recurring failure is the same thing drawn twice until the two
+   disagree. A buyer who sees gold bars on the home page and indigo ones on the
+   product page has to work out for themselves that they are the same fact.
+
+   Gold was the first instinct, on the reasoning that the bars are the stars
+   counted. It loses to consistency, and it was overloading `--warning`
+   besides: in this system that token means urgency — the drop clock, the hot
+   pulse cell — and a block of it across five bars is a lot of alarm for a
+   histogram. The little star glyph in the row label stays gold, because that
+   one really is a star. */
+.rvb-dist-track {
+  position: relative;
+  height: 6px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+}
+
+/* `--bar` is the bucket's share of the TOTAL, not of the largest bucket:
+   scaling against the biggest one flatters, drawing two one-star reviews as a
+   visible chunk of the row rather than the sliver they are.
+
+   The `max()` is the floor in the other direction. A bucket holding real
+   reviews must never draw as literally nothing, which at 2 out of 4000 it
+   otherwise would — a zero-width bar for a non-zero count is the same lie
+   pointing the other way. 3% is under one character of the row, so it cannot
+   be mistaken for a meaningful quantity, and the exact number is printed
+   beside every bar regardless.
+
+   The floor is the one place this bar deliberately differs from the product
+   page's: `.pd-rb-fill` sets its width straight from the percentage, so two
+   reviews out of four thousand draw as nothing there. Worth keeping here, and
+   worth fixing there — but not from this band. */
+.rvb-dist-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(max(var(--bar, 0), 0.03));
+  border-radius: var(--pill);
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+/* An empty bucket draws nothing at all. `max()` would otherwise give zero
+   reviews the same sliver two reviews get. */
+.rvb-dist-fill.is-empty { transform: scaleX(0); }
+
+.rvb-dist-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  min-width: 3ch;
+  text-align: right;
+}
+
+.rvb-note {
+  margin: 0;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ── The quote feed ── */
+
+.rvb-feed {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.rvb-item {
+  border-bottom: 1px solid var(--border);
+}
+.rvb-item:last-child { border-bottom: none; }
+
+/* The left rule is the quote mark. A rule that lights on hover costs one
+   pixel of chrome; an oversized ❝ costs a whole column and says the same
+   thing less precisely. */
+.rvb-quote {
+  position: relative;
+  padding: var(--sp-4) 0 var(--sp-4) var(--sp-4);
+  border-left: 2px solid transparent;
+  transition: border-color var(--transition), background-color var(--transition);
+}
+.rvb-item:hover .rvb-quote,
+.rvb-item:focus-within .rvb-quote {
+  border-left-color: var(--primary);
+  background: rgba(var(--tint-rgb), 0.025);
+}
+
+.rvb-quote-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.rvb-when {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* The only lit object in the band. Its light is the store's strongest claim —
+   this text was signed by the key on the buyer's account, and the signature
+   covers these words — so it gets the glow and nothing else does. Border and
+   label carry the meaning when glow is off. */
+.rvb-signed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 2px var(--sp-2);
+  border: 1px solid rgba(var(--success-rgb), 0.42);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--success);
+  background: rgba(var(--success-rgb), 0.08);
+  box-shadow: 0 0 12px rgba(var(--success-rgb), calc(0.28 * var(--glow-strength)));
+}
+
+/* Prose, so it is set to be read rather than scanned: a step up from the UI
+   size the rest of the band uses, and a line height to match. Clamped at four
+   lines — the server sends an excerpt, this stops an excerpt full of newlines
+   from running the feed long, and the product link below carries the reader to
+   where the whole review is. */
+.rvb-body {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.rvb-elide { color: var(--text-muted); }
+
+.rvb-quote-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.rvb-author {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 18ch;
+}
+
+/* Every quote links to the product it is about — the band's outbound path
+   (DESIGN §9), and the only place a reader can go to see the review in full. */
+.rvb-product {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  margin-left: auto;
+  text-decoration: none;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.rvb-product svg {
+  flex-shrink: 0;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.rvb-product-name {
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rvb-variant {
+  flex-shrink: 0;
+  padding: 1px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.rvb-product:hover .rvb-product-name,
+.rvb-product:hover { color: var(--primary); }
+.rvb-product:hover svg { transform: translateX(2px); }
+
+/* ── Narrow: the tally becomes a band above the feed ──
+   Not the desktop layout with a column dropped. The score and the spread sit
+   side by side instead of stacked, because on a phone the spread is the part
+   worth the width and the headline has already had its own line. Nothing is
+   hidden at this size — the same five buckets, the same counts. */
+@container (max-width: 860px) {
+  .rvb-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-6);
+  }
+  .rvb-tally { position: static; }
+  .rvb-heading { font-size: var(--fs-xl); margin-bottom: var(--sp-4); }
+  .rvb-score {
+    margin-bottom: var(--sp-4);
+    padding-bottom: var(--sp-4);
+    border-bottom: 1px solid var(--border);
+  }
+  .rvb-score-num { font-size: var(--fs-4xl); }
+}
+
+/* Below this the score and the spread genuinely do not both fit on one line,
+   so the spread goes under the score rather than being squeezed to a stub. */
+@container (max-width: 560px) {
+  .rvb-quote { padding-left: var(--sp-3); }
+  .rvb-signed { margin-left: 0; }
+  .rvb-product { margin-left: 0; width: 100%; }
+}
+
+/* ── Motion ──
+   The bars grow from nothing, 5 down to 1, once, when the band scrolls into
+   view: what a tally does is accumulate, so that is what the tally does. The
+   quotes rise on the same ladder behind them.
+
+   Opt-IN rather than opt-out. `is-armed` is added from script only after
+   confirming an IntersectionObserver exists and the visitor has not asked for
+   less motion, so the CSS's own default — everything drawn, at rest — is what
+   a browser that never runs the observer gets. The reduced-motion block below
+   is the belt to this braces. */
+@media (prefers-reduced-motion: no-preference) {
+  .rvb.is-armed .rvb-dist-fill {
+    transform: scaleX(0);
+  }
+  .rvb.is-armed.is-counted .rvb-dist-fill {
+    transform: scaleX(max(var(--bar, 0), 0.03));
+    transition: transform var(--dur-3) var(--ease-settle);
+    transition-delay: calc(var(--stagger) * var(--i, 0));
+  }
+  /* An empty bucket has nothing to grow. Re-stated after the rule above so
+     the transition cannot animate it off its floor and back. */
+  .rvb.is-armed.is-counted .rvb-dist-fill.is-empty { transform: scaleX(0); }
+
+  .rvb.is-armed .rvb-item {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  .rvb.is-armed.is-counted .rvb-item {
+    animation: rvb-rise var(--dur-3) var(--ease-settle) both;
+    /* Capped at the tenth row so the twelfth quote is not still waiting half a
+       second after the first — the ladder is meant to read as one movement. */
+    animation-delay: calc(var(--stagger) * min(var(--i, 0), 10));
+  }
+  @keyframes rvb-rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* `animation: … both` holds its `from` frame, so cancelling it has to restore
+   the end state or the quotes never appear at all. The bars are handed back
+   their real width rather than their zero. */
+@media (prefers-reduced-motion: reduce) {
+  .rvb .rvb-item {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .rvb .rvb-dist-fill {
+    transition: none;
+    transform: scaleX(max(var(--bar, 0), 0.03));
+  }
+  .rvb .rvb-dist-fill.is-empty { transform: scaleX(0); }
+  .rvb .rvb-quote,
+  .rvb .rvb-product svg { transition: none; }
+}

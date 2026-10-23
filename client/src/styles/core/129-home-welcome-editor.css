@@ -1,0 +1,30 @@
+.home-page-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.home-welcome-editor { margin-bottom: var(--sp-5); }
+.welcome-editor-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--sp-5); }
+.welcome-editor-fields > * { min-width: 0; }
+.welcome-field-wide { grid-column: 1 / -1; }
+.welcome-editor-fields textarea { min-height: 100px; }
+.welcome-visibility { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-5); padding-block: var(--sp-4); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--border); }
+.welcome-toggle { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; font-size: var(--fs-sm); cursor: pointer; }
+.welcome-toggle input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--primary); }
+.welcome-preview-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-5); }
+.welcome-preview-head h3 { margin: 0; }
+.welcome-preview { container: welcome / inline-size; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); overflow: hidden; }
+.welcome-preview > .container { padding-inline: 20px; }
+.welcome-preview .store-intro { padding-block: 26px; gap: 24px; }
+.welcome-preview .store-intro-title { font-size: clamp(1.75rem, 5cqi, 3rem); }
+.welcome-preview .store-intro-actions { gap: 12px; }
+.welcome-preview .store-category-nav { margin-bottom: 0; }
+.welcome-preview-hidden { background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); padding: var(--sp-5); color: var(--text-secondary); }
+.store-intro-copy > .store-eyebrow { max-width: 100%; overflow-wrap: anywhere; }
+.store-spotlight-label { max-width: calc(100% - 82px); overflow-wrap: anywhere; }
+.store-intro-actions > a { overflow-wrap: anywhere; max-width: 100%; white-space: normal; }
+@container welcome (max-width: 600px) {
+  .welcome-preview .store-intro { grid-template-columns: minmax(0, 1fr); }
+  .welcome-preview .store-spotlight { max-width: none; }
+}
+@media (max-width: 640px) {
+  .welcome-editor-fields { grid-template-columns: minmax(0, 1fr); }
+  .welcome-visibility { display: grid; gap: 0; }
+  .welcome-preview > .container { padding-inline: 12px; }
+}

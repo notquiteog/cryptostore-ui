@@ -1,0 +1,380 @@
+/* ===============================
+   ADMIN USERS
+   ===============================
+   `--ausr-` on every custom property. */
+
+/* The monogram. Tinted by role, so admin/manager/customer separate at a glance
+   across a grid without reading a badge. */
+.ausr-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ausr-tone, var(--primary));
+  background: color-mix(in srgb, var(--ausr-tone, var(--primary)) 14%, transparent);
+  border: 2px solid color-mix(in srgb, var(--ausr-tone, var(--primary)) 34%, transparent);
+  transition: box-shadow var(--transition), border-color var(--transition);
+}
+@media (hover: hover) and (pointer: fine) {
+  .glass-card.acard:hover .ausr-avatar {
+    border-color: color-mix(in srgb, var(--ausr-tone, var(--primary)) 60%, transparent);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--ausr-tone, var(--primary)) 30%, transparent);
+  }
+}
+
+/* A banned account is not a styling variant of an active one — it is the
+   headline fact about the row. */
+.ausr-avatar.is-banned {
+  filter: grayscale(1);
+  opacity: 0.65;
+}
+.glass-card.acard.ausr-banned { opacity: 0.82; }
+.glass-card.acard.ausr-banned .acard-title {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--danger) 70%, transparent);
+  text-decoration-thickness: 1.5px;
+}
+
+/* The account-flag row: CIM, Zelle, PGP, bot links. */
+.ausr-flags {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+/* The tier picker sits inline in the card body rather than in a drawer: it is a
+   one-control decision and hiding it behind an edit mode was why nobody used
+   it. */
+.ausr-tier {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+}
+.ausr-tier select.glass-input {
+  width: auto;
+  min-width: 10rem;
+  max-width: 100%;
+  padding: var(--sp-1) var(--sp-6) var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+}
+.ausr-tier-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  /* The colour is stored per tier as a literal hex by the operator, so it is
+     the one place here that is not a theme token. */
+  background: var(--ausr-tier-color, var(--text-muted));
+  box-shadow: 0 0 8px var(--ausr-tier-color, transparent);
+}
+
+/* The permission editor is wide; it gets the full width of the drawer and its
+   own separation from the toggles above it. */
+.ausr-perms {
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--border);
+}
+
+.ausr-toggles {
+  display: flex;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
+}
+
+/* Set-a-password. Kept visually distinct from the rest of the edit drawer
+   because it is the one control here that invalidates every session the
+   account has open. */
+.ausr-danger {
+  padding: var(--sp-3) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  background: color-mix(in srgb, var(--danger) 7%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.ausr-danger-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--danger);
+}
+.ausr-danger p {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.ausr-danger-row {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ausr-danger-row .glass-input { flex: 1 1 12rem; min-width: 0; width: auto; }
+
+@media (max-width: 640px) {
+  .ausr-toggles { gap: var(--sp-4); }
+  .ausr-tier select.glass-input { flex: 1 1 auto; min-width: 0; }
+}
+
+/* ── The account as a line item ───────────────────────────────────────────── */
+
+/* DESIGN §6's compact half of this queue, built on the shared `.lrows` /
+   `.lrow` primitive in 74-list-views.css. Only what is specific to an *account*
+   lives here: the rhythm, hairline, zebra, hover, focus ring, truncation and
+   phone shape all come from the shared file rather than being re-invented for
+   this page — which is the whole reason that file exists. The base column
+   tracks are `ROW_COLS` in Users.jsx, set as `--lrow-cols`; the one narrower
+   set for a laptop-width container is at the bottom of this file.
+
+   The queue used to ship as `.acard-grid` with no modifier, so it was a
+   comfortable multi-column card grid at 1900px and at 375px alike: six accounts
+   to a screen on the page an operator opens to answer "who is staff, who is
+   banned, and who is holding store credit we still owe". */
+
+/* `.lrow` sets one `gap` for both axes, and the edit drawer below is a cell of
+   the row rather than a sibling of it — so that single gap was adding 12px of
+   row gap to all four hundred rows to make room under the one whose drawer is
+   open. Columns keep their gap; rows do not have one.
+
+   Written as `.lrow.ausr-row` rather than `.ausr-row` alone: at equal
+   specificity the later file wins, 74-list-views.css is merged after this one,
+   and its `gap` shorthand rewrites `row-gap` — so the single-class version of
+   this rule silently did nothing and every row was 12px taller than it looks
+   here. Anything on this page that overrides the shared primitive has to say
+   both class names. */
+.lrow.ausr-row { row-gap: 0; }
+
+.ausr-row-who {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/* The card's monogram is 40px, which is taller than the whole line it sits on
+   here. Same shape and the same role tint, sized for a row. */
+.ausr-row .ausr-avatar {
+  width: 24px;
+  height: 24px;
+  border-width: 1px;
+  font-size: var(--fs-2xs);
+}
+
+.ausr-row-name { font-weight: 600; }
+
+/* A banned account says so three ways — the worded chip, the struck name, the
+   grey monogram — because `--glow-strength: 0`, a colour-blind operator and a
+   narrow screen each take away a different one of them. */
+.ausr-row.is-banned { color: var(--text-secondary); }
+.ausr-row.is-banned .ausr-row-name {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--danger) 70%, transparent);
+  text-decoration-thickness: 1.5px;
+}
+
+/* `.lrow-stack` is a flex column, so a pill inside it stretches to the full
+   track — and a chip as wide as its column stops reading as a chip. */
+.ausr-row .lrow-stack > .acard-chip { align-self: flex-start; }
+
+/* The flag cell. Wraps rather than clips: a clipped chip is a fact about the
+   account the operator cannot see and has no way of knowing is missing. In the
+   line item these chips are icons with their word in `.sr-only`, so five of
+   them still fit on one line. */
+.ausr-row-flags {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* ── Figures ──────────────────────────────────────────────────────────────── */
+
+/* Orders, spend and credit, each over an optional second line. `.lrow-num`
+   supplies the mono face and `tabular-nums`; this supplies the stacking, and
+   the right edge they align on. */
+.ausr-fig {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  min-width: 0;
+}
+.ausr-fig small {
+  /* Back to the working face: the sub-line is "$80.00 · 30d", a sentence with a
+     figure in it rather than a column to line up. */
+  font-family: var(--font);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  /* Wraps, unlike the figure above it — and stated explicitly, because
+     `white-space` is inherited and `.lrow-num` on the cell itself sets
+     `nowrap`. Nothing clips a grid cell here, so a `nowrap` sub-line on a
+     customer who has spent five figures does not truncate, it prints straight
+     over the column to its left. The amount above keeps the `nowrap` it
+     inherits: a dollar figure broken across two lines is worse than a row that
+     grew a line. */
+  white-space: normal;
+  text-align: right;
+}
+
+/* The column heading each figure carries for the phone shape, where
+   `.lrows-head` is gone. Hidden on the desktop line — the heading row is
+   already saying it, and saying it twice is what §7 calls clutter. */
+.ausr-fig-label { display: none; }
+
+/* Headings sit over the right edge their figures align on. */
+.ausr-head-num { text-align: right; }
+
+/* ── The editor, opened in place ──────────────────────────────────────────── */
+
+/* The same drawer the card uses, as a cell of the row spanning every track.
+   Deliberately not a sibling element between two `.lrow`s: there it would break
+   the zebra (every row would land on an odd index) and sit outside the hairline
+   the list is divided by. */
+.ausr-row-editor {
+  grid-column: 1 / -1;
+  /* Bleed back over the row's inline padding so the drawer's own top rule spans
+     the whole line. No top margin, deliberately: a closed drawer is a
+     zero-height grid row, and a margin on it would be charged to every row on
+     the page to make space under the one that is open. The gap above the
+     content is the drawer's own padding. */
+  margin-inline: calc(-1 * var(--sp-3));
+}
+
+/* An open editor keeps its row's controls on screen. They are revealed by hover
+   on a fine pointer, and while somebody is editing, the pointer is down in the
+   drawer — so the row they are working on was the one row showing no buttons. */
+.ausr-row.is-editing .lrow-actions { opacity: 1; }
+
+/* `.skeleton` brings the shimmer, a full border and a radius. Inside the list
+   frame the rows are divided by a hairline and the frame owns the corners, so
+   the rest of that box comes off. */
+.ausr-rows .lrow-skel {
+  border-radius: 0;
+  border-top: none;
+  border-inline: none;
+}
+
+/* §9's ways out of an empty list, laid out the same whether they sit in the
+   list frame (`.lrows-empty`, which has its own link row) or in the card
+   view's `.empty-state`, which stacks its children one per line. */
+.ausr-empty-links {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: var(--sp-3);
+}
+/* `.empty-state` pushes every button it contains down by 1.25rem, which is
+   right for the single button it was written for and wrong for a row of four —
+   the row already has its own space above it. */
+.empty-state .ausr-empty-links .glass-btn { margin-top: 0; }
+
+/* ── The narrow desktop ───────────────────────────────────────────────────── */
+
+/* Between the phone shape and a wide monitor sits the case this list is most
+   often actually read in: a 1280px laptop with the admin nav open leaves the
+   list about 980px, and there the fixed figure tracks are spending room the
+   account and role columns need — "2 permissions" was truncating to
+   "2 permissi…" while `$0.00` sat in a track sized for `$12,345.67`.
+
+   Declared on the head and the rows rather than on `.lrows` itself for two
+   reasons that both matter: an element cannot query its own container, and the
+   page sets the base `--lrow-cols` inline on `.lrows`, which a rule on that
+   same element could not beat without `!important`. The children inherit that
+   inline value only until they carry a declaration of their own — so the head
+   and the rows are named together here, and a change that reaches one of them
+   without the other would take the columns out of alignment. The action track
+   is deliberately not narrowed: four buttons need every one of its 200px, and a
+   track too small for them overflows into the column to its left. */
+@container (min-width: 561px) and (max-width: 1080px) {
+  .lrows.ausr-rows .lrows-head,
+  .lrow.ausr-row {
+    --lrow-cols: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 2fr) 56px 84px 80px 84px 200px;
+  }
+}
+
+/* ── The phone shape ──────────────────────────────────────────────────────── */
+
+/* A container query, matching the shared file: this list has to lay itself out
+   against its own box, because a viewport query would fire the wide rules in
+   the narrowest place the component appears. The shared file collapses the
+   tracks and re-flows the cells; what is left for this surface is naming the
+   four figures, since the heading row that was naming them is gone. */
+@container (max-width: 560px) {
+  .ausr-fig {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+  .ausr-fig-label {
+    display: inline;
+    font-family: var(--font);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+}
+
+/* The sentence under the permission editor saying what the draft grant set
+   would see on an order (components/RedactionPreview). One line of running
+   text with the icon hung off the front: it is a reading, not a control. */
+.perm-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px dashed rgba(var(--tint-rgb), 0.3);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.perm-preview svg { flex: none; margin-top: 0.2em; color: var(--primary); }
+.perm-preview code { font-size: 0.92em; }
+
+/*
+ * Why an account is banned, on the account's own card.
+ *
+ * `--danger` on the icon only — a whole paragraph in the alarm colour reads as
+ * an error the reader caused, and this is a record of a decision somebody made
+ * on purpose.
+ */
+.ausr-ban-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-15);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.ausr-ban-reason svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--danger);
+}
+
+.ausr-ban-reason strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}

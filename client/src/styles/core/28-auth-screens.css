@@ -1,0 +1,242 @@
+/* ===============================
+   AUTH SCREENS — login / register
+   ===============================
+   Shared by the sign-in and sign-up cards so a store that closes registration
+   gets the same frame for the "closed" notice as for the form it replaces. */
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 70px);
+  position: relative;
+}
+.auth-glow {
+  position: absolute;
+  /* Centred with inset+margin rather than a translate, so the transform
+     property stays free for the bloom below — a keyframe setting `transform`
+     replaces the whole property, and a centring translate declared here would
+     be dropped the moment the animation started.
+
+     `min()` is the important half: a fixed 560px halo centred inside a 375px
+     phone column hangs ~92px off each edge and makes the entire document
+     scroll sideways. `.hero-glow` already clamps itself this way. */
+  inset: 0;
+  margin: auto;
+  width: min(560px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, var(--card-glow) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(60px);
+  animation: auth-glow-bloom 1.1s var(--ease-panel) both;
+}
+/* Blooms once as the page arrives and then holds still. */
+@keyframes auth-glow-bloom {
+  from { opacity: 0;    transform: scale(0.88); }
+  to   { opacity: 0.85; transform: scale(1); }
+}
+.auth-card {
+  max-width: 420px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+  box-shadow: var(--shadow-lg), 0 0 40px var(--card-glow);
+  animation: auth-card-in 0.45s var(--ease-settle) both;
+}
+@keyframes auth-card-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+.auth-title {
+  text-align: center;
+  margin-bottom: var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+/* Why the form looks the way it does — invite-only, closed, and so on. */
+/* Shared with Register, which had the same three inline blocks. */
+.auth-subtitle {
+  text-align: center;
+  margin-bottom: var(--sp-6);
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+}
+.auth-submit {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: var(--sp-4);
+}
+.auth-alt {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+}
+
+.auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3);
+  margin-bottom: var(--sp-5);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--primary-border);
+  background: rgba(var(--tint-rgb), 0.04);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+/* ── Sign-in method picker + PGP challenge ───────────────────────────────
+   The challenge step is the same object in two flows (2FA after a password,
+   and passwordless key-only sign-in), so it gets one appearance: a bounded
+   panel that reads as a thing handed to you to take away and decrypt, rather
+   than another field to fill in. */
+
+.auth-method {
+  margin-bottom: var(--sp-5);
+  width: 100%;
+}
+.auth-method .segmented-option {
+  flex: 1;
+  justify-content: center;
+  gap: var(--sp-15);
+}
+
+.auth-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-5);
+  padding: var(--sp-25) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--primary-rgb), 0.07);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.auth-note svg { flex: 0 0 auto; margin-top: var(--sp-05); color: var(--primary); }
+
+.auth-challenge {
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-3);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.035);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--rim-light);
+  animation: rise-in 0.36s var(--ease-panel) both;
+}
+
+.auth-challenge-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+.auth-challenge-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--text);
+}
+.auth-challenge-title svg { color: var(--primary); }
+.auth-challenge-meta { font-size: var(--fs-xs); color: var(--text-muted); }
+.auth-challenge-meta b { color: var(--text-secondary); font-feature-settings: "tnum"; }
+.auth-challenge-expired { color: var(--warning); font-weight: 600; }
+
+.auth-challenge-block {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  /* An armored block is long, fixed-width text nobody reads — it is copied.
+     Wrapping it would only make the panel taller for no gain. */
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+  color: var(--text-muted);
+}
+
+.auth-challenge-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin: var(--sp-25) 0 var(--sp-4);
+}
+
+.auth-challenge-answer { margin-bottom: 0; }
+
+@media (max-width: 400px) {
+  .auth-challenge-actions .glass-btn { flex: 1; justify-content: center; }
+}
+
+.auth-lock-badge {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto var(--sp-4);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-glow, .auth-card, .auth-challenge { animation: none; }
+}
+
+
+/* ── Brand mark ──
+   The auth screens open with the store's mark instead of a generic
+   "Sign In / Welcome back" — a buyer typing credentials should see WHO is
+   asking. Sizing matches the age gate's mark so the brand reads at the same
+   scale on every credential surface. */
+.brand-mark {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--sp-5);
+}
+.brand-mark-img {
+  max-height: 64px;
+  max-width: min(240px, 100%);
+  object-fit: contain;
+}
+.brand-mark-dynamic {
+  height: 64px;
+  width: min(240px, 100%);
+  /* Rides `--logo-color` with the navbar and age gate — one setting recolours
+     the mark everywhere it appears, or the surfaces drift the first time
+     someone tunes one. */
+  background-color: var(--logo-color, var(--primary));
+  -webkit-mask-image: var(--logo-src);
+  mask-image: var(--logo-src);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  transition: background-color var(--transition);
+}
+.brand-mark-img.brand-mark-round { border-radius: 14px; }
+.brand-mark-wordmark {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text);
+  text-align: center;
+  text-wrap: balance;
+}

@@ -1,0 +1,274 @@
+/* ===============================
+   CREDIT ADJUSTER — the panel that moves store credit, and draws the movement
+   ===============================
+   Skin for `components/admin/CreditAdjuster.jsx`. Two pages render it; it used
+   to be two hand-written copies of one form, which is why it has a stylesheet
+   of its own rather than a block inside either page's file.
+
+   What the shape is for:
+
+   · **The two live lines never reflow.** `.credit-account-state` and
+     `.credit-forecast` both hold a reserved line box whether or not they have
+     anything to say. They fill in as an id resolves and as an amount is typed
+     — under the pointer, directly above the submit button. A line that appears
+     rather than fills pushes the button down between the operator deciding to
+     press it and pressing it, which on this form means a mis-click on a
+     control that moves somebody's money (DESIGN §4).
+
+   · **Direction is a control, not a character.** The amount field takes a
+     magnitude and `.credit-direction` takes the sign, because one signed input
+     made a stray minus the whole difference between granting $500 and taking
+     it. The deduct half is tinted with `--danger` when it is the live choice —
+     colour AND the pressed state, never colour alone.
+
+   · **The receipt is a length, not a glow.** `.credit-receipt-bar` says which
+     of two balances is longer, so its meaning has to survive an operator
+     setting `--glow-strength: 0` (DESIGN §3). It is fill and width only. The
+     figures are printed beside it in every case; the bar is a second channel
+     for something already stated, never the only one carrying it.
+   =============================== */
+
+.credit-adjuster {
+  margin-top: var(--sp-6);
+  /* Container, not viewport: this panel sits full-width under a ledger and
+     would sit in a narrow column just as legitimately. DESIGN §5. */
+  container-type: inline-size;
+}
+
+.credit-adjuster .admin-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.credit-adjuster .admin-card-title svg { color: var(--accent); flex-shrink: 0; }
+
+/* ── The freeze notice ────────────────────────────────────────────────────── */
+
+/* Stated where the money moves, because a frozen store still renders a full
+   ledger and nothing else on the page says the facility has stopped. */
+.credit-frozen {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3);
+  border: 1px solid rgba(var(--warning-rgb), 0.30);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--warning-rgb), 0.08);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.credit-frozen svg { color: var(--warning); flex-shrink: 0; margin-top: 2px; }
+
+/* ── Fields ───────────────────────────────────────────────────────────────── */
+
+/* Asymmetric on purpose. DESIGN §1: three equal columns is a layout admitting
+   it never asked which of the three matters. Who and how much are the two
+   decisions; the note is typed once and read later. */
+.credit-fields {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.3fr) minmax(200px, 1.2fr);
+  gap: var(--sp-3) var(--sp-4);
+  align-items: start;
+}
+.credit-fields .form-group { margin-bottom: 0; min-width: 0; }
+
+@container (max-width: 780px) {
+  .credit-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .credit-note { grid-column: 1 / -1; }
+}
+@container (max-width: 460px) {
+  .credit-fields { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Both live lines share one metric so the two columns keep a common baseline
+   whichever of them currently has text in it. */
+.credit-account-state,
+.credit-forecast {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-2);
+  /* The reserved box. Two lines' worth, because the forecast grows a clamp
+     clause and the account line grows a role badge. */
+  min-height: calc(var(--fs-sm) * 2.6);
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.credit-account-state svg,
+.credit-forecast svg { flex-shrink: 0; opacity: 0.8; }
+
+.credit-hint {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  margin: 0;
+}
+.credit-account-name { font-weight: 600; }
+.credit-role { text-transform: capitalize; }
+
+.credit-nobody {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--danger);
+}
+
+/* ── Direction and amount ─────────────────────────────────────────────────── */
+
+.credit-amount-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.credit-direction { flex: 0 0 auto; }
+.credit-direction .segmented-option { padding-inline: var(--sp-3); }
+
+/* The dangerous half is tinted only while it is the live choice. Tinting it
+   permanently would make Deduct look like the destructive button on a panel
+   where deducting is an ordinary daily action; tinting it on selection says
+   "this is the direction you are currently pointed in". */
+.credit-direction .segmented-option.is-deduct {
+  background: rgba(var(--danger-rgb), 0.14);
+  color: var(--danger);
+}
+
+.credit-amount-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 130px;
+  min-width: 0;
+}
+.credit-currency {
+  position: absolute;
+  left: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  pointer-events: none;
+}
+.credit-amount-field .glass-input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding-left: var(--sp-6);
+}
+
+.credit-forecast .credit-clamp-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--warning);
+  font-size: var(--fs-xs);
+}
+
+/* ── The receipt ──────────────────────────────────────────────────────────── */
+
+.credit-receipt {
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--credit-tone, var(--primary));
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.03);
+  /* Panels fade; they do not travel. DESIGN §2. */
+  animation: credit-receipt-in var(--dur-3) var(--ease-panel) both;
+}
+.credit-receipt.is-up { --credit-tone: var(--success); }
+.credit-receipt.is-down { --credit-tone: var(--danger); }
+
+@keyframes credit-receipt-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* The track. Its full width is whichever balance is larger, so the two
+   segments below always sum to 100% of something real. */
+.credit-receipt-bar {
+  display: flex;
+  height: 10px;
+  margin-bottom: var(--sp-3);
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.06);
+  overflow: hidden;
+}
+
+/* The part of the balance that did not move, and the part that did. Two
+   elements rather than one animated width, because the segment that changed
+   has to be a different colour from the segment that did not — which a single
+   bar cannot say. */
+.credit-bar-base {
+  background: rgba(var(--text-rgb), 0.22);
+  transition: width var(--dur-3) var(--ease-settle);
+}
+.credit-bar-delta {
+  background: var(--credit-tone, var(--primary));
+  transition: width var(--dur-3) var(--ease-settle);
+  /* The delta grows out of the base rather than snapping to length. This is
+     the one moment the panel can show that a balance *moved* rather than
+     simply differing from what it was a second ago — DESIGN §2's rule that
+     motion should explain the mechanism. */
+  animation: credit-delta-grow var(--dur-3) var(--ease-settle) both;
+  transform-origin: left center;
+}
+@keyframes credit-delta-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.credit-receipt-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-base);
+}
+.credit-receipt-line svg { align-self: center; color: var(--text-muted); flex-shrink: 0; }
+.credit-was { color: var(--text-muted); text-decoration: line-through; }
+.credit-now { font-size: var(--fs-lg); color: var(--text); }
+.credit-delta { font-size: var(--fs-sm); font-weight: 600; }
+
+.credit-clamped {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 0;
+  color: var(--warning);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.credit-clamped svg { flex-shrink: 0; margin-top: 2px; }
+
+.credit-receipt-links { justify-content: flex-start; margin-top: var(--sp-3); }
+
+/* ── Touch ────────────────────────────────────────────────────────────────── */
+
+/* DESIGN §5: `--control-h` is a desktop size and the floor on a coarse pointer
+   is 44px. Every control on this panel commits money. */
+@media (pointer: coarse) {
+  .credit-adjuster .segmented-option,
+  .credit-adjuster .glass-btn,
+  .credit-adjuster .glass-input { min-height: 44px; }
+  .credit-adjuster textarea.glass-input { min-height: 66px; }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+/* The end states are restored rather than the animation merely removed: an
+   `animation: … both` that is cancelled without them leaves the delta segment
+   at `scaleX(0)`, and the receipt would report every movement as no movement.
+   DESIGN §2. */
+@media (prefers-reduced-motion: reduce) {
+  .credit-receipt { animation: none; opacity: 1; }
+  .credit-bar-delta {
+    animation: none;
+    transform: scaleX(1);
+    transition: none;
+  }
+  .credit-bar-base { transition: none; }
+}

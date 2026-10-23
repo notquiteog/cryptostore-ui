@@ -1,0 +1,44 @@
+/* ===============================
+   MOBILE OVERRIDES
+   =============================== */
+@media (max-width: 768px) {
+  .navbar-desktop { display: none !important; }
+  .navbar-mobile-icons { display: flex !important; }
+  .mobile-menu { display: block; }
+  .navbar-search { flex: 1; }
+
+  .hero-section { padding: var(--sp-12) var(--sp-4) var(--sp-8); }
+  .hero-btn { padding: var(--sp-3) var(--sp-6); font-size: var(--fs-md); }
+  .hero-tagline { font-size: var(--fs-md); }
+
+  /* The gutter override that used to live here is gone: `--gutter` is now a
+     clamp on the viewport (01-tokens), so a phone gets 14px and a 4K monitor
+     64px from one declaration instead of a media query flipping between two
+     literals. The warning it carried is still worth keeping, because the
+     shape that caused it is still possible — it was written `padding: 0 1rem`,
+     and the shorthand's implied top/bottom of 0 beat `.page`'s own padding at
+     equal specificity from a later file, so every `.page.container` page
+     started flush under the navbar on a phone. `.container` uses
+     `padding-inline` for exactly that reason. Do not "tidy" it to a
+     shorthand.
+
+     The page title keeps a phone size of its own even though the display
+     ladder already shrinks it: `--fs-2xl` lands at 25px on a 320px screen,
+     which still gives a three-word title two lines under a 44px tap target. */
+  .page-title { font-size: var(--fs-xl); }
+  .form-row { flex-direction: column; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .grid-4 { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+
+  /* Two up, deliberately: the grid's own `minmax(212px, 1fr)` would give a
+     375px phone a single column and turn the catalog into a vertical stack of
+     billboards. Only the TRACK is a viewport decision — everything inside a
+     card answers to the card's own width via container queries in
+     11-product-grid-and-cards.css, because the same card is also 212px wide
+     on a 1600px monitor. */
+  .pcard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--sp-2);
+  }
+}
+

@@ -1,0 +1,194 @@
+/* ===============================
+   NOT FOUND
+   ===============================
+   The catch-all for a path nothing answers to (pages/NotFound.jsx and
+   pages/admin/NotFound.jsx). Before it existed an unknown URL mounted the
+   shell with an empty <main> — navbar, footer, nothing between — which read as
+   the store having broken rather than as a link having gone stale.
+
+   The beacon is the flourish that does a job (DESIGN §10): a parcel with a
+   sonar ring sweeping out from it — "we are looking, and there is nothing
+   here". Everything that moves moves on transform and opacity only, loops
+   slowly enough to be furniture rather than a spinner, and stops under reduced
+   motion, where one ring is drawn at rest so the emblem keeps its shape.
+
+   Glow is the lighting, not the meaning: at `--glow-strength: 0` the rings
+   still have a stroke, the core still has its border, and the figure is
+   ordinary text. */
+
+.nf-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nf-admin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 62vh;
+}
+
+.nf-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: min(560px, 100%);
+  padding: var(--sp-6) 0 var(--sp-8);
+  /* Arrives like every page (DESIGN §2): a fade without travel. */
+  animation: fade-in 0.45s var(--ease-panel) both;
+}
+.nf-stage > *:not(.nf-halo) { position: relative; z-index: 1; }
+
+/* The halo: a wash behind the whole stage that breathes. Opacity only.
+   `min()` clamps it to the column — a fixed halo hanging off a phone's edges is
+   how a page grows a sideways scroll (28-auth-screens.css learned it first). */
+.nf-halo {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(520px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--card-glow) 0%, transparent 68%);
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: 0;
+  animation: nf-breathe 5.2s ease-in-out infinite alternate;
+}
+
+/* The beacon. Rings are stacked on the core and scale outward as they fade;
+   three of them a third of a cycle apart, so one is always leaving. */
+.nf-beacon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  margin-bottom: var(--sp-4);
+}
+.nf-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 14px -2px var(--primary-glow), inset 0 0 14px -6px var(--primary-glow);
+  opacity: 0;
+  animation: nf-ping 3.6s linear infinite;
+}
+.nf-ring:nth-child(2) { animation-delay: -1.2s; }
+.nf-ring:nth-child(3) { animation-delay: -2.4s; }
+.nf-core {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  color: var(--primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+  box-shadow: var(--glow-md), var(--rim-inset);
+  animation: nf-float 5s ease-in-out infinite;
+}
+.is-compact .nf-beacon { width: 108px; height: 108px; }
+.is-compact .nf-core { width: 64px; height: 64px; }
+
+/* The figure. Display face, lit, and each digit drifts on its own slow wave
+   so the three never move as a block. */
+.nf-code {
+  display: flex;
+  gap: 0.04em;
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-size: clamp(3.4rem, 14vw, 5.6rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text);
+  text-shadow: 0 0 28px var(--primary-glow);
+  font-feature-settings: "tnum";
+}
+.is-compact .nf-code { font-size: clamp(2.8rem, 10vw, 4.2rem); }
+.nf-code span { display: inline-block; animation: nf-lift 6s ease-in-out infinite; }
+.nf-code span:nth-child(2) { animation-delay: -2s; }
+.nf-code span:nth-child(3) { animation-delay: -4s; }
+
+.nf-title {
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.nf-lede {
+  max-width: 46ch;
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+/* The address, in the ledger voice. `overflow-wrap: anywhere` because a path
+   is one unbreakable word and a long one would otherwise leave the column. */
+.nf-path {
+  max-width: 100%;
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.nf-path code {
+  display: inline-block;
+  max-width: 100%;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.nf-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-6);
+}
+.nf-links .glass-btn { display: inline-flex; align-items: center; gap: var(--sp-2); }
+
+/* Starts just outside the core's edge (the core is ~58% of the beacon), so
+   the ring is born visible rather than spending its brightest third hidden
+   behind the emblem, and fades on a straight line so it is still there at
+   the halfway mark. */
+@keyframes nf-ping {
+  0%   { transform: scale(0.62); opacity: 0.9; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+@keyframes nf-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes nf-lift {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+@keyframes nf-breathe {
+  from { opacity: 0.5; }
+  to   { opacity: 1; }
+}
+
+@media (max-width: 480px) {
+  .nf-stage { padding-top: var(--sp-2); }
+  .nf-links { flex-direction: column; align-items: stretch; }
+  .nf-links .glass-btn { justify-content: center; min-height: 44px; }
+}
+
+/* Everything decorative stops; the emblem keeps its shape by drawing one ring
+   at rest, and the halo is simply on. */
+@media (prefers-reduced-motion: reduce) {
+  .nf-stage, .nf-halo, .nf-core, .nf-code span { animation: none; }
+  .nf-halo { opacity: 0.85; }
+  .nf-ring { animation: none; opacity: 0; }
+  .nf-ring:nth-child(2) { opacity: 0.28; transform: scale(0.92); }
+}

@@ -1,0 +1,350 @@
+/* ===============================
+   PARCEL TRACKING
+   ===============================
+   What the carrier last said, drawn on every surface a tracking number
+   appears on: a pill per order in the lists, a line per number on the Ship
+   desk and the manifest, a card per number on the order page, and two
+   settings cards (the tracking queue and the outbound proxy pool).
+
+   One tone variable (`--parcel-tone`) carries the state's colour; the
+   component sets it from the server's `tone` word, so a status added on the
+   server arrives with a colour and nothing here has to learn it. Every
+   colour is mixed from that variable — no literals — so the chips follow
+   the operator's palette and survive `--glow-strength: 0`, where the label
+   text and the icon still say what the tint said.
+
+   What is deliberately absent: a refresh control. The worker asks the
+   carrier on its own clock (server/config/trackingKeys.js), and these
+   surfaces print WHEN it last asked instead of offering to ask again. */
+
+/* ── The chip, per order ───────────────────────────────────────────── */
+
+.parcel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  border: 1px solid color-mix(in srgb, var(--parcel-tone) 34%, transparent);
+  background: color-mix(in srgb, var(--parcel-tone) 12%, transparent);
+  color: var(--parcel-tone);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.5;
+  max-width: 100%;
+}
+.parcel-chip svg { flex-shrink: 0; }
+.parcel-chip-label { overflow: hidden; text-overflow: ellipsis; }
+/* Attention lights the chip — glow means "look here", DESIGN §3 — and the
+   border thickens in colour, not in width, so the row does not reflow. */
+.parcel-chip.is-attention {
+  border-color: color-mix(in srgb, var(--parcel-tone) 70%, transparent);
+  box-shadow: 0 0 calc(10px * var(--glow-strength, 1)) color-mix(in srgb, var(--parcel-tone) 35%, transparent);
+}
+
+/* ── The line, per number ──────────────────────────────────────────── */
+
+.parcel-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--parcel-tone);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.parcel-line svg { flex-shrink: 0; }
+.parcel-line-label { overflow: hidden; text-overflow: ellipsis; }
+.parcel-line-ago { color: var(--text-muted); font-weight: 400; font-size: var(--fs-2xs); }
+.parcel-line.is-untracked { color: var(--text-muted); font-weight: 400; }
+
+/* ── The card, on the order page ───────────────────────────────────── */
+
+.parcel-card {
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--parcel-tone) 30%, var(--border));
+  background: color-mix(in srgb, var(--parcel-tone) 6%, transparent);
+  padding: var(--sp-2) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+  container-type: inline-size;
+}
+.parcel-card.is-attention {
+  box-shadow: 0 0 calc(14px * var(--glow-strength, 1)) color-mix(in srgb, var(--parcel-tone) 25%, transparent);
+}
+.parcel-card.is-untracked { border-style: dashed; background: transparent; }
+
+.parcel-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.parcel-card-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  color: var(--parcel-tone);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  letter-spacing: 0.01em;
+}
+.parcel-card-carrier {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+}
+.parcel-card-carrier::before { content: '·'; margin-right: var(--sp-15); color: var(--text-muted); }
+.parcel-card-when { color: var(--text-secondary); font-size: var(--fs-xs); font-family: var(--font-mono); }
+.parcel-card-note { color: var(--text-muted); font-size: var(--fs-xs); }
+
+.parcel-card-words {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.parcel-card-where {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  margin-left: var(--sp-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.parcel-card-stalled {
+  margin: 0;
+  display: flex;
+  gap: var(--sp-15);
+  align-items: flex-start;
+  color: var(--warning);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+.parcel-card-stalled svg { flex-shrink: 0; margin-top: 2px; }
+
+.parcel-card-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.parcel-card-checked { display: inline-flex; align-items: center; gap: var(--sp-05); }
+/* Why the timestamp beside it has stopped moving. Muted and in the foot on
+   purpose: the parcel's own state stays the loud thing on the card. */
+.parcel-card-stopped { color: var(--text-muted); font-style: italic; }
+.parcel-card-toggle,
+.parcel-card-out {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 0;
+}
+.parcel-card-toggle:hover,
+.parcel-card-out:hover { color: var(--primary); }
+.parcel-card-toggle:focus-visible,
+.parcel-card-out:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.4); border-radius: var(--radius-xs, 4px); }
+.parcel-chev { transition: transform var(--dur-2) var(--ease-spring); }
+.parcel-chev.is-open { transform: rotate(180deg); }
+@media (pointer: coarse) {
+  .parcel-card-toggle, .parcel-card-out { min-height: 44px; }
+}
+
+/* The events: a spine down the left, newest at the top where the eye lands.
+   Entries rise in with the panel's ladder — the list arrives, it does not
+   blink into place (DESIGN §2). */
+.parcel-events {
+  list-style: none;
+  margin: var(--sp-1) 0 0;
+  padding: 0 0 0 var(--sp-1);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+.parcel-event {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--sp-2);
+  align-items: start;
+  padding: var(--sp-1) 0;
+  position: relative;
+  animation: rise-in var(--dur-3) var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+.parcel-event + .parcel-event { border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); }
+.parcel-event-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: rgba(var(--tint-rgb), 0.08);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.parcel-event:first-child .parcel-event-dot {
+  color: var(--parcel-tone);
+  border-color: color-mix(in srgb, var(--parcel-tone) 50%, transparent);
+  background: color-mix(in srgb, var(--parcel-tone) 15%, transparent);
+}
+.parcel-event-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.parcel-event-desc { font-size: var(--fs-sm); color: var(--text); overflow-wrap: anywhere; }
+.parcel-event-where { font-size: var(--fs-2xs); color: var(--text-secondary); }
+.parcel-event-at {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-align: right;
+}
+/* Narrow cards stack the stamp under the words rather than squeezing them. */
+@container (max-width: 420px) {
+  .parcel-event { grid-template-columns: auto 1fr; }
+  .parcel-event-at { grid-column: 2; text-align: left; }
+  .parcel-card-where { display: flex; margin-left: 0; margin-top: var(--sp-05); }
+}
+
+/* ── The order page's tracking list gains the card under each number ── */
+.od-parcel { flex-wrap: wrap; }
+.od-parcel > .parcel-card { flex-basis: 100%; margin-top: var(--sp-1); }
+
+/* ── Settings: the tracking queue and the proxy pool ───────────────── */
+
+.trk-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0;
+}
+.trk-stat {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(var(--tint-rgb), 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.trk-stat-value { font-family: var(--font-mono); font-size: var(--fs-lg); color: var(--text); line-height: 1.1; }
+.trk-stat-label { font-size: var(--fs-2xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.trk-stat.is-attention .trk-stat-value { color: var(--danger); }
+.trk-stat.is-ok .trk-stat-value { color: var(--success); }
+
+.trk-carriers { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-3); }
+.trk-carrier {
+  display: grid;
+  grid-template-columns: minmax(90px, 140px) 1fr;
+  gap: var(--sp-2) var(--sp-3);
+  align-items: start;
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--border);
+}
+.trk-carrier-name { font-weight: 600; color: var(--text); display: flex; flex-direction: column; gap: 2px; }
+.trk-carrier-mode { font-size: var(--fs-2xs); font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase; }
+.trk-carrier-mode.is-api { color: var(--success); }
+.trk-carrier-mode.is-page { color: var(--warning); }
+.trk-carrier-mode.is-off { color: var(--danger); }
+.trk-carrier-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-2); }
+.trk-carrier-fields label { display: block; font-size: var(--fs-2xs); color: var(--text-secondary); margin-bottom: 2px; }
+.trk-carrier-help { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--text-secondary); margin: 0; line-height: 1.45; }
+.trk-carrier-err { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--danger); margin: 0; overflow-wrap: anywhere; }
+@container settings (max-width: 560px) {
+  .trk-carrier { grid-template-columns: 1fr; }
+}
+
+/* Route choice: three radio cards. Not a row of three equal tiles — the
+   recommended one is marked, and the one that costs the most privacy is
+   toned as such. */
+.trk-routes { display: flex; flex-direction: column; gap: var(--sp-15); margin-top: var(--sp-2); }
+.trk-route {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-2) var(--sp-3);
+  align-items: start;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.trk-route:hover { border-color: var(--border-hover); background: rgba(var(--tint-rgb), 0.04); }
+.trk-route.is-on { border-color: rgba(var(--primary-rgb), 0.6); background: rgba(var(--primary-rgb), 0.06); }
+.trk-route input { margin-top: 3px; }
+.trk-route-title { font-weight: 600; color: var(--text); display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.trk-route-title .badge { font-size: var(--fs-3xs); }
+.trk-route-hint { font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.45; margin: 2px 0 0; }
+
+/* The proxy pool editor: one row per proxy, hops listed inside. */
+.pxy-list { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); }
+.pxy {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  background: rgba(var(--tint-rgb), 0.03);
+  animation: rise-in var(--dur-3) var(--ease-settle) both;
+}
+.pxy.is-off { opacity: 0.7; }
+.pxy-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.pxy-head .glass-input { flex: 1 1 160px; min-width: 0; }
+.pxy-health { font-size: var(--fs-2xs); color: var(--text-muted); font-family: var(--font-mono); display: inline-flex; gap: var(--sp-2); flex-wrap: wrap; }
+.pxy-health .is-ok { color: var(--success); }
+.pxy-health .is-bad { color: var(--danger); }
+.pxy-hops { display: flex; flex-direction: column; gap: var(--sp-15); }
+.pxy-hop {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 120px) minmax(120px, 1fr) minmax(64px, 84px) minmax(90px, 1fr) minmax(90px, 1fr) auto;
+  gap: var(--sp-15);
+  align-items: center;
+}
+.pxy-hop-n { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--text-muted); width: 1.6em; text-align: right; }
+.pxy-hop.is-tor { grid-template-columns: auto minmax(90px, 120px) 1fr auto; }
+.pxy-hop-tor { font-size: var(--fs-xs); color: var(--text-secondary); }
+.pxy-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+.pxy-test { font-size: var(--fs-xs); color: var(--text-secondary); overflow-wrap: anywhere; }
+.pxy-test.is-ok { color: var(--success); }
+.pxy-test.is-bad { color: var(--danger); }
+@container settings (max-width: 720px) {
+  .pxy-hop, .pxy-hop.is-tor { grid-template-columns: auto 1fr 1fr; }
+  .pxy-hop > :nth-child(n+4) { grid-column: span 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .parcel-event, .pxy { animation: none; }
+  .parcel-chev { transition: none; }
+}
+
+/* ── The manifest's "Carrier says" column ─────────────────────────── */
+/* Wide enough for "Out for delivery" plus its age: a column that clips
+   "Delivered" to "Deli…" is a column that answers nothing. */
+.mf-parcel { min-width: 170px; }
+.mf-parcel .parcel-line { white-space: normal; flex-wrap: wrap; }
+.mf-parcel .parcel-line-label { overflow: visible; }

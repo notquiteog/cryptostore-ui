@@ -1,0 +1,525 @@
+/* ===============================
+   NAVBAR — heavy blur, near-opaque
+   =============================== */
+/* The bar carries `glass-plate` in Navbar.jsx, so its blur lives on a backing
+   layer rather than on the <nav> itself. That is load-bearing, not tidiness:
+   a `backdrop-filter` here would make the bar the backdrop root for everything
+   hanging off it — the eight nav popovers, the search autocomplete, the
+   assistant panel — and every one of them would paint page text through itself
+   with hard edges no matter what the operator's blur setting said, because
+   they hang almost entirely outside the bar's own box. (The mobile menu does
+   not: it is in-flow, so the bar grows around it and it was blurring real
+   content either way.) See the long note on `.glass-plate` in
+   06-glass-primitives.css.
+
+   The background stays here. It is what `--nav-bg` and the light-mode pairs
+   read, and a constant tint under the blur composites to the same colour
+   either way. */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  --plate-filter: var(--glass-lg);
+  background: var(--nav-bg);
+  border-bottom: 1px solid rgba(var(--tint-rgb), 0.06);
+  /* Mode-aware shadow tier instead of the old fixed 40%-black plume, which sat
+     under the bar like soot the moment a store went light. */
+  box-shadow: 0 1px 0 rgba(var(--tint-rgb), 0.02), var(--shadow-sm);
+}
+/* Down over the hairline. The plate is inset to the padding box, and the bar
+   has a bottom border, so without this a 1px line of unblurred page reads
+   through the border's 6% tint along the whole width of the bar. */
+.navbar::before { bottom: -1px; }
+
+/* The bar's height is a token because three other rules need it: the catalog
+   toolbar and the product page's sticky media column both pin themselves just
+   under the bar, and both did it by writing a number down (64px in one place,
+   80px in the other, for the same edge). It rides the type unit like every
+   other control height, so the bar grows with the interface instead of
+   staying a laptop's 64px on an 8K monitor while the links inside it grow. */
+:root { --navbar-h: max(64px, calc(var(--fs-unit) * 4)); }
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--navbar-h);
+  gap: var(--sp-3);
+}
+
+.navbar-search {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+}
+
+.navbar-logo-link {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  transition: opacity var(--transition);
+}
+.navbar-logo-link:hover { opacity: 0.85; }
+
+.navbar-logo-img {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  transition: max-width var(--transition), height var(--transition);
+}
+/* Two shapes of mark. `standard` is the square-ish badge the bar was built for;
+   `wide` is for a horizontal wordmark, which the old fixed 120px box crushed
+   into illegibility. */
+.navbar-logo-standard { max-width: 120px; }
+.navbar-logo-wide {
+  max-width: 260px;
+  height: 30px;
+}
+
+/* Recolour a flat-colour logo to the brand colour by painting through its own
+   alpha channel. `mask-size: contain` keeps the aspect ratio, so the element's
+   box can be wider than the artwork without distorting it. */
+.navbar-logo-dynamic {
+  display: block;
+  height: 34px;
+  width: 120px;
+  /* `--logo-color` is set by the derivation and falls back to the mode's
+     primary there; the var() fallback below only covers the frames before the
+     theme applies. A store that sets the logo colour decouples the mark from
+     the brand colour — the coupling used to be hardcoded as `--primary` here,
+     which made a readable logo impossible whenever the brand colour was tuned
+     for buttons rather than for the bar. */
+  background-color: var(--logo-color, var(--primary));
+  -webkit-mask-image: var(--logo-src);
+  mask-image: var(--logo-src);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  transition: background-color var(--transition);
+}
+.navbar-logo-dynamic.navbar-logo-wide { width: 260px; height: 30px; }
+/* A mask has no intrinsic shape to round, so the rounding option is a no-op
+   here rather than a stray square corner. */
+.navbar-logo-dynamic.navbar-logo-round { border-radius: 0; }
+
+.navbar-logo-round { border-radius: 50%; }
+
+/* Optional wordmark beside the mark, for a logo that is a symbol only. */
+.navbar-wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-md);
+  letter-spacing: -0.01em;
+  color: var(--text);
+  white-space: nowrap;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 720px) {
+  /* The search field is the primary control on a narrow bar; a wide wordmark
+     would take the room it needs. */
+  .navbar-logo-wide { max-width: 140px; }
+  .navbar-logo-dynamic.navbar-logo-wide { width: 140px; }
+  .navbar-wordmark { display: none; }
+}
+
+.navbar-desktop {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+}
+
+.nav-link {
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-weight: 500;
+  white-space: nowrap;
+  font-size: var(--fs-base);
+  transition: color var(--transition), background var(--transition);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.01em;
+}
+.nav-link:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.navbar-auth {
+  display: flex;
+  gap: var(--sp-2);
+  margin-left: var(--sp-2);
+}
+
+.navbar-desktop-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin-left: var(--sp-2);
+  padding-left: var(--sp-3);
+  border-left: 1px solid var(--border);
+}
+
+.nav-icon-link {
+  position: relative;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), background var(--transition);
+}
+/* The mode toggle is a <button> wearing the icon-link costume. Buttons carry
+   UA chrome that links do not, so it is stripped here once rather than every
+   .nav-icon-link rule learning about two elements. */
+button.nav-icon-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* Admin is a context switch, not a stop in the buying loop, so it sits at
+   the far end of the row behind a hairline — close enough to reach, apart
+   enough that muscle memory for the shopping icons never lands on it. */
+.navbar-admin-link { margin-left: var(--sp-4); }
+.navbar-admin-link::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--sp-2) - 1px);
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--border);
+}
+.nav-icon-link:hover {
+  color: var(--primary);
+  background: var(--surface-hover);
+}
+
+.cart-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  background: var(--primary);
+  color: var(--bg);
+  border-radius: var(--pill);
+  min-width: 17px;
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  padding: 0 4px;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 10px var(--primary-glow);
+  pointer-events: none;
+  letter-spacing: 0;
+}
+
+.navbar-mobile-icons {
+  display: none;
+  align-items: center;
+  gap: var(--sp-15);
+}
+.navbar-toggle {
+  padding: var(--sp-2) var(--sp-2) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Mobile menu dropdown — same opacity as navbar */
+.mobile-menu {
+  display: none;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.35s var(--ease-panel), opacity 0.25s ease;
+  opacity: 0;
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  border-top: 1px solid var(--glass-border);
+}
+.mobile-menu-open {
+  max-height: 680px;
+  opacity: 1;
+}
+.mobile-menu-inner {
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.mobile-nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+}
+.mobile-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition), transform var(--transition), opacity var(--transition);
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+.mobile-nav-link:hover {
+  background: var(--surface-hover);
+  border-color: var(--glass-border);
+  color: var(--text);
+  padding-left: var(--sp-5);
+}
+.mobile-nav-footer {
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  margin-top: var(--sp-1);
+}
+.mobile-auth-btns {
+  display: flex;
+  gap: var(--sp-3);
+}
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+  background: rgba(0, 0, 0, 0.55);
+  /* sm tier, blur only — no saturate: this layer's job is to push the page
+     BACK, and saturating it would make the dimmed content bloom forward.
+     The literal 4px it replaces was one of the surfaces that ignored the
+     admin's glass slider, which is what made the slider look broken. */
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+}
+
+/* ── Bottom tab bar ────────────────────────────────────────────────────────
+   The thumb-reach storefront. Desktop never sees it; on a phone it replaces
+   reaching for the top corners with the five destinations a buyer loops
+   through. `env(safe-area-inset-bottom)` matters on notched phones — without
+   it the bar's tap targets sit under the home indicator (the viewport meta
+   already carries viewport-fit=cover, so the env() actually resolves). */
+.mobile-tabbar { display: none; }
+
+/* The bar's height is a token because more than one thing has to know it:
+   the page's bottom padding, the chat button and the chat sheet all sit on
+   top of the bar, and while each carried its own literal they drifted — the
+   bar was 56px and the chat sheet was lifted 68px, which left a 12px slot of
+   page showing between a "docked" sheet and the bar it was meant to touch.
+   0px wherever the bar is not drawn, so a consumer can add it unconditionally. */
+:root { --tabbar-h: 0px; }
+
+@media (max-width: 768px) {
+  /* Set only while the bar is actually in the document — `:has()` on the
+     root is the presence test. Width alone was the wrong test: the admin
+     shell (AdminLayout) never mounts the storefront navbar, so at phone
+     width it has a top bar and nothing at the bottom, and the chat was
+     still lifted a bar's height above an edge with nothing on it. */
+  :root:has(.mobile-tabbar) { --tabbar-h: calc(max(56px, var(--fs-unit) * 3.5) + env(safe-area-inset-bottom, 0px)); }
+  .mobile-tabbar {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 210;
+    height: var(--tabbar-h);
+    padding: 0 var(--sp-2) env(safe-area-inset-bottom, 0px);
+    background: var(--nav-bg);
+    -webkit-backdrop-filter: var(--glass-lg);
+    backdrop-filter: var(--glass-lg);
+    border-top: 1px solid var(--glass-border);
+  }
+  .tabbar-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: var(--fs-3xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    transition: color var(--transition), transform var(--dur-1) var(--ease-spring);
+  }
+  .tabbar-link:active { transform: scale(0.92); }
+  .tabbar-link.active { color: var(--primary); }
+  .tabbar-link.active svg { filter: drop-shadow(0 0 8px var(--primary-glow)); }
+  .tabbar-icon { position: relative; display: inline-flex; }
+  .tabbar-icon .cart-badge { top: -4px; right: -9px; }
+
+  /* Everything that used to own the bottom edge moves up by one bar.
+
+     The chat button's dock floats, so it keeps a little air above the bar.
+     The chat sheet does not: minimised it is a strip mounted on the bar's
+     top edge, expanded it runs down to that same edge, and any air between
+     the two reads as the sheet stopping short. The two were one rule at
+     68px, which gave the sheet the button's air — that is the gap this
+     split exists to keep from coming back.
+
+     The presence test is on these two selectors as well, and it is doing
+     two jobs. It keeps the lift off the admin shell, where there is no bar.
+     It is also what carries the rules past the chat's own: 77-live-chat.css
+     is imported after this file and sets both `bottom`s at single-class
+     specificity — the dock's corner, and `0` for the phone sheet — so on
+     source order alone both would slide under the bar. That used to take
+     `!important` here (the widget once positioned itself inline);
+     `:root:has()` outranks them on specificity instead. */
+  .site-main { padding-bottom: calc(var(--tabbar-h) + var(--sp-2)); }
+  :root:has(.mobile-tabbar) .livechat-dock { bottom: calc(var(--tabbar-h) + var(--sp-3)); }
+  :root:has(.mobile-tabbar) .livechat-panel { bottom: var(--tabbar-h); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabbar-link:active { transform: none; }
+}
+
+
+/* ── Header field ────────────────────────────────────────────────────────
+   The pointer-reactive constellation behind the bar's contents
+   (components/effects/HeaderField.jsx).
+
+   Absolutely positioned inside the sticky `.navbar`, which is already a
+   containing block, so it tracks the bar's height without being told it.
+   `pointer-events: none` because the canvas covers the whole bar and every
+   control in it — the component listens on the `<nav>` itself, so the canvas
+   never needs to receive an event to know where the cursor is.
+
+   z-index 0 with `.navbar-inner` lifted to 1: the field sits above the bar's
+   own background and below every link, search field and menu on it. Without
+   the lift it would paint over the navigation. */
+.header-field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+.navbar-inner { position: relative; z-index: 1; }
+
+/* ── The control plate ───────────────────────────────────────────────────────
+   A hard backing behind the bar's controls, so the companion can walk behind
+   them without taking them with it.
+
+   The roaming layer (100-ai-buddy.css) is portalled into the bar at the same
+   z-index 0 as the field above, which is exactly what lets the animal pass
+   BEHIND the cart and the wishlist rather than over them. But a navbar icon is
+   a 1.5px stroke with nothing but bar between its lines, and the bar is 86% of
+   the page ground over a 33px blur (82% on a light one) — so a 32px sprite in
+   the brand colour crossing under one did not read as passing behind the icon,
+   it erased it.
+   The control was still there and still clickable; you simply could not see it
+   for as long as the animal was standing in it.
+
+   Painted as a pseudo-element BEHIND the control rather than as a background
+   ON it, and that is load-bearing. These controls already own their background
+   in several states across three files — rest and `:hover` above, the popover
+   trigger in 63-nav-popovers.css, the button skin in 06-glass-primitives.css.
+   Putting the opaque layer underneath all of them means every one of those
+   rules keeps painting exactly what it painted before, over an opaque ground
+   instead of over the glass. Nothing here has to know what a hover looks like,
+   and a state added later inherits the plate without asking.
+
+   `z-index: -1` reaches behind the control's own background only because these
+   controls are not stacking contexts: `.nav-icon-link` is `position: relative`
+   with `z-index: auto`, so the plate lands in `.navbar-inner`'s context, above
+   that element's own background and below every control in it. Anything that
+   WOULD make a control its own stacking context — a transform, an opacity, a
+   backdrop-filter — flips the plate from behind its background to in front of
+   it. That is not a hypothetical; it is why the bar's buttons are done
+   differently below.
+
+   ── The colour, and what it costs ──
+
+   `--bg` and not `--nav-bg`: the bar IS the page ground at 86% over a 33px
+   blur, so an opaque plate of the ground is right to within the 14% of blurred
+   page the bar lets through (18% on a light store). Wherever that remainder is
+   the page ground itself — the top of every page, and most of the way down
+   most of them — the plates cannot be seen at all, which is the requirement.
+   Under a photograph they are that much flatter than the glass around them: a
+   difference at the edge of perception on a wash that is already 33px of blur,
+   and the trade for an icon that can always be read.
+
+   A translucent plate is not the middle ground it looks like. At `--nav-bg`'s
+   own 86% it would be off by that same 14% AND still let 14% of a hard-edged
+   sprite through the icon — the same cost, spent on the problem instead of on
+   the fix.
+
+   Gated on the roaming layer actually being in the bar, so a store that never
+   switched roaming on keeps the glass it had. The gate does not flicker: the
+   layer is mounted on `owns`, which useCompanionRoam.js claims once and never
+   releases, so it stays put while the animal is parked, paused on checkout or
+   sitting still with the panel open. */
+.navbar:has(.buddy-roam) .navbar-inner :is(.nav-icon-link, .nav-link)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--bg);
+  pointer-events: none;
+}
+
+/* `.nav-link` is the one plated control that is not already positioned, and an
+   absolutely positioned plate with no positioned ancestor would size itself to
+   the sticky `.navbar` — one opaque rectangle over the entire bar. */
+.navbar:has(.buddy-roam) .navbar-inner .nav-link { position: relative; }
+
+/* The bar's buttons take the plate as a background LAYER instead.
+
+   `.glass-btn` lifts 1px on hover and dips on `:active`, and a transform makes
+   an element its own stacking context — so a `z-index: -1` plate would flip
+   from behind the button's background to in front of it for exactly as long as
+   the pointer was on it, painting flat `--bg` over Login's brand tint. Painting
+   the tint as a one-colour gradient over an opaque `background-color` keeps the
+   two layers in that order in every state instead.
+
+   `--nav-btn-tint` is the seam, and it is a real cost: the tints are now named
+   twice, once by the button skin and once here. It is chosen over four rules
+   that each restate a whole background, because a variant this bar has never
+   worn shows up as a button in the plain tint rather than as a broken one.
+
+   The backdrop blur goes with them. It was softening the page behind a
+   translucent button and there is nothing behind an opaque one — the plate
+   already hides everything it was blurring. `-webkit-` FIRST, standard LAST
+   (client/test/backdropFilter.test.mjs).
+
+   The panels that hang off the bar are its descendants, so they have to be
+   said out of it. Nothing walks behind a popover — it floats over the page on
+   `--overlay-bg`, not on the glass — and plating what is inside one only
+   outranks the states those buttons already have. `.buddy-mic-live` is the one
+   that showed it: an open microphone says so with a tinted fill, and the plate
+   is specific enough to have painted over it. */
+.navbar:has(.buddy-roam) .navbar-inner .glass-btn:not(.nav-pop *, .buddy-panel *) {
+  --nav-btn-tint: var(--glass-bg);
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--nav-btn-tint), var(--nav-btn-tint));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.navbar:has(.buddy-roam) .navbar-inner .glass-btn-primary:not(.nav-pop *, .buddy-panel *) { --nav-btn-tint: var(--btn-bg); }
+.navbar:has(.buddy-roam) .navbar-inner .glass-btn:hover:not(:disabled):not(.nav-pop *, .buddy-panel *) { --nav-btn-tint: var(--surface-hover); }
+.navbar:has(.buddy-roam) .navbar-inner .glass-btn-primary:hover:not(:disabled):not(.nav-pop *, .buddy-panel *) { --nav-btn-tint: var(--btn-hover); }

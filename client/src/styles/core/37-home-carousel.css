@@ -1,0 +1,92 @@
+/* ===============================
+   HOME CAROUSEL
+   =============================== */
+
+.home-carousel {
+  position: relative;
+  overflow: hidden;
+  /* Vertical scrolling must still work through the slides; only horizontal
+     drags are ours to interpret as a swipe. */
+  touch-action: pan-y;
+}
+
+.home-carousel-track {
+  display: flex;
+  transition: transform 0.55s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 45%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition),
+              box-shadow var(--transition), color var(--transition);
+}
+.carousel-arrow-prev { left: 1.75rem; }
+.carousel-arrow-next { right: 1.75rem; }
+.carousel-arrow:hover {
+  color: var(--primary);
+  border-color: var(--primary-border);
+  background: var(--btn-bg);
+  box-shadow: 0 0 18px var(--card-glow);
+}
+.carousel-arrow:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-15);
+  padding: 0 0 var(--sp-6);
+}
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: var(--glass-border);
+  cursor: pointer;
+  transition: width 0.35s var(--ease-panel), background var(--transition),
+              box-shadow var(--transition);
+}
+.carousel-dot:hover { background: var(--primary-border); }
+.carousel-dot.active {
+  width: 20px;
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+.carousel-dot:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* On a phone the arrows sit over the card's own padding and crowd the image;
+   the dots and swipe are the primary controls at that size. */
+@media (max-width: 560px) {
+  .carousel-arrow-prev { left: 0.5rem; }
+  .carousel-arrow-next { right: 0.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-carousel-track { transition: none; }
+  .carousel-dot { transition: none; }
+}
+

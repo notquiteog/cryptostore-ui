@@ -1,0 +1,135 @@
+/*
+ * The "not confirmed yet" card: what a guarded page shows while the browser
+ * holds a session the store has not been able to confirm.
+ *
+ * ── Why it exists ───────────────────────────────────────────────────────────
+ *
+ * A 429, a dropped Tor circuit or a store restarting used to put a signed-in
+ * person on the sign-in form — see `unconfirmed` in context/AuthContext.jsx.
+ * This takes the page's place instead, says why, and gets out of the way the
+ * moment the store answers.
+ *
+ * ── Why it is calm ──────────────────────────────────────────────────────────
+ *
+ * On a filtered network this is the likeliest thing a buyer sees on a bad day,
+ * and it is not an error: nothing is wrong with their account. So it borrows
+ * the page's glass rather than the error boundary's halo. The one colour is the
+ * mark, in `--warning` — attention, not alarm — carried as a fill AND an inner
+ * edge so it still reads at `--glow-strength: 0` (DESIGN §3). The only motion
+ * is the arrival and the spinner while a check is actually out.
+ */
+
+.session-retry {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding: var(--page-top) var(--sp-4) var(--sp-12);
+  /* The panel lays itself out against this box, not the window — it renders
+     inside the storefront shell on one route and on a bare page on another. */
+  container-type: inline-size;
+}
+
+.session-retry-panel {
+  width: 100%;
+  /* A card's measure, riding the type unit like every other measure here. */
+  max-width: calc(var(--fs-unit) * 30);
+  padding: var(--sp-8) var(--sp-8) var(--sp-6);
+  /* Arrives (§2). `backwards`, not `both`, so nothing is pinned afterwards and
+     the reduced-motion block has no end state to restore. */
+  animation: rise-in var(--dur-3) var(--ease-settle) backwards;
+}
+
+.session-retry-mark {
+  display: grid;
+  place-items: center;
+  width: var(--sp-12);
+  height: var(--sp-12);
+  margin-bottom: var(--sp-4);
+  border-radius: var(--radius);
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.12);
+  box-shadow: inset 0 0 0 1px rgba(var(--warning-rgb), 0.3);
+}
+
+.session-retry-title {
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.session-retry-why {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+}
+
+.session-retry-kept {
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* The schedule, in the ledger voice: a figure that changes every second has to
+   hold its width or the line jitters under the eye. */
+.session-retry-next {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-5);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.04);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.session-retry-next b {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* A loader, so it keeps turning under reduced motion (DESIGN §2): a frozen
+   spinner reads as a hung page, which is the one thing this card must not. */
+.session-retry-spin {
+  flex: none;
+  animation: session-retry-spin 0.9s linear infinite;
+}
+
+@keyframes session-retry-spin {
+  to { transform: rotate(360deg); }
+}
+
+.session-retry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.session-retry-actions .glass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-15);
+}
+
+.session-retry-actions .glass-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* A phone: the buttons take the full width, one per line, so neither is a
+   thumb-sized target squeezed beside the other. */
+@container (max-width: 420px) {
+  .session-retry-panel { padding: var(--sp-6) var(--sp-5) var(--sp-5); }
+  .session-retry-actions .glass-btn { flex: 1 1 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-retry-panel { animation: none; }
+}

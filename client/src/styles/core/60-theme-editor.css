@@ -1,0 +1,253 @@
+/* ===============================
+   THEME EDITOR — GLASS STAGE
+   ===============================
+   The stage the Theme page's glass samples sit on. It exists because of a
+   support pattern: operators dragged the blur slider, watched the sample card
+   on the flat admin background, saw nothing move, and reported the setting
+   broken. Blur of a near-uniform ground IS a no-op — backdrop-filter only
+   shows over detail. So the stage manufactures detail: colour blooms from the
+   store's own palette plus a fine stripe field, which any blur above ~2px
+   visibly melts. The slider now demonstrates itself at the exact spot an
+   operator tests it. */
+
+.theme-glass-stage {
+  position: relative;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: var(--sp-5);
+  overflow: hidden;
+  background:
+    radial-gradient(150px 110px at 12% 18%, rgba(var(--primary-rgb), 0.55), transparent 70%),
+    radial-gradient(170px 130px at 86% 12%, rgba(var(--secondary-rgb), 0.5), transparent 70%),
+    radial-gradient(130px 130px at 68% 92%, rgba(var(--accent-rgb), 0.45), transparent 72%),
+    linear-gradient(120deg, var(--bg-wash), var(--bg));
+}
+/* The high-frequency layer. Smooth gradients alone stay legible under heavy
+   blur; a 2px stripe field cannot — it is the honest witness for the knob. */
+.theme-glass-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    115deg,
+    rgba(var(--tint-rgb), 0.15) 0 2px,
+    transparent 2px 13px
+  );
+  pointer-events: none;
+}
+
+.theme-glass-samples {
+  position: relative;
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+/* One chip per elevation tier, so the sm/md/lg hierarchy the store derives
+   from the single slider is visible as three strengths side by side. */
+.theme-tier-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  box-shadow: var(--rim-inset);
+}
+.theme-tier-chip.tier-sm {
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+}
+.theme-tier-chip.tier-md {
+  -webkit-backdrop-filter: var(--glass-md);
+  backdrop-filter: var(--glass-md);
+}
+.theme-tier-chip.tier-lg {
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+}
+
+/* ── Presets ── */
+.preset-grid {
+  display: grid;
+  /* `min(210px, 100%)`: a bare 210px floor is wider than the card on a folding
+     phone's cover screen, and the track then runs out of the card. */
+  grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+.preset-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  background: rgba(var(--tint-rgb), 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  transition: border-color var(--transition), background var(--transition);
+}
+.preset-card:hover {
+  border-color: var(--border-hover);
+  background: rgba(var(--tint-rgb), 0.05);
+}
+.preset-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.preset-card-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-base);
+}
+.preset-card-desc {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+.preset-dots {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.preset-dots-mode { color: var(--text-muted); flex-shrink: 0; margin-right: 2px; }
+.preset-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.preset-fonts {
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+/* Disclosure, not decoration: this chip is how an operator knows that Both
+   will reshape the glass itself, before they click it. */
+.preset-material-chip {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: var(--pill);
+  padding: 0 var(--sp-2);
+}
+/* Same duty for the air: a preset wearing "smoke on" will start a full-screen
+   canvas the moment Both is applied — that must never be a surprise. Cast in
+   secondary so it reads as a different kind of promise than the material chip. */
+.preset-effect-chip {
+  font-family: var(--font-mono);
+  color: var(--secondary);
+  border: 1px solid rgba(var(--secondary-rgb), 0.35);
+  border-radius: var(--pill);
+  padding: 0 var(--sp-2);
+}
+.preset-apply {
+  display: flex;
+  gap: var(--sp-1);
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.preset-card-tools {
+  display: flex;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+}
+.preset-tool { min-height: 24px; padding: var(--sp-05) var(--sp-15); }
+.preset-delete { color: var(--danger); }
+.preset-edited-badge {
+  margin-left: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 400;
+  color: var(--warning);
+  border: 1px solid rgba(var(--warning-rgb), 0.35);
+  border-radius: var(--pill);
+  padding: 0 var(--sp-15);
+  vertical-align: middle;
+}
+.preset-editing-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-sm);
+  background: var(--btn-bg);
+  font-size: var(--fs-sm);
+  flex-wrap: wrap;
+}
+.preset-editing-banner .glass-btn { margin-left: auto; }
+.preset-restore-hidden { margin-top: var(--sp-3); color: var(--text-secondary); }
+.preset-save-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Type samples ── */
+.type-sample {
+  margin-top: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* ── Unsaved-state line ──────────────────────────────────────────────────
+   Everything on this page previews against the live store, so "is what I am
+   looking at saved?" is a question the page has to answer on its own. It used
+   to be unanswerable: there was no dirty marker, no Discard, and leaving the
+   page committed the working copy rather than reverting it.
+
+   Two channels, not one. The dot is a marker, but the copy changes as well —
+   a colour-only signal on the one page in the app whose entire purpose is
+   changing colours would be indistinguishable from something the operator had
+   just dialled in themselves. */
+.theme-dirty-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+  max-width: 640px;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.theme-dirty-line strong { color: var(--text); font-weight: 600; }
+.theme-dirty-line.is-dirty {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid rgba(var(--warning-rgb), 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--warning-rgb), 0.08);
+  color: var(--text);
+}
+.theme-dirty-line.is-dirty strong { color: var(--warning); }
+.theme-dirty-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  /* Drawn, not pulsed: a loop on a page an operator tunes for twenty minutes
+     is exactly what DESIGN §2 rules out. The ring is what makes it carry at a
+     glance, and it survives --glow-strength: 0 because it is a shadow in the
+     warning tone rather than a glow token. */
+  box-shadow: 0 0 0 3px rgba(var(--warning-rgb), 0.22);
+}

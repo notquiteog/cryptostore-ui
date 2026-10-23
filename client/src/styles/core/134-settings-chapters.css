@@ -1,0 +1,154 @@
+/* ===============================
+   SETTINGS CHAPTERS
+   ===============================
+   The Settings page's table of contents: eight chapter headings on the page,
+   and the same eight as group labels in its rail (config/settingsChapters.js
+   decides which card sits under which).
+
+   The page draws twenty-seven cards. With the rail as one flat column of
+   twenty-seven names, finding one meant reading the column top to bottom —
+   the same "twenty flat links is a list to be read rather than a menu to be
+   used" that 43-admin-sidebar.css solved for the sidebar with group labels.
+   A chapter label narrows twenty-seven to four before the eye reads a word.
+
+   The labels borrow the sidebar's group-label voice on purpose — same size,
+   weight, tracking and colour — so an operator reads them as the same kind
+   of thing: a heading over a group, not another link. On the page the
+   heading also gets a rule across the column, which is what separates "a new
+   chapter" from "the next card" while scrolling past at speed. */
+
+/* ── Rail ──────────────────────────────────────────────────────────────── */
+
+.aset-rail-chapter + .aset-rail-chapter { margin-top: var(--sp-3); }
+
+/* A button, not a heading: pressing it jumps to the chapter's first card.
+   Styled as a label all the same, because it is a coarse index over the fine
+   one and must not read as a ninth kind of section. */
+.aset-rail-chapter-label {
+  display: block;
+  width: 100%;
+  padding: 0 var(--sp-3) var(--sp-1);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-align: left;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out);
+}
+.aset-rail-chapter-label:hover,
+.aset-rail-chapter-label:focus-visible { color: var(--text); }
+
+/* Below the two-column breakpoint the rail is a horizontal strip
+   (79-admin-settings.css), so a chapter becomes a run of its cards with the
+   label at its head and a hairline before it: the strip reads
+   "STOREFRONT · Branding · Footer · Mirrors │ CATALOGUE · Catalog · …". The
+   breakpoint is the same container query as the rail's own, because the two
+   rules describe one layout and must flip together. */
+@container settings (max-width: 899px) {
+  .aset-rail-chapter {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+  }
+  .aset-rail-chapter + .aset-rail-chapter {
+    margin-top: 0;
+    margin-left: var(--sp-1);
+    padding-left: var(--sp-3);
+    border-left: 1px solid var(--border);
+  }
+  .aset-rail-chapter-label {
+    width: auto;
+    padding: 0 var(--sp-1) 0 0;
+    white-space: nowrap;
+  }
+}
+
+/* ── Page ──────────────────────────────────────────────────────────────── */
+
+.aset-chapter + .aset-chapter { margin-top: var(--sp-8); }
+
+/* A jump to a chapter's first card leaves the chapter heading in view above
+   it rather than parked just off the top — the heading is the half that says
+   which chapter the operator has landed in. */
+.aset-chapter > .aset-card:first-of-type { scroll-margin-top: var(--sp-12); }
+
+.aset-chapter-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-secondary);
+}
+.aset-chapter-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.aset-chapter-lede {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+
+/* ── The pages that are settings ───────────────────────────────────────── */
+
+.aset-elsewhere { margin-top: var(--sp-8); }
+
+.aset-elsewhere-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* As many links across as fit, so a wide screen gets four and a phone gets
+     one — §5: more columns, not longer rows. The minimum is a spacing step
+     rather than a literal so it scales with the rest of the page. */
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--sp-16) * 3), 1fr));
+  gap: var(--sp-2);
+}
+
+.aset-elsewhere-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: var(--control-h);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.03);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  text-decoration: none;
+  transition: border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+}
+.aset-elsewhere-link strong { font-weight: 600; }
+.aset-elsewhere-link span { color: var(--text-muted); font-size: var(--fs-2xs); }
+/* Lit, not thickened (§3): the border colour changes, its width never does. */
+.aset-elsewhere-link:hover,
+.aset-elsewhere-link:focus-visible {
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.06);
+}
+
+@media (hover: none) {
+  .aset-rail-chapter-label { min-height: 44px; display: inline-flex; align-items: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aset-rail-chapter-label,
+  .aset-elsewhere-link { transition: none; }
+}

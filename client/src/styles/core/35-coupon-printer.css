@@ -1,0 +1,255 @@
+/* ===============================
+   COUPON PRINTER (admin)
+   ===============================
+   What the create panel turns into the moment a coupon exists: the form gives
+   way to a slot, and the ticket feeds out of it.
+
+   The same machine as the checkout's receipt printer, deliberately — the
+   store has one idea of what printing looks like, and a second one would just
+   be a different animation that happened to run in an admin page. What
+   differs is the stock. A receipt is a strip of till roll and arrives as
+   lines; a coupon is a single ticket and arrives as an object, with the rows
+   inside it filling in behind the head as the paper clears the slot.
+
+   This is also the whole of what "print" means on creation. Paper is a
+   separate act, on the button under the ticket and on every ticket in the
+   grid, and nothing here opens a print dialog on its own.
+
+   Geometry is the receipt's: `.cpnp-feed` is a one-track grid animating
+   `0fr -> 1fr`, so the ticket is revealed at its own natural height with
+   nothing measuring it in JS, and `.cpnp-clip` hides the overflow, which
+   top-anchors the sheet so rows appear at the growing bottom edge.
+
+   Every custom property here is `--cpnp-` prefixed for the same reason the
+   ticket's are `--cpn-` prefixed: an unprefixed name on a component shadows
+   the theme's for every descendant, silently. */
+
+.cpnp {
+  --cpnp-feed: 1000ms;
+}
+
+/* ── The machine ───────────────────────────────────────────────────────── */
+
+.cpnp-slot {
+  position: relative;
+  display: block;
+  border-radius: var(--radius-sm) var(--radius-sm) 3px 3px;
+  background:
+    linear-gradient(180deg,
+      rgba(var(--tint-rgb), 0.11) 0%,
+      rgba(var(--tint-rgb), 0.04) 55%,
+      rgba(0, 0, 0, 0.22) 100%);
+  border: 1px solid var(--border);
+  box-shadow:
+    inset 0 1px 0 rgba(var(--tint-rgb), 0.22),
+    0 6px 18px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+/* A light bar travelling the face while the mechanism runs — the only part of
+   the printer that says "still going". */
+.cpnp-slot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg,
+    transparent 30%,
+    rgba(var(--primary-rgb), 0.18) 50%,
+    transparent 70%);
+  transform: translateX(-100%);
+  opacity: 0;
+}
+.cpnp.is-printing .cpnp-slot::after {
+  opacity: 1;
+  animation: cpnp-scan 1.15s ease-in-out infinite;
+}
+@keyframes cpnp-scan {
+  to { transform: translateX(100%); }
+}
+
+.cpnp-slot-face {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2);
+}
+
+.cpnp-slot-label {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cpnp-slot-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.cpnp-led {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.cpnp-led.is-busy {
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary-glow);
+  animation: cpnp-led 0.85s ease-in-out infinite;
+}
+.cpnp-led.is-ready {
+  background: var(--success);
+  box-shadow: 0 0 9px rgba(var(--success-rgb), 0.55);
+}
+@keyframes cpnp-led {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+/* The gap the ticket comes through. Inset shadow on both lips, so the paper
+   below reads as passing under an edge rather than starting at one. */
+.cpnp-mouth {
+  display: block;
+  height: 7px;
+  background: #05070d;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.95),
+    inset 0 -1px 0 rgba(var(--tint-rgb), 0.09),
+    0 1px 0 rgba(var(--tint-rgb), 0.06);
+}
+
+/* ── The feed ────────────────────────────────────────────────────────────
+   The stops are uneven on purpose: a smooth ramp reads as a card sliding out,
+   and the stutter is what makes it read as a mechanism advancing paper. */
+
+.cpnp-feed {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.cpnp.is-printing .cpnp-feed {
+  animation: cpnp-feed var(--cpnp-feed) linear forwards;
+}
+@keyframes cpnp-feed {
+  0%   { grid-template-rows: 0fr; }
+  7%   { grid-template-rows: 0.04fr; }
+  13%  { grid-template-rows: 0.04fr; }
+  28%  { grid-template-rows: 0.26fr; }
+  33%  { grid-template-rows: 0.26fr; }
+  52%  { grid-template-rows: 0.52fr; }
+  57%  { grid-template-rows: 0.52fr; }
+  78%  { grid-template-rows: 0.79fr; }
+  83%  { grid-template-rows: 0.79fr; }
+  100% { grid-template-rows: 1fr; }
+}
+
+.cpnp-clip {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+/* Released once the track is at 1fr, so the ticket's drop-shadow and the
+   action row's focus rings are not shaved off by a clip with nothing left to
+   clip. */
+.cpnp.is-done .cpnp-clip { overflow: visible; }
+
+/* The print head, riding the growing bottom edge. */
+.cpnp.is-printing .cpnp-clip::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--primary) 25%,
+    #fff 50%,
+    var(--primary) 75%,
+    transparent);
+  box-shadow: 0 0 12px var(--primary-glow);
+  z-index: 2;
+}
+
+/* ── The stock ───────────────────────────────────────────────────────────
+   Held to a ticket's width rather than the panel's. A coupon stretched across
+   a wide admin column stops being a ticket and becomes a banner, and a
+   printer wider than its paper is the ordinary case anyway. */
+
+.cpnp-sheet {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: var(--sp-5) 0 var(--sp-1);
+}
+.cpnp.is-printing .cpnp-sheet {
+  animation: cpnp-jitter 190ms steps(2, end) infinite;
+}
+@keyframes cpnp-jitter {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(0.5px); }
+}
+
+/* The ticket is being printed, not browsed — the hover lift belongs to the
+   grid, where a card is something you are picking between. */
+.cpnp.is-printing .coupon-shell:hover {
+  transform: none;
+}
+
+/* Rows land as the head passes them, so the delays track how far down the
+   ticket each row sits rather than counting them off evenly. The last one is
+   timed to arrive just as the paper stops. The stub is left out on purpose:
+   it runs the full height of the ticket, so fading it in as a unit would
+   contradict the head that is still travelling past it. */
+.cpnp.is-printing .coupon-row     { animation: cpnp-line 240ms ease-out backwards; animation-delay: 150ms; }
+.cpnp.is-printing .coupon-amount  { animation: cpnp-line 240ms ease-out backwards; animation-delay: 350ms; }
+.cpnp.is-printing .coupon-terms   { animation: cpnp-line 240ms ease-out backwards; animation-delay: 550ms; }
+.cpnp.is-printing .coupon-code-row { animation: cpnp-line 240ms ease-out backwards; animation-delay: 780ms; }
+@keyframes cpnp-line {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── What to do with it ──────────────────────────────────────────────────
+   Under the ticket, not on it. The voucher is the thing that was made; these
+   are the things you can do with the thing that was made. */
+
+.cpnp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+  margin-top: var(--sp-3);
+}
+.cpnp-actions .glass-btn { flex: 1 1 auto; justify-content: center; }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────
+   The coupon is a record of something that already happened, so it is simply
+   there, whole, on the first frame. `grid-template-rows` has to be pinned
+   back to `1fr` by hand: the feed keyframes hold their last value through
+   `forwards`, and cancelling only the animation would leave a zero-height
+   track and no ticket at all. */
+@media (prefers-reduced-motion: reduce) {
+  .cpnp.is-printing .cpnp-feed,
+  .cpnp.is-printing .cpnp-sheet,
+  .cpnp.is-printing .cpnp-slot::after,
+  .cpnp-led.is-busy,
+  .cpnp.is-printing .coupon-row,
+  .cpnp.is-printing .coupon-amount,
+  .cpnp.is-printing .coupon-terms,
+  .cpnp.is-printing .coupon-code-row {
+    animation: none;
+  }
+  .cpnp-feed,
+  .cpnp.is-printing .cpnp-feed { grid-template-rows: 1fr; }
+  .cpnp.is-printing .cpnp-slot::after { opacity: 0; }
+  .cpnp.is-printing .cpnp-clip::after { display: none; }
+}
+

@@ -1,0 +1,846 @@
+/* ===============================
+   LIVE CHAT
+   ===============================
+   The widget was ~200 lines of inline style objects on the component, which is
+   how it acquired a hard-coded `rgba(0,0,0,0.4)` shadow, a `#00e676` status
+   dot and a `linear-gradient(135deg, var(--primary), var(--secondary))` header
+   that no operator theme could reach. Inline styles also outrank media
+   queries, so the panel had no phone shape at all: 360px fixed, floated over
+   the bottom-right corner of a 375px screen.
+
+   Everything here rides tokens. The one deliberate non-token colour is the
+   scrim behind an attachment's remove button, which sits ON an arbitrary
+   user-supplied photograph and has to stay legible over both a white sky and a
+   black jacket — a theme colour there would vanish on half the uploads. */
+
+/* ── The closed bubble ─────────────────────────────────────────────────── */
+
+/* The dock holds the bubble's place. It is the fixed element — 08-navbar.css
+   lifts it over the phone tab bar by this class — and everything inside it
+   moves relative to it. The bubble used to be the fixed element itself,
+   which was fine until it had to slide: a thing that moves cannot also be
+   the mark of where it belongs. */
+.livechat-dock {
+  position: fixed;
+  /* The inset is 0 on a desktop, and under the tab bar 08-navbar.css
+     replaces this `bottom` with the bar's height, which already carries it.
+     It only bites where a phone has no bar under the dock — the admin shell
+     — and there it keeps the bubble off the home indicator. */
+  bottom: calc(var(--sp-5) + env(safe-area-inset-bottom, 0px));
+  right: var(--sp-5);
+  z-index: var(--z-drawer);
+  width: 52px;
+  height: 52px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.livechat-fab {
+  /* Above the track, which is absolute inside the same dock. */
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary);
+  /* The ink on a primary-filled shape is the BACKGROUND colour, not white.
+     This was `var(--on-primary, #fff)` — a token that exists nowhere, so the
+     fallback shipped: white on the dark theme's light indigo primary is under
+     3:1 and the glyph all but vanished, which is how "the chat button doesn't
+     work in dark mode" got reported. `--primary` is solved for contrast
+     against `--bg` (theme/color.js), so `--bg` on `--primary` clears the same
+     ratio in both modes and on every operator palette; the algorithm picker's
+     selected tick uses the same pairing. */
+  color: var(--bg);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md), 0 0 18px var(--primary-glow);
+  /* `--lc-slide` is how far left the finger has taken it (the dock sets it;
+     0 everywhere but mid-slide on touch). The spring is what brings it back
+     when a slide is let go short of the mark. */
+  transform: translateX(calc(-1 * var(--lc-slide, 0px)));
+  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease-out);
+}
+@media (hover: hover) {
+  .livechat-fab:hover {
+    transform: translateX(calc(-1 * var(--lc-slide, 0px))) scale(1.07);
+    box-shadow: var(--shadow-lg), 0 0 26px var(--primary-glow);
+  }
+}
+
+/* Slide to open — touch only.
+
+   On a phone the bubble sits in the thumb's resting zone, and a tap there
+   mid-scroll used to open a full-height sheet over the catalogue. So on a
+   touch screen the bubble is slid left to open, and a tap shows the track it
+   slides along, with the words on it. Gated on the pointer, not on width
+   (DESIGN §4): a laptop at 700px still has a mouse, and there a click opens
+   as it always did — the track below never renders.
+
+   The track is the mechanism made visible (§2): it appears behind the
+   bubble, along the path the bubble takes, and the bubble travels along it.
+   It is `pointer-events: none` so a finger that drifts onto it is still the
+   bubble's — the button holds pointer capture — and when the slide has gone
+   far enough the label changes and the rim lights, not the geometry, which
+   keeps the armed state readable with glow at zero (§3). */
+.livechat-track { display: none; }
+
+@media (hover: none) {
+  /* Horizontal is ours; vertical stays the page's, so a scroll that starts
+     on the bubble still scrolls and the browser cancels the slide. */
+  .livechat-fab { touch-action: pan-y; }
+  .livechat-track {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 52px;
+    /* At least as long as the slide, and longer if the words need it: with
+       only `right` set the box shrinks to its content, so a wider display
+       font extends the track leftward instead of running the label under
+       the bubble. The bubble still travels `--lc-travel`; it need not reach
+       the far end. */
+    min-width: calc(52px + var(--lc-travel, 128px));
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    /* The right end of the track is under the bubble at rest, and the
+       label stops a little short of it so the hint's nudge does not sit on
+       its last letters. */
+    padding: 0 calc(52px + var(--sp-4)) 0 var(--sp-3);
+    border-radius: 26px;
+    border: 1px solid var(--glass-border);
+    background: var(--overlay-bg);
+    -webkit-backdrop-filter: var(--glass-sm);
+    backdrop-filter: var(--glass-sm);
+    box-shadow: var(--shadow-sm);
+    color: var(--text-secondary);
+    font-family: var(--font-display);
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    /* Grows out from behind the bubble, leftward, the way the bubble goes. */
+    transform: scaleX(0.8);
+    transform-origin: right center;
+    transition:
+      opacity var(--dur-2) var(--ease-out),
+      transform var(--dur-3) var(--ease-settle),
+      color var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+  .livechat-dock.is-dragging .livechat-track,
+  .livechat-dock.is-hinting .livechat-track { opacity: 1; transform: none; }
+  /* Far enough. Said on the bubble, which is what the finger is on, and on
+     the track's rim — two channels, so it reads with glow at zero. The
+     bubble lifts rather than growing a ring: light the shape, keep its
+     edges still (§3). */
+  .livechat-dock.is-armed .livechat-track { color: var(--primary); border-color: var(--primary-border); }
+  .livechat-dock.is-armed .livechat-fab {
+    box-shadow: var(--shadow-lg), 0 0 26px var(--primary-glow);
+    transform: translateX(calc(-1 * var(--lc-slide, 0px))) scale(1.08);
+  }
+  /* Held, the bubble follows the finger, not the spring. */
+  .livechat-dock.is-dragging .livechat-fab { transition: box-shadow var(--dur-2) var(--ease-out); }
+  /* The hint after a tap: the bubble makes the move it is asking for, twice
+     and smaller the second time, then settles. Literally true (§2) — it is
+     the gesture itself, not a wobble. */
+  .livechat-dock.is-hinting .livechat-fab { animation: lc-slide-hint 1.1s var(--ease-out) 1; }
+}
+
+@keyframes lc-slide-hint {
+  0%   { transform: translateX(0); }
+  32%  { transform: translateX(-24px); }
+  55%  { transform: translateX(0); }
+  78%  { transform: translateX(-12px); }
+  100% { transform: translateX(0); }
+}
+
+.livechat-panel {
+  position: fixed;
+  bottom: var(--sp-5);
+  right: var(--sp-5);
+  z-index: var(--z-drawer);
+  width: 380px;
+  height: 520px;
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  /* lg-tier glass: this floats over arbitrary page content and the page has
+     to dissolve behind it (DESIGN §3). */
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  box-shadow: var(--rim-inset), var(--shadow-lg), 0 0 30px var(--card-glow);
+  overflow: hidden;
+  /* Only the box's own metrics animate, and only on the minimise toggle —
+     never `all`, which was animating the backdrop filter on every repaint. */
+  transition: height var(--dur-3) var(--ease-settle), width var(--dur-3) var(--ease-settle);
+}
+.livechat-panel.is-min { width: 280px; height: 46px; }
+
+/* The phone shape: a sheet, not a card.
+
+   The first phone rule here was a 560px card with 8px of air either side,
+   floating over the catalogue. Two things were wrong with it. It still read
+   as a desktop widget shrunk to fit — a rounded box hanging in space, its
+   own height picked with `vh` so the virtual keyboard shoved the compose row
+   under it — and the air at its sides was width the log could not use on a
+   screen that has none to spare.
+
+   Now it is the thing a phone actually draws for a conversation: edge to
+   edge, from just under the status bar down to the tab bar (08-navbar.css
+   lifts `bottom` over the bar at this width), with only its top corners
+   rounded. `top` and `bottom` set its height between them, so nothing here
+   measures the viewport. The width threshold matches the tab bar's own
+   breakpoint family; the panel is fixed to the viewport, so this is one of the
+   few places a viewport query is the honest one (DESIGN §5).
+
+   This comment used to end "and a keyboard that resizes the viewport resizes
+   the sheet with it", which was wrong on every phone in service. iOS has never
+   resized the layout viewport for the keyboard, and Chrome for Android stopped
+   in version 108 to match it — both now shrink the VISUAL viewport and leave
+   the layout viewport, which is what `position: fixed` is measured against,
+   exactly as it was. So `bottom: 0` sat behind the keyboard and took the
+   compose row with it, and Safari's scroll-the-field-into-view dragged the
+   whole sheet off the screen after it. The keyboard rules below are the
+   correction; `bottom: 0` stays the answer whenever there is no keyboard. */
+@media (max-width: 600px) {
+  .livechat-panel {
+    left: 0;
+    right: 0;
+    top: max(env(safe-area-inset-top, 0px), var(--sp-3));
+    bottom: 0;
+    width: auto;
+    height: auto;
+    max-height: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-bottom: none;
+  }
+  .livechat-panel.is-min {
+    top: auto;
+    width: auto;
+    height: 46px;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  /* The header is the sheet's grab bar: taller, and its buttons are full
+     touch targets whatever the pointer reports. */
+  .lc-head { padding: var(--sp-3) var(--sp-4); }
+  .lc-head-tools button { width: 40px; height: 40px; }
+
+  /*
+   * The keyboard, when there is one.
+   *
+   * `--lc-kb` is how much of the bottom of the layout viewport the keyboard
+   * covers, written by LiveChat.jsx from the visual viewport
+   * (hooks/useKeyboardInset.js), and `--lc-clear` is the band of the sheet
+   * that is deliberately sacrificed to it — the assistant's sheet carries the
+   * same pair and 100-ai-buddy.css has the long version of why the reported
+   * inset cannot be trusted flush. Short version: Gboard's toolbar strip is
+   * not in the number Chrome reports, so the sheet is pushed a clearance BELOW
+   * the reported edge and given that much padding back. Where the inset is
+   * honest the band is hidden behind the keyboard; where it is short the strip
+   * covers the band instead of the compose row.
+   *
+   * `max()` against `--tabbar-h` rather than a sum: the tab bar is fixed to
+   * the same edge, so while the keyboard is up the bar is behind it and adding
+   * both would leave a bar-height slot of page under a docked sheet.
+   *
+   * Specificity is load-bearing. 08-navbar.css lifts this panel over the tab
+   * bar with `:root:has(.mobile-tabbar) .livechat-panel` — three classes — so
+   * a plain `.livechat-panel[data-kb]` here would lose to it on every store
+   * that draws the bar. `:root` in front makes the pair equal and this file is
+   * imported later, which is the same trick that rule is already using.
+   */
+  .livechat-panel { --lc-clear: 0px; }
+
+  :root .livechat-panel[data-kb='true'],
+  .livechat-panel[data-kb='true'] {
+    --lc-clear: var(--sp-16);
+    bottom: max(var(--tabbar-h), calc(var(--lc-kb, 0px) - var(--lc-clear)));
+    padding-bottom: var(--lc-clear);
+  }
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+
+.lc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  flex-shrink: 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(var(--primary-rgb), 0.10);
+}
+.lc-head-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+.lc-head-title svg { color: var(--primary); flex-shrink: 0; }
+
+.lc-head-tools { display: flex; gap: var(--sp-1); flex-shrink: 0; }
+.lc-head-tools button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.lc-head-tools button:hover { background: rgba(var(--tint-rgb), 0.10); color: var(--text); }
+@media (hover: none) { .lc-head-tools button { width: 44px; height: 44px; } }
+
+/* Connection state. Lit when live, an unlit ring when not — two channels
+   (fill and glow), so it survives `--glow-strength: 0`. */
+.lc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--text-muted);
+}
+.lc-dot.is-live {
+  background: var(--success);
+  border-color: var(--success);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--success) 60%, transparent);
+}
+
+.lc-mod-badge {
+  padding: 1px var(--sp-2);
+  border-radius: 999px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+}
+
+/* ── The log ───────────────────────────────────────────────────────────── */
+
+.lc-log {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.lc-empty {
+  margin: auto;
+  padding: var(--sp-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+.lc-empty svg { color: var(--text-muted); opacity: 0.6; margin-bottom: var(--sp-2); }
+
+/* ── One message ───────────────────────────────────────────────────────── */
+
+.lc-msg {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border-radius: var(--radius-sm);
+  /* Space reserved for the hover tools so revealing them does not reflow the
+     row — DESIGN §4. A list that changes height under the cursor turns a
+     mis-click into a click on the wrong message, which here means deleting
+     the wrong one. */
+  padding-right: 52px;
+  transition: background var(--dur-1) var(--ease-out);
+}
+@media (hover: hover) {
+  .lc-msg:hover { background: rgba(var(--tint-rgb), 0.05); }
+}
+
+/* Your own messages are tinted rather than right-aligned. A 380px column with
+   alternating alignment wastes a third of every line on empty space, and the
+   avatar already answers "who said this" faster than a side does. */
+.lc-msg.is-mine { background: rgba(var(--primary-rgb), 0.07); }
+@media (hover: hover) {
+  .lc-msg.is-mine:hover { background: rgba(var(--primary-rgb), 0.11); }
+}
+
+.lc-msg-avatar { flex-shrink: 0; margin-top: 1px; }
+.lc-msg-body { min-width: 0; flex: 1; }
+
+.lc-msg-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+.lc-msg-who {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+/* Role colour, from the tokens rather than the three hard-coded values the
+   component carried. */
+.lc-role-admin { color: var(--danger); }
+.lc-role-manager { color: var(--warning); }
+
+.lc-msg-time { font-size: var(--fs-2xs); color: var(--text-muted); }
+.lc-msg-edited {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.lc-msg-text {
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  /* Both, and both are needed: `break-word` handles a long URL, `pre-wrap`
+     keeps the line breaks somebody typed. Without the second, a pasted
+     address block arrives as one paragraph. */
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* A removed message. Present, obviously empty, and not styled as an error —
+   most removals are somebody deleting their own typo. */
+.lc-msg-gone {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  padding-right: var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.lc-msg-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-2);
+  padding-right: var(--sp-2);
+  font-size: var(--fs-xs);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--danger-rgb), 0.08);
+  border: 1px solid rgba(var(--danger-rgb), 0.25);
+}
+
+/* ── Row tools ─────────────────────────────────────────────────────────── */
+
+.lc-msg-tools {
+  position: absolute;
+  top: var(--sp-1);
+  right: var(--sp-1);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transform: translateX(3px);
+  transition: opacity var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+/* Both, always — hover alone makes the row keyboard-inaccessible (§4). */
+.lc-msg:hover .lc-msg-tools,
+.lc-msg:focus-within .lc-msg-tools { opacity: 1; transform: none; }
+
+.lc-msg-tools button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.lc-msg-tools button:hover { color: var(--text); border-color: var(--primary-border); }
+/* A staff removal of somebody else's message is a different act from deleting
+   your own typo, and the control says so before it is pressed. */
+.lc-msg-tools button.lc-mod { color: var(--warning); }
+.lc-msg-tools button.lc-mod:hover {
+  color: var(--danger);
+  border-color: rgba(var(--danger-rgb), 0.5);
+}
+
+/* Touch has no hover, so the controls are simply there — and they are IN the
+   row, not floated over it. Gated on the pointer, never on width: a laptop at
+   700px still has a mouse.
+
+   The previous touch rule kept the tools absolutely positioned at the row's
+   top-right corner and only switched them on. On a 375px screen two 32px
+   buttons parked on the corner sat across the timestamp and the end of the
+   name, and the 52px of right padding the row reserves for the hover reveal
+   was reserved for nothing. It also declared 32px targets and lost: the
+   22px `.lc-msg-tools button` rule sits later in the sheet at the same
+   specificity, so touch got the desktop size. This block comes after that
+   rule on purpose. Static position makes the tools the row's third flex
+   column, beside the body, at the 44px floor DESIGN §5 sets for a coarse
+   pointer. */
+@media (hover: none) {
+  .lc-msg { padding-right: var(--sp-2); }
+  .lc-msg-tools {
+    position: static;
+    opacity: 1;
+    transform: none;
+    flex-shrink: 0;
+    align-self: flex-start;
+    gap: var(--sp-1);
+  }
+  .lc-msg-tools button { width: 40px; height: 40px; }
+}
+
+/* ── Attachments ───────────────────────────────────────────────────────── */
+
+.lc-atts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.lc-att {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  line-height: 0;
+}
+.lc-att-link { display: block; line-height: 0; }
+
+.lc-att-media {
+  display: block;
+  max-width: 140px;
+  max-height: 140px;
+  /* Not a fixed square: a tall screenshot letterboxed into one is unreadable
+     at this size, and the whole reason somebody attached it is that it can be
+     read. `object-fit` is deliberately absent — the box follows the image. */
+  width: auto;
+  height: auto;
+  background: var(--surface);
+}
+video.lc-att-media { min-width: 140px; }
+
+.lc-att-badge {
+  position: absolute;
+  left: var(--sp-1);
+  bottom: var(--sp-1);
+  display: flex;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  /* Deliberately not a theme colour: this sits on an arbitrary photograph and
+     has to stay visible over both a white sky and a black jacket. */
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
+.lc-att-remove {
+  position: absolute;
+  top: var(--sp-1);
+  right: var(--sp-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+}
+.lc-att:hover .lc-att-remove,
+.lc-att:focus-within .lc-att-remove { opacity: 1; }
+@media (hover: none) { .lc-att-remove { opacity: 1; width: 28px; height: 28px; } }
+.lc-att-remove:hover { background: var(--danger); }
+
+/* The file is gone — a moderator unlinked the bytes. Said in place rather
+   than left as a broken-image glyph. */
+.lc-att-gone {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-2xs);
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ── Editing in place ──────────────────────────────────────────────────── */
+
+.lc-edit { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-1); }
+.lc-edit-input {
+  margin: 0;
+  font-size: var(--fs-xs);
+  resize: vertical;
+  min-height: 48px;
+}
+.lc-edit-actions { display: flex; gap: var(--sp-2); }
+
+/* ── Chosen files, before sending ──────────────────────────────────────── */
+
+.lc-pending {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.04);
+  flex-shrink: 0;
+}
+
+.lc-pending-item { position: relative; line-height: 0; }
+.lc-pending-media {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--surface);
+}
+.lc-pending-item button {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  cursor: pointer;
+}
+
+.lc-pending-note {
+  flex: 1 1 100%;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ── Compose ───────────────────────────────────────────────────────────── */
+
+.lc-compose {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.lc-input { flex: 1; margin: 0; font-size: var(--fs-xs); min-width: 0; }
+
+.lc-attach {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.lc-attach:hover { color: var(--primary); border-color: var(--primary-border); }
+
+/* The compose row on touch. Three controls that used to be three heights —
+   a 44px attach button, a default-height input and a 30px send button —
+   which is the "homemade toolbar" DESIGN §7 names. All three sit at the
+   44px touch floor, the row keeps clear of the home indicator, and the
+   input's type is set at the size below which iOS zooms the whole page on
+   focus (16px is WebKit's threshold, not a design choice — a smaller field
+   here was the sheet lurching to 150% every time somebody tapped to type). */
+@media (hover: none) {
+  .lc-compose { padding-bottom: calc(var(--sp-2) + env(safe-area-inset-bottom, 0px)); }
+  .lc-attach { width: 44px; height: 44px; }
+  .lc-compose .glass-btn { height: 44px; min-width: 44px; padding-inline: var(--sp-3); }
+  .lc-input { height: 44px; font-size: 16px; }
+}
+/* Over the tab bar, the bar is what clears the home indicator — its height
+   carries the inset (08-navbar.css, `--tabbar-h`) and the panel is lifted
+   onto its top edge — so the compose row must not add the inset a second
+   time. It did: on a notched phone that was ~34px of empty panel under the
+   input, the sheet visibly stopping short of the bar it was docked to. This
+   is scoped to the bar's presence exactly as the lift is: the admin shell
+   has no bar at this width, and there the sheet runs to the screen's edge
+   and the row keeps the inset. Above the bar's breakpoint the touch rule
+   stands too: a tablet with a coarse pointer has no bar, and the card sits
+   at `bottom: var(--sp-5)` with the indicator directly under it. */
+@media (max-width: 768px) {
+  :root:has(.mobile-tabbar) .lc-compose { padding-bottom: var(--sp-2); }
+}
+
+/* And with the keyboard up, the sheet already carries a clearance band below
+   this row and the home indicator is behind the keys, so the inset would be a
+   second helping of empty. Later than the tab-bar rule above at the same
+   specificity, but they agree — the bar's case wants the same value. */
+.livechat-panel[data-kb='true'] .lc-compose { padding-bottom: var(--sp-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .livechat-panel,
+  .livechat-fab,
+  .livechat-track,
+  .lc-msg,
+  .lc-msg-tools,
+  .lc-att-remove,
+  .lc-attach,
+  .lc-head-tools button { transition: none; }
+  .livechat-fab:hover { transform: none; }
+  /* The track still appears and the words still say what to do; it just
+     does not grow, and the bubble does not demonstrate. */
+  .livechat-track { transform: none; }
+  .livechat-dock.is-hinting .livechat-fab { animation: none; }
+  /* The tools still need their revealed state, just without the slide. */
+  .lc-msg:hover .lc-msg-tools,
+  .lc-msg:focus-within .lc-msg-tools { transform: none; }
+}
+
+/* ── The assistant's first response ──────────────────────────────────────────
+ *
+ * `services/chatAssist.js` answers a live-chat question when no member of staff
+ * is in the room and the operator has switched the feature on. This is the
+ * widget's half of the promise that the buyer can tell the difference.
+ *
+ * ── Why it deliberately does not look like a message ────────────────────────
+ *
+ * Every other row in this window is somebody: an avatar, a name, a time, a
+ * bubble. This has none of those. It is a plate at the foot of the transcript
+ * with its own icon and a label naming what wrote it, because the failure worth
+ * designing against is a customer concluding they have been dealt with. Somebody
+ * who believes the shop answered and then hears nothing for a day has been
+ * failed worse than somebody who waited from the start — so the header line and
+ * the footer line are both load-bearing, not decoration.
+ *
+ * It is also why it is dashed: `101-ai-drafts.css` settled that language for
+ * this codebase — dashed reads as "not the real thing yet", and it survives a
+ * theme where the tints are close and `--glow-strength` is 0.
+ */
+
+.lc-assist {
+  margin: var(--sp-2) 0;
+  padding: var(--sp-25);
+  border: 1px dashed color-mix(in srgb, var(--primary) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--primary-rgb), 0.06);
+  /* It arrives (§2) — a panel that blinks into a chat window reads as a
+     message that was always there. A fade with a little travel, on the panel
+     easing rather than the spring: this is a sheet, not a chip. */
+  animation: lc-assist-in var(--dur-2) var(--ease-panel) both;
+}
+
+@keyframes lc-assist-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.lc-assist-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.lc-assist-head svg { flex: none; }
+
+.lc-assist-close {
+  margin-left: auto;
+  display: flex;
+  flex: none;
+  padding: var(--sp-05);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.lc-assist-close:hover { color: var(--text); }
+
+.lc-assist-body {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  line-height: 1.5;
+  /* The topic answers keep their own line breaks — several of them are lists. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lc-assist-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+
+.lc-assist-links a {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.lc-assist-links a:hover { text-decoration: underline; }
+
+/* The sentence that stops this reading as "you have been dealt with". Muted so
+   it does not compete with the answer, and never removed — it is the honesty
+   condition, not a footnote. */
+.lc-assist-foot {
+  margin: var(--sp-2) 0 0;
+  padding-top: var(--sp-15);
+  border-top: 1px dashed color-mix(in srgb, var(--primary) 25%, transparent);
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* `both` fill: cancelling the animation without restoring the end state
+     leaves the panel invisible, which is the trap DESIGN §2 names. */
+  .lc-assist { animation: none; opacity: 1; transform: none; }
+}

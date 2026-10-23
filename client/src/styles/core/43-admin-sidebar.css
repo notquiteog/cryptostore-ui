@@ -1,0 +1,185 @@
+/* ===============================
+   ADMIN SIDEBAR
+   =============================== */
+
+.admin-sidebar-head {
+  flex-shrink: 0;
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  /* Derived from the brand colour rather than a hard-coded cyan, so a
+     re-themed store does not keep a stale wash at the top of its sidebar. */
+  background: linear-gradient(180deg, var(--btn-bg) 0%, transparent 100%);
+}
+/*
+ * The store name and the notice bell share a line.
+ *
+ * The bell has to sit at the top of the sidebar rather than under the
+ * companion's status line, because the head is what an operator's eye already
+ * goes to and the count is only useful if it is seen without being looked for.
+ * `min-width: 0` on the text column is what lets a long store name ellipsis
+ * (see `.admin-sidebar-store`) instead of shoving the bell off the rail.
+ */
+.admin-sidebar-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.admin-sidebar-title-row > div:first-child {
+  min-width: 0;
+}
+
+.admin-sidebar-store {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-sidebar-kicker {
+  margin-top: var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--primary);
+  text-shadow: 0 0 12px var(--primary-glow);
+}
+
+.admin-nav {
+  flex: 1;
+  padding: var(--sp-25) var(--sp-3) var(--sp-3);
+}
+.admin-nav-group + .admin-nav-group { margin-top: var(--sp-4); }
+.admin-nav-group-label {
+  padding: 0 var(--sp-4) var(--sp-15);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
+
+/* The active marker slides between items instead of blinking on. `border-left`
+   cannot be transitioned smoothly at 3px, so the rail below is a pseudo-element
+   that scales from nothing — which also keeps the text from shifting sideways
+   as it appears. The base rule's `border-left` is dropped for the same reason. */
+.admin-nav-link {
+  position: relative;
+  margin-bottom: var(--sp-05);
+  border-left: none;
+  padding-left: var(--sp-4);
+}
+.admin-nav-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 60%;
+  border-radius: 0 2px 2px 0;
+  background: var(--primary);
+  transform: translateY(-50%) scaleY(0);
+  transform-origin: center;
+  /* The rail springs open — it overshoots to ~110% height for a frame and
+     settles, which reads as the marker snapping into a detent. */
+  transition: transform 0.3s var(--ease-spring);
+}
+.admin-nav-link.active::before { transform: translateY(-50%) scaleY(1); }
+.admin-nav-link.active {
+  border-left-color: transparent;
+  box-shadow: inset 0 0 20px -8px var(--primary-glow);
+}
+
+.admin-nav-foot {
+  padding: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+.admin-nav-back::before { display: none; }
+
+.admin-topbar-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-topbar-kicker {
+  margin-left: var(--sp-15);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-nav-link::before { transition: none; }
+}
+
+
+/*
+ * The AI subsystem's status light, under the store name.
+ *
+ * A link, not a badge: the one thing anybody wants after noticing that the
+ * index has stalled is the page that says why, and DESIGN §9 asks every page
+ * to link to wherever the person goes next. It is quiet by default — muted
+ * text, no plate — and only the two states that mean something take a colour,
+ * because a sidebar header that lights up for "everything is fine" is one an
+ * operator stops reading.
+ */
+.admin-companion {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  /* Muted, and the two states below take it off the row rather than off one
+     word: the animal is a button in its own right (Buddy, opening the chat)
+     and it inherits this colour like the words beside it do. */
+  color: var(--text-muted);
+}
+
+/* The words, which are their own link — to the page that explains the state
+   the animal is reporting. See the component for why the two differ. */
+.admin-companion-line {
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-companion-line:hover {
+  color: var(--text);
+}
+
+/* Working, and stalled. Both are the operator's business; "up to date" is
+   not, and keeps the muted colour above. */
+.admin-companion[data-state='work'] { color: var(--primary); }
+.admin-companion[data-state='sleep'] { color: var(--warning); }
+
+/* The sprite is drawn small here and must not push the header around when a
+   state with a taller pose comes up — every frame is the same 32x32 box, so
+   fixing the box is enough. */
+.admin-companion .buddy-sprite {
+  flex: none;
+}
+
+/* The button around it is the navbar's, which is a 40px square sized for a
+   navigation bar. Here it sits on a 10px line of uppercase text, so it shrinks
+   to the animal plus a hover surface — see `.buddy-button-admin` in
+   100-ai-buddy.css for the rest, which lives with the rules it overrides. */
+.admin-companion .buddy-root {
+  display: flex;
+  flex: none;
+}

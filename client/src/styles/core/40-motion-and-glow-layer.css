@@ -1,0 +1,168 @@
+/* ===============================
+   MOTION & GLOW LAYER
+   ===============================
+   The house rules for how things move: arrive, respond to the pointer, then
+   hold still. Nothing here loops — a loop in the corner of a screen someone
+   is working in stops being decoration and starts being a distraction.
+
+   Everything is opt-out via prefers-reduced-motion at the end of the block. */
+
+/* ── Focus. One visible, branded ring everywhere, instead of the browser
+      default on some controls and nothing at all on others. `:focus-visible`
+      keeps it off mouse clicks and on for keyboard users. ── */
+.glass-btn:focus-visible,
+.glass-input:focus-visible,
+.nav-link:focus-visible,
+.admin-nav-link:focus-visible,
+.status-filter-pill:focus-visible,
+.segmented-option:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+/* ── Cards lift toward the pointer. The shadow already changed on hover; the
+      2px of travel is what makes it read as lifting rather than lighting up.
+      `.glass-card` already animates `transform`. ── */
+.glass-card:hover { transform: translateY(-2px); }
+/* Cards that are really containers, not objects, should stay put — a whole
+   settings panel sliding under the cursor is noise, not feedback. */
+.glass-card.admin-panel-in:hover,
+.auth-card:hover,
+.age-gate-card:hover { transform: none; }
+
+/* ── A sheen that crosses a primary button once per hover. `.glass-btn` has no
+      other pseudo-element, so ::after is free. ── */
+.glass-btn-primary { position: relative; overflow: hidden; }
+.glass-btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 45%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 100%
+  );
+  transform: skewX(-18deg);
+  pointer-events: none;
+  opacity: 0;
+}
+.glass-btn-primary:hover:not(:disabled)::after {
+  animation: btn-sheen 0.7s var(--ease-panel);
+}
+@keyframes btn-sheen {
+  from { left: -60%; opacity: 1; }
+  to   { left: 115%; opacity: 0; }
+}
+
+/* ── Staggered arrival for grids of peers. The delay ladder stops at the tenth
+      child on purpose: past that the last card would wait most of a second,
+      which reads as the page being slow rather than as choreography. Items
+      beyond it inherit the tenth step and arrive together. ── */
+.grid > *,
+.pcard-grid > *,
+.coupon-grid > *,
+.fsale-grid > *,
+.orders-stats > * {
+  /* Settle, not panel: the near-critically-damped spring crosses 1 by a hair
+     and eases back, so a grid arrives with weight instead of gliding in like
+     a slideshow transition. */
+  animation: rise-in 0.42s var(--ease-settle) both;
+}
+.grid > *:nth-child(1),  .pcard-grid > *:nth-child(1),
+.coupon-grid > *:nth-child(1), .fsale-grid > *:nth-child(1), .orders-stats > *:nth-child(1) { animation-delay: 0.00s; }
+.grid > *:nth-child(2),  .pcard-grid > *:nth-child(2),
+.coupon-grid > *:nth-child(2), .fsale-grid > *:nth-child(2), .orders-stats > *:nth-child(2) { animation-delay: 0.04s; }
+.grid > *:nth-child(3),  .pcard-grid > *:nth-child(3),
+.coupon-grid > *:nth-child(3), .fsale-grid > *:nth-child(3), .orders-stats > *:nth-child(3) { animation-delay: 0.08s; }
+.grid > *:nth-child(4),  .pcard-grid > *:nth-child(4),
+.coupon-grid > *:nth-child(4), .fsale-grid > *:nth-child(4), .orders-stats > *:nth-child(4) { animation-delay: 0.12s; }
+.grid > *:nth-child(5),  .pcard-grid > *:nth-child(5),
+.coupon-grid > *:nth-child(5), .fsale-grid > *:nth-child(5) { animation-delay: 0.16s; }
+.grid > *:nth-child(6),  .pcard-grid > *:nth-child(6),
+.coupon-grid > *:nth-child(6), .fsale-grid > *:nth-child(6) { animation-delay: 0.20s; }
+.grid > *:nth-child(7),  .pcard-grid > *:nth-child(7),
+.coupon-grid > *:nth-child(7), .fsale-grid > *:nth-child(7) { animation-delay: 0.24s; }
+.grid > *:nth-child(8),  .pcard-grid > *:nth-child(8),
+.coupon-grid > *:nth-child(8), .fsale-grid > *:nth-child(8) { animation-delay: 0.28s; }
+.grid > *:nth-child(9),  .pcard-grid > *:nth-child(9),
+.coupon-grid > *:nth-child(9), .fsale-grid > *:nth-child(9) { animation-delay: 0.32s; }
+.grid > *:nth-child(n+10),  .pcard-grid > *:nth-child(n+10),
+.coupon-grid > *:nth-child(n+10), .fsale-grid > *:nth-child(n+10) { animation-delay: 0.36s; }
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The page heading leads, so it arrives first and without the offset — a
+   title that slides is harder to read than one that simply appears. */
+.page-title,
+.cat-title,
+.admin-page-head { animation: fade-in 0.34s var(--ease-panel) both; }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Icon glow on the accents that carry brand colour. ── */
+.admin-nav-link.active svg,
+.status-filter-pill.active { filter: drop-shadow(0 0 6px var(--primary-glow)); }
+
+/* ── The one true opt-out. Anything that moves for decoration stops; loaders
+      and progress indicators are left alone, because a frozen spinner tells
+      the operator the page has hung. ── */
+@media (prefers-reduced-motion: reduce) {
+  .glass-card,
+  .glass-card:hover,
+  .glass-btn,
+  .glass-btn:hover:not(:disabled),
+  .coupon-shell,
+  .coupon-shell:hover,
+  .pcard,
+  .pcard:hover,
+  .pcard:focus-within { transform: none !important; }
+
+  /* The ladder still appears on hover — it is information, not decoration, and
+     removing it would delete the only place a variant's price is legible
+     without a page load. Only its travel is cancelled; the fade stays so the
+     panel does not snap on and off under a moving cursor. */
+  .pcard-ladder { transform: none !important; }
+
+  .grid > *,
+  .pcard-grid > *,
+  .coupon-grid > *,
+  .orders-stats > *,
+  .page-title,
+  .cat-title,
+  .admin-page-head,
+  /* The filter chips ride --ease-spring on arrival; the skeletons in
+     11-product-grid-and-cards.css deliberately do NOT appear here, because a
+     frozen loader reads as a hung page. */
+  .cat-chip,
+  .glass-btn-primary:hover:not(:disabled)::after {
+    animation: none !important;
+  }
+
+  html { scroll-behavior: auto; }
+}
+
+/* Action cluster on the right of a page heading. Wraps to its own full-width
+   row on a phone rather than squeezing the title into two characters. */
+.admin-page-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .admin-page-actions { width: 100%; }
+  .admin-page-actions > * { flex: 1 1 auto; justify-content: center; }
+}
+

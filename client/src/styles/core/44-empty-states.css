@@ -1,0 +1,110 @@
+/* ===============================
+   EMPTY STATES
+   ===============================
+   An empty screen is the first thing a new operator sees on half these pages,
+   so it has a job: say what is missing, and what to do about it. The icon is
+   given a soft brand ring so the panel reads as designed rather than as a
+   page that failed to load. */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-05);
+  text-align: center;
+  padding: var(--sp-12) var(--sp-6);
+  color: var(--text-muted);
+  /* Capped and centred, because most callers spread this across a whole page
+     — `<div class="glass-card empty-state">` on the cart, the wishlist, the
+     order list. At 3840 that was a 1670px-wide panel holding a 34px icon, a
+     five-word heading and a 44ch paragraph, all stacked down the middle of
+     it: the emptiest thing on screen was the empty state's own frame. The
+     panel is now the size of the message inside it. */
+  max-width: var(--shell-prose);
+  margin-inline: auto;
+}
+
+/* The bare icon a page drops in becomes the emblem. */
+.empty-state > svg {
+  width: calc(var(--fs-unit) * 2.125);
+  height: calc(var(--fs-unit) * 2.125);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-4);
+  box-sizing: content-box;
+  border-radius: 50%;
+  color: var(--primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+  box-shadow: 0 0 30px -6px var(--primary-glow), inset 0 0 20px -10px var(--primary-glow);
+}
+
+.empty-state p {
+  max-width: 44ch;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.empty-state .glass-btn,
+.empty-state a.glass-btn { margin-top: var(--sp-5); }
+
+/* A page reporting a problem rather than an absence borrows the danger tone. */
+.empty-state.is-error > svg {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent);
+  box-shadow: 0 0 30px -6px color-mix(in srgb, var(--danger) 40%, transparent);
+}
+
+@media (max-width: 480px) {
+  .empty-state { padding: var(--sp-10) var(--sp-4); }
+}
+
+/* Sub-heading inside a settings card, for a group of related switches that
+   needs its own name without becoming a separate panel. */
+.settings-subhead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-25);
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.settings-subhead svg { flex-shrink: 0; color: var(--primary); }
+
+/* Per-instance switch tint.
+   `--switch-on` is set inline by a caller that needs the checked state to carry
+   its own colour — cash in mail amber, Zelle blue — instead of the brand
+   primary. Prefixed rather than named `--primary` or `--accent`, which would
+   shadow the theme for every descendant of the switch. Unset, `color-mix`
+   falls back to `var(--primary)` and the switch looks exactly as before. */
+.switch[style*="--switch-on"] input:checked + .switch-track {
+  background: color-mix(in srgb, var(--switch-on, var(--primary)) 16%, transparent);
+  border-color: color-mix(in srgb, var(--switch-on, var(--primary)) 48%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--switch-on, var(--primary)) 26%, transparent);
+}
+.switch[style*="--switch-on"] input:checked + .switch-track::after {
+  background: var(--switch-on, var(--primary));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--switch-on, var(--primary)) 55%, transparent);
+}
+
+
+/* A row of ways out, for empty states that offer more than one next move.
+   DESIGN §9: "No orders yet" is a dead end; "No orders yet — view products /
+   check the pull list" is a screen doing its job. The single-button rule above
+   handles the one-exit case; this handles two or three without them stacking
+   into a column of equal-weight buttons. */
+.empty-state-links {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: var(--sp-4);
+}
+/* The single-button margin would double up inside this row. */
+.empty-state .empty-state-links .glass-btn,
+.empty-state .empty-state-links a.glass-btn { margin-top: 0; }

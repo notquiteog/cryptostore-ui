@@ -1,0 +1,339 @@
+/* ===============================
+   INVITE LINKS — the fuse
+   ===============================
+   Skin for `pages/admin/InviteLinks.jsx`. Built on `.lrows` / `.lrow`
+   (74-list-views.css) for the same reason the ledger is: that pair already owns
+   the rhythm, the zebra, the paired hover/focus-within rule and the reserved
+   space for row actions, and a second copy of any of them is how one console
+   stops looking like one product.
+
+   What this file adds:
+
+   · **The fuse.** A capped link is a finite thing burning down — every signup
+     is one unit of it — and `30/50` states that without showing it. The meter
+     makes a partner link that took thirty of its fifty places in a day look
+     different from one that has taken two in a month, which is the abuse
+     signal this page exists to surface. Width and fill only, no glow: DESIGN
+     §3 requires it to survive `--glow-strength: 0`, and the meaning is a
+     length. An uncapped link gets no meter at all — drawing a full bar for
+     "unlimited" would say the opposite of what is true.
+
+   · **The code is the affordance.** A 16-character base64url string is not
+     something anyone reads; the only thing done with it is copying it. The
+     whole cell is therefore the button, and it confirms in place — a toast
+     fires in a corner of the screen the eye is not on, having just clicked a
+     control inside a table.
+
+   · **A spent link recedes without disappearing.** Revoked, expired and filled
+     links stay legible and stop competing: their tone is already carried by
+     the badge and the row's left rule, so the row only has to stop shouting.
+     Opacity alone would take the badge down with it, so the dimming is applied
+     to the fields that are no longer actionable and not to the row.
+   =============================== */
+
+.ivl-page { --ivl-meter-h: 5px; }
+
+/* ── The programme gate ───────────────────────────────────────────────────── */
+
+/* Its own shape rather than `.setting-row` inside a `.glass-card`: this is one
+   switch and the card wrapper around it was a second elevation drawn for a
+   single control (DESIGN §1 — one elevation for everything means nothing is
+   above anything). The left rule lights when the gate is open, so the state is
+   readable from the page's edge without reading the switch. */
+.ivl-gate {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-muted);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.02);
+  transition: border-color var(--transition), background var(--transition);
+}
+.ivl-gate.is-on {
+  border-left-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.05);
+}
+
+.ivl-gate-text { flex: 1 1 auto; min-width: 0; }
+
+.ivl-gate-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.ivl-gate-title svg { color: var(--text-muted); flex-shrink: 0; }
+.ivl-gate.is-on .ivl-gate-title svg { color: var(--primary); }
+
+.ivl-gate-hint {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 74ch;
+}
+.ivl-gate-hint strong { color: var(--text); font-weight: 600; }
+
+.ivl-gate .switch { flex-shrink: 0; margin-top: 2px; }
+
+/* ── Create form ──────────────────────────────────────────────────────────── */
+
+.ivl-create { margin-bottom: var(--sp-5); }
+.ivl-create .admin-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.ivl-create .admin-card-title svg { color: var(--accent); }
+
+/* The consequence under each field. A markup is permanent for every account
+   the link ever creates and the number alone does not say so — DESIGN §1's
+   rule that the copy on screen should be unusable by any other app. */
+.ivl-field-hint {
+  margin: calc(-1 * var(--sp-2)) 0 var(--sp-3);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* ── Columns ──────────────────────────────────────────────────────────────── */
+
+/* Code · purpose · referrer · markup · signups · state · actions. */
+.ivl-rows {
+  --lrow-cols:
+    minmax(150px, 1fr)
+    minmax(130px, 1.3fr)
+    minmax(90px, 0.9fr)
+    84px
+    minmax(104px, 0.8fr)
+    112px
+    100px;
+  margin-bottom: var(--sp-4);
+}
+
+.ivl-skel { height: 46px; }
+.ivl-dim { color: var(--text-muted); font-style: normal; }
+
+/* Spent links recede. Applied per field rather than to the row, so the status
+   badge and the left rule — the two things that say *why* it is spent — keep
+   their full contrast. */
+.ivl-row.is-spent .ivl-code,
+.ivl-row.is-spent .ivl-purpose,
+.ivl-row.is-spent .ivl-referrer,
+.ivl-row.is-spent .ivl-markup,
+.ivl-row.is-spent .ivl-uses { opacity: 0.62; }
+
+/* ── The code ─────────────────────────────────────────────────────────────── */
+
+.ivl-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 100%;
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    color var(--transition);
+}
+.ivl-copy:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+.ivl-copy.is-copied {
+  border-color: rgba(var(--success-rgb), 0.4);
+  background: rgba(var(--success-rgb), 0.10);
+  color: var(--success);
+}
+
+.ivl-copy-code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.ivl-copy-icon { flex-shrink: 0; opacity: 0.6; }
+.ivl-copy:hover .ivl-copy-icon,
+.ivl-copy.is-copied .ivl-copy-icon { opacity: 1; }
+
+/* The confirmation is announced but never drawn — the button already changes
+   colour and swaps its icon, and a word appearing inside a table cell would
+   widen the column for a second and a half. */
+.ivl-copy-said {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── The fuse ─────────────────────────────────────────────────────────────── */
+
+.ivl-uses {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ivl-meter {
+  display: block;
+  height: var(--ivl-meter-h);
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.07);
+  overflow: hidden;
+}
+
+.ivl-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  /* The row's own tone, so a filled link's meter is the same warning colour as
+     its badge and a live one's matches its rule. One fact, one hue. */
+  background: var(--lrow-tone, var(--primary));
+  transform-origin: left center;
+  animation: ivl-burn var(--dur-3) var(--ease-settle) both;
+}
+
+@keyframes ivl-burn {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* No gap: the flex gap applied between the count and the `/cap` span too, so
+   a capped link read "31 /50" — a space that makes the pair look like two
+   separate figures. The uncapped mark supplies its own margin instead. */
+.ivl-uses-figure {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.ivl-uncapped { display: inline-flex; align-items: center; margin-left: var(--sp-1); }
+
+.ivl-markup { font-size: var(--fs-sm); }
+/* "list price" is words, and `--font-mono` is for ledgers and numerals
+   (DESIGN §11: type is picked by role). The cell is mono for the figures; the
+   one value that is not a figure opts back out. */
+.ivl-markup .ivl-dim { font-family: var(--font); font-size: var(--fs-xs); }
+.ivl-markup-head { text-align: left; }
+
+/* ── State ────────────────────────────────────────────────────────────────── */
+
+.ivl-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+.ivl-expiry {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Intermediate width ───────────────────────────────────────────────────── */
+
+/* On the head and the rows, never on `.ivl-rows`: that element is the
+   container and cannot answer a query about itself, so a value set on it here
+   was dead — see the note in 84-store-credit-ledger.css. Minimums sum to 676px
+   with gaps and padding, under the 700px card breakpoint below. */
+@container (max-width: 1080px) {
+  .ivl-rows > .lrows-head,
+  .ivl-rows > .lrow {
+    --lrow-cols:
+      minmax(100px, 1fr)
+      minmax(96px, 1.2fr)
+      minmax(72px, 0.8fr)
+      64px
+      minmax(80px, 0.7fr)
+      88px
+      80px;
+  }
+}
+
+/* ── The card shape ───────────────────────────────────────────────────────── */
+
+/* A link's card is not the row with columns hidden. The code and the state lead
+   — one is what you hand out, the other is whether it still works — then what
+   it is for, then the money it moves and how far it has burned. Every field
+   from the desktop row is present (DESIGN §5). */
+@container (max-width: 700px) {
+  .ivl-rows > .lrows-head,
+  .ivl-rows > .lrow { --lrow-cols: minmax(0, 1fr) auto; }
+
+  .ivl-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+    align-items: start;
+  }
+
+  .ivl-code { grid-column: 1; grid-row: 1; min-width: 0; }
+  .ivl-copy {
+    /* On a card the code is the headline, and there is room to show all of it
+       and to be a 44px target. */
+    font-size: var(--fs-sm);
+    min-height: 38px;
+    border-color: var(--border);
+    background: rgba(var(--tint-rgb), 0.03);
+  }
+
+  .ivl-state {
+    grid-column: 2;
+    grid-row: 1;
+    align-items: flex-end;
+  }
+
+  .ivl-purpose { grid-column: 1 / -1; grid-row: 2; }
+  .ivl-referrer { grid-column: 1; grid-row: 3; }
+  .ivl-markup { grid-column: 2; grid-row: 3; text-align: right; }
+
+  .ivl-uses { grid-column: 1 / -1; grid-row: 4; }
+  /* The meter is the card's one horizontal element and it earns the full
+     width: on a phone it is the fastest read on the card. */
+  .ivl-uses-figure { font-size: var(--fs-sm); }
+
+  .ivl-row .lrow-actions {
+    grid-column: 1 / -1;
+    grid-row: 5;
+    justify-content: flex-start;
+    padding-top: var(--sp-1);
+  }
+}
+
+/* ── Touch ────────────────────────────────────────────────────────────────── */
+
+@media (pointer: coarse) {
+  .ivl-copy { min-height: 44px; }
+  .ivl-gate .switch { margin-top: 0; }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+/* End state restored, or an `animation: … both` cancelled here leaves every
+   meter at `scaleX(0)` and a full link reads as an untouched one. */
+@media (prefers-reduced-motion: reduce) {
+  .ivl-meter-fill {
+    animation: none;
+    transform: scaleX(1);
+  }
+  .ivl-gate { transition: none; }
+}

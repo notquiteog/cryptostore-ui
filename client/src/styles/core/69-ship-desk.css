@@ -1,0 +1,1224 @@
+/* ── Boxes & the Ship desk ──────────────────────────────────────────────────
+ *
+ * Two surfaces share this sheet because they share the object: the bench's
+ * boxes panel (`boxp-`) records parcels, and the Ship desk (`shp-`) dispatches
+ * them. Everything reads from the theme tokens — no literal colors, matching
+ * the rule 67-fulfilment.css states at its head. */
+
+/* ── Bench boxes panel ── */
+
+.boxp {
+  margin: var(--sp-4) 0 var(--sp-2);
+  padding: var(--sp-4) var(--sp-4);
+  animation: pkFadeUp 0.28s ease both;
+}
+
+.boxp-head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  margin: 0 0 var(--sp-1);
+}
+
+.boxp-lede {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* The two print buttons sit in the heading's right edge, so the paper a
+   bench produces is offered where the boxes are, not in the page header a
+   scroll away from them. */
+.boxp-head h3 { justify-content: space-between; flex-wrap: wrap; }
+.boxp-print { display: inline-flex; gap: var(--sp-15); margin-left: auto; }
+
+.boxp-list {
+  list-style: none;
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.boxp-row {
+  padding: var(--sp-25) var(--sp-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+.boxp-row.is-shipped {
+  opacity: 0.75;
+}
+
+.boxp-row-head {
+  display: grid;
+  grid-template-columns: auto minmax(7rem, 10rem) 1fr auto;
+  align-items: end;
+  gap: var(--sp-3);
+}
+
+.boxp-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-weight: 700;
+  font-size: var(--fs-base);
+  padding-bottom: var(--sp-2);
+  white-space: nowrap;
+}
+
+.boxp-shipped {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--success);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Sealed reads as state, in the same register as `shipped` above but a step
+   cooler: shipped is done and gone, sealed is done and still on the bench. */
+.boxp-sealed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Which carton this box was made from. Informational, so it stays quiet. */
+.boxp-preset {
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: var(--sp-05) var(--sp-2);
+  white-space: nowrap;
+}
+
+.boxp-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-25);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.boxp-seal:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.boxp-seal.is-on {
+  border-color: rgba(var(--primary-rgb), 0.5);
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.08);
+}
+
+.boxp-seal:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* A sealed row recedes: its contents are settled, and the packer's attention
+   belongs on whichever carton is still open. */
+.boxp-row.is-sealed {
+  border-color: rgba(var(--primary-rgb), 0.3);
+  background: rgba(var(--primary-rgb), 0.04);
+}
+
+.boxp-addbox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.boxp-presets {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  align-items: center;
+}
+
+.boxp-preset-btn {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-15);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-25);
+  cursor: pointer;
+}
+
+.boxp-preset-btn:hover:not(:disabled) { border-color: var(--primary); }
+
+.boxp-preset-btn em {
+  font-style: normal;
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The per-box tracking exemption: a quiet pill that reads as state, presses
+ * like a toggle. Only rendered when the store requires tracking at all. */
+.boxp-untracked {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: none;
+  border: 1px dashed var(--glass-border);
+  border-radius: 999px;
+  padding: var(--sp-05) var(--sp-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.boxp-untracked:hover:not(:disabled) {
+  border-color: var(--warning);
+  color: var(--text);
+}
+
+.boxp-untracked.is-on {
+  border-style: solid;
+  border-color: rgba(var(--warning-rgb), 0.55);
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.08);
+}
+
+span.boxp-untracked {
+  cursor: default;
+}
+
+.boxp-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.boxp-field-name {
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.boxp-field .glass-input {
+  padding: var(--sp-15) var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.boxp-weight {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.boxp-weight .glass-input {
+  width: 100%;
+}
+
+.boxp-unit {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.boxp-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--danger);
+  padding: var(--sp-15);
+  margin-bottom: var(--sp-05);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: background 0.15s ease;
+}
+
+.boxp-remove:hover:not(:disabled) {
+  background: rgba(var(--danger-rgb), 0.12);
+}
+
+.boxp-remove:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .boxp-row-head {
+    grid-template-columns: 1fr auto;
+  }
+
+  .boxp-label {
+    grid-column: 1 / -1;
+    padding-bottom: 0;
+  }
+
+  .boxp-field-note {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── Typed quantities ──
+ *
+ * The number in a chip or a pick counter is an input, not a label: tap,
+ * type, Enter. Styled to read as the number it replaces until focused, so
+ * the control does not shout — spin buttons off (the flanking steppers ARE
+ * the spin buttons). */
+
+.qty-input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+  width: 2.6rem;
+  padding: 0.05rem var(--sp-05);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.qty-input:hover:not(:disabled),
+.qty-input:focus {
+  border-color: var(--glass-border);
+  background: var(--well);
+  outline: none;
+}
+
+.qty-input:focus {
+  border-color: var(--primary);
+}
+
+.qty-input:disabled {
+  opacity: 0.6;
+}
+
+/* ── Box contents: the tray, the chips, the one-tap add list ── */
+
+.boxp-everything {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  border: 1px dashed var(--glass-border);
+  border-radius: 999px;
+  padding: var(--sp-05) var(--sp-2);
+  white-space: nowrap;
+}
+
+.boxp-tray {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-25);
+  border: 1px dashed rgba(var(--warning-rgb), 0.45);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--warning-rgb), 0.05);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.boxp-tray.is-done {
+  border-color: rgba(var(--success-rgb), 0.4);
+  background: rgba(var(--success-rgb), 0.05);
+  color: var(--text-muted);
+}
+
+.boxp-tray-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.boxp-tray-chip {
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: var(--sp-05) var(--sp-2);
+  background: var(--well);
+  white-space: nowrap;
+}
+
+.boxp-contents {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px dashed var(--glass-border);
+}
+
+.boxp-empty {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.boxp-chip {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid rgba(var(--secondary-rgb), 0.45);
+  border-radius: 999px;
+  background: rgba(var(--secondary-rgb), 0.10);
+  overflow: hidden;
+  font-size: var(--fs-sm);
+}
+
+.boxp-chip-body {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sp-05) var(--sp-2);
+  gap: var(--sp-1);
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boxp-chip-step {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-15);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.boxp-chip-step:hover:not(:disabled) {
+  background: rgba(var(--secondary-rgb), 0.22);
+  color: var(--text);
+}
+
+.boxp-chip-step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.boxp-add,
+.boxp-addline,
+.boxp-addcancel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  border: 1px dashed var(--glass-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  padding: var(--sp-05) var(--sp-25);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.boxp-add:hover:not(:disabled),
+.boxp-addline:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--text);
+  background: rgba(var(--primary-rgb), 0.08);
+}
+
+.boxp-addlist {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+}
+
+.boxp-addline {
+  border-style: solid;
+  color: var(--text-secondary);
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boxp-addcancel {
+  border-color: transparent;
+}
+
+.boxp-addcancel:hover {
+  color: var(--text);
+}
+
+/* The bench's print slip must not carry the boxes form — the slip is the
+ * pick record; parcels are the dispatch record. */
+@media print {
+  .boxp {
+    display: none;
+  }
+}
+
+/* ── Ship desk ── */
+
+.shp-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.shp-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  animation: pkFadeUp 0.28s ease both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+  /* The card decides its own header layout from its own width. The queue is
+     full-width today, but a viewport query would be the wrong test the moment
+     this card appears anywhere narrower than the window. */
+  container-type: inline-size;
+}
+
+.shp-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+/* Aligned columns, not a left-packed run of chips.
+
+   The row is ~1130px wide and everything in it lived in the first 320px, with
+   the actions pinned right and eight hundred pixels of nothing between them.
+   A queue is read DOWN a column: the reference, the state, the age and the
+   parcel progress each get a track, so a desk operator scanning fifteen orders
+   compares like with like instead of re-finding each field on every line. */
+.shp-head-main {
+  display: grid;
+  grid-template-columns: 116px 104px 68px minmax(120px, auto) minmax(160px, 220px);
+  /* Tracks pack left and the slack falls between the progress bar and the
+     action buttons. With the slack in the middle instead, the parcel progress
+     drifted to the far right of the row and stopped reading as part of the
+     same record. */
+  justify-content: start;
+  align-items: center;
+  gap: var(--sp-25);
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: var(--sp-05) 0;
+}
+
+.shp-id {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--fs-base);
+  letter-spacing: 0.02em;
+}
+
+.shp-status {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+}
+
+.shp-status.is-paid {
+  color: var(--warning);
+  border-color: rgba(var(--warning-rgb), 0.4);
+}
+
+.shp-status.is-accepted {
+  color: var(--info);
+  border-color: rgba(var(--info-rgb), 0.4);
+}
+
+.shp-age,
+.shp-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Parcel progress ─────────────────────────────────────────────────────── */
+
+.shp-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.shp-progress.is-none {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.shp-progress-bar {
+  height: 4px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.12);
+  overflow: hidden;
+}
+.shp-progress-fill {
+  display: block;
+  height: 100%;
+  width: var(--pct, 0%);
+  border-radius: var(--pill);
+  background: var(--success);
+  /* Grows to the new width when a parcel goes out, rather than snapping — the
+     one thing on this row that actually changes while someone watches it. */
+  transition: width var(--dur-3) var(--ease-settle);
+}
+.shp-progress-text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+/* Untracked parcels are the desk's actual backlog — the thing that stops an
+   order shipping when the store requires tracking — so they are named in the
+   warning tone rather than folded into the same grey as everything else. */
+.shp-progress-gap {
+  font-style: normal;
+  color: var(--warning);
+}
+
+.shp-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+}
+
+/* The aligned columns are a desktop affordance. Below this the five tracks add
+   up to more than the card is wide, so the grid overflowed and the action
+   buttons painted on top of the age and unit count. A wrapping row instead —
+   the same fields, no columns to align because there is nothing beside them to
+   align with.
+   780, not 660: the query asks the CARD's width, but the tracks live in the
+   button beside the action buttons, which is ~165px narrower than the card. At
+   660 a portrait tablet (card 704px, button 538px) still ran the 606px of
+   tracks off the end of the button. */
+@container (max-width: 780px) {
+  .shp-head-main {
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: var(--sp-15);
+  }
+  .shp-progress {
+    flex: 1 1 100%;
+    /* Full width once it wraps, so the bar is a bar rather than a 40px stub. */
+  }
+  .shp-progress-bar { max-width: 220px; }
+}
+
+/* Actions below the record, full width, on a genuinely small card: a 44px
+   target beside a 44px target on a 390px screen leaves nothing for the
+   reference the operator is checking before they press one. */
+@container (max-width: 420px) {
+  .shp-head { flex-direction: column; align-items: stretch; }
+  .shp-head-actions > .glass-btn { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+}
+
+.shp-body {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--glass-border);
+}
+
+.shp-boxes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.shp-box {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-25);
+  background: var(--well);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+}
+
+.shp-box.is-shipped {
+  opacity: 0.72;
+}
+
+.shp-box-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.shp-box-weight {
+  font-weight: 500;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.shp-box-note {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shp-box-contents {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  max-width: 24rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shp-box-untracked {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--warning);
+  border: 1px solid rgba(var(--warning-rgb), 0.5);
+  border-radius: 999px;
+  padding: var(--sp-05) var(--sp-2);
+  white-space: nowrap;
+}
+
+.shp-box-tracking {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.shp-track {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--info-rgb), 0.35);
+  color: var(--info);
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shp-track-form {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+.shp-track-form .glass-input {
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+  width: 11rem;
+}
+
+.shp-track-form .shp-track-carrier {
+  width: 6rem;
+}
+
+/* Narrower admin panes: the inputs give way before anything overlaps. */
+@media (max-width: 1280px) {
+  .shp-track-form .glass-input {
+    width: 8.5rem;
+  }
+
+  .shp-track-form .shp-track-carrier {
+    width: 4.8rem;
+  }
+}
+
+.shp-box-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin-left: auto;
+}
+
+.shp-box-done {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--success);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.shp-noboxes,
+.shp-order-tracking,
+.shp-bench-link {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin: var(--sp-15) 0 0;
+}
+
+/* A text-weight button inside a sentence, for the slip reprint. */
+.shp-inline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Label panel ── */
+
+.shp-label-panel {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+.shp-label-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-25);
+}
+
+.shp-label-head h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  margin: 0;
+}
+
+.shp-label-controls {
+  display: inline-flex;
+  gap: var(--sp-15);
+}
+
+.shp-label-note {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.shp-label-plain {
+  white-space: pre-line;
+  line-height: 1.65;
+  font-size: var(--fs-base);
+  padding: var(--sp-25) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface, var(--glass-bg));
+}
+
+/* The printable sheet is in the DOM but never on screen — print CSS is the
+ * only thing that reveals it. */
+.shp-label-sheet {
+  display: none;
+}
+
+/* ── Label printing ──────────────────────────────────────────────────────────
+ *
+ * With a label panel open, printing prints THE LABEL — nothing else. Scoped
+ * with the same body:has() gate the pull sheet and pack slip use in
+ * 67-fulfilment.css, so this file cannot change what any other admin page
+ * prints. Black on white, for a thermal and a laser label alike. */
+@media print {
+  body:has(.shp-label-open) .admin-sidebar,
+  body:has(.shp-label-open) .admin-topbar,
+  body:has(.shp-label-open) .admin-drawer {
+    display: none !important;
+  }
+
+  body:has(.shp-label-open) .admin-main {
+    margin-left: 0;
+    padding: 0;
+    min-height: 0;
+  }
+
+  /* The page keeps only the card whose label is open… */
+  body:has(.shp-label-open) .shp-page > *:not(.shp-list),
+  body:has(.shp-label-open) .shp-card:not(.shp-label-open) {
+    display: none !important;
+  }
+
+  /* …and that card keeps only the sheet. */
+  .shp-label-open .shp-head,
+  .shp-label-open .shp-body,
+  .shp-label-open .shp-label-panel > *:not(.shp-label-sheet) {
+    display: none !important;
+  }
+
+  .shp-label-open {
+    border: none;
+    background: #fff;
+    padding: 0;
+  }
+
+  .shp-label-open .shp-label-panel {
+    border: none;
+    background: #fff;
+    padding: 0;
+  }
+
+  .shp-label-open .shp-label-sheet {
+    display: block !important;
+    background: #fff;
+    color: #000;
+    padding: 1.2cm;
+    font-family: system-ui, sans-serif;
+  }
+
+  .shp-label-store {
+    font-size: 11pt;
+    margin-bottom: 0.4cm;
+  }
+
+  .shp-label-ref {
+    font-size: 10pt;
+    font-family: ui-monospace, monospace;
+    margin-bottom: 0.6cm;
+  }
+
+  .shp-label-address {
+    font-size: 16pt;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: pre-line;
+  }
+
+  .shp-label-tracking {
+    margin-top: 0.6cm;
+    font-size: 10pt;
+    font-family: ui-monospace, monospace;
+  }
+}
+
+/* ── The bulk tracking paste ─────────────────────────────────────────────────
+ *
+ * `components/fulfilment/TrackingImport.jsx`. Two steps on purpose: a check
+ * that writes nothing, then the import. A mis-read reference attaches a number
+ * to the wrong order, and a carrier's public page then shows a stranger that
+ * parcel's destination — so the dispatcher reading the parsed lines IS the
+ * control, and the rows have to be scannable rather than pretty.
+ *
+ * Row shape follows that job. One line per parcel, aligned down a single axis,
+ * numerals in mono so a column of tracking numbers can be compared against a
+ * clipboard. The outcome column carries the sentence, because a refusal that
+ * does not say why is a refusal a dispatcher cannot act on.
+ */
+
+.shp-import {
+  margin-bottom: var(--sp-4);
+}
+
+.tki {
+  padding: var(--sp-4);
+}
+
+.tki-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.tki-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.tki-close {
+  display: flex;
+  flex: none;
+  padding: var(--sp-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.tki-close:hover { color: var(--text); }
+
+.tki-lede {
+  margin: var(--sp-2) 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Mono, because the content is references and tracking numbers and the operator
+   is comparing them against a sheet. `tab-size` matters: a spreadsheet paste
+   arrives tab-separated and a default eight-space tab pushes the number off the
+   right edge of the box. */
+.tki-text {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  tab-size: 12;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.tki-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.tki-note {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.tki-summary {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ── The parsed lines ───────────────────────────────────────────────────── */
+
+.tki-rows {
+  list-style: none;
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.tki-row {
+  display: grid;
+  /* Line, order, carrier, number, outcome. The outcome column takes the slack
+     because it is the one holding a sentence. */
+  grid-template-columns: 2.5rem 5.5rem 6rem minmax(0, 1fr) minmax(0, 1.4fr);
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: var(--sp-15) var(--sp-25);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+
+.tki-row:last-child { border-bottom: 0; }
+
+/*
+ * Three outcomes, three treatments — and the state is carried on the BORDER and
+ * the words as well as the tint, so the panel still reads at
+ * `--glow-strength: 0` and for a dispatcher who cannot distinguish the two
+ * tints. A row that failed also prints the line it came from, which is the
+ * third channel.
+ */
+.tki-row[data-outcome='ready'],
+.tki-row[data-outcome='added'] {
+  border-left: 2px solid var(--success);
+  background: color-mix(in srgb, var(--success) 6%, transparent);
+}
+
+.tki-row[data-outcome='error'],
+.tki-row[data-outcome='duplicate'] {
+  border-left: 2px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+
+.tki-row[data-outcome='already'] {
+  border-left: 2px solid var(--border);
+}
+
+.tki-line,
+.tki-number {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.tki-line { color: var(--text-muted); }
+
+.tki-order {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+
+.tki-order em,
+.tki-number em { font-style: normal; color: var(--text-muted); }
+
+.tki-outcome {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  overflow-wrap: anywhere;
+}
+
+.tki-row[data-outcome='error'] .tki-outcome,
+.tki-row[data-outcome='duplicate'] .tki-outcome { color: var(--danger); }
+
+.tki-row[data-outcome='ready'] .tki-outcome,
+.tki-row[data-outcome='added'] .tki-outcome { color: var(--success); }
+
+/* The pasted line, quoted back under the row that could not be read. Spans the
+   whole grid so a long line does not squeeze the columns above it. */
+.tki-raw {
+  grid-column: 1 / -1;
+  margin-top: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 48rem) {
+  /* The row wraps rather than becoming a card: a dispatcher on a phone is
+     scanning for the red ones, and a stack of cards shows three at a time. */
+  .tki-row {
+    grid-template-columns: 2.5rem minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .tki-outcome { grid-column: 1 / -1; }
+}
+
+/* ── Where the carton is standing ──────────────────────────────────────────
+   
+   The staging place, on the bench and at the desk. It reads as a PLACE rather
+   than as a status — accent-coloured and pinned by its icon, not a coloured
+   pill like `untracked` — because it is the answer to "where do I walk", not
+   a warning about the parcel. DESIGN §3: glow means live, focused or
+   dangerous, and a shelf name is none of the three. */
+.boxp-staged,
+.shp-box-where {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  color: var(--accent, var(--primary));
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: var(--sp-05) var(--sp-2);
+  white-space: nowrap;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The staging field on the bench sits with Weight and Note and is narrower
+   than either: a bay name is two words, and giving it the note's width would
+   push the seal button off a phone. */
+.boxp-field-place {
+  min-width: 0;
+  flex: 0 1 9rem;
+}
+
+/* An unsealed carton, said at the desk.
+   
+   Warning-toned because it is the one thing on this row that should stop a
+   dispatcher picking the box up — somebody may still be filling it. It is
+   deliberately the same register as `untracked`, which is the other "do not
+   treat this parcel as finished" mark. */
+.shp-box-open,
+.shp-unsealed {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--warning);
+  border: 1px solid rgba(var(--warning-rgb), 0.5);
+  border-radius: 999px;
+  padding: var(--sp-05) var(--sp-2);
+  white-space: nowrap;
+}
+
+/* On the queue row the place sits beside the parcel progress bar, so it
+   inherits that row's muted weight rather than competing with it. */
+.shp-where {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,903 @@
+/*
+ * The staff notice board: a bell in each bar, and the one tray both open.
+ *
+ * ── What the popover it replaced got wrong ──────────────────────────────────
+ *
+ * It was a 352px box measured off a bell in the sidebar head, and it failed on
+ * both viewports — measured in a browser, not reasoned about:
+ *
+ *   Desktop: it opened at z-index 60 beneath a rail at 100, so its left edge —
+ *   the heading, and the first letters of every title — sat behind the
+ *   sidebar. What did show held seven rows of 10px type.
+ *
+ *   Phone: the bell lived only inside the hamburger drawer, so the unread count
+ *   was invisible until the menu was opened for some other reason; and the
+ *   panel it opened painted beneath the drawer's scrim (250 over 60) — a
+ *   blurred list behind a dimming layer, readable by nobody.
+ *
+ * ── The tray comes out of the bar the bell is in ────────────────────────────
+ *
+ * DESIGN §2: motion should explain the mechanism. On a desk the tray sits one
+ * layer beneath the rail (90 under 100) and slides out from under its right
+ * edge. On a phone it sits one layer beneath the top bar (190 under 200) and
+ * drops from it, the way a shade unrolls from its box. Either way the reading
+ * is the same: the notices were in the bar, and the bar opened.
+ *
+ * Placement is pure CSS against the same 900px line `15-admin-layout.css`
+ * swaps the rail for the top bar on, so nothing measures a bell any more and
+ * nothing can be measured wrong.
+ *
+ * Nothing in the console stacks between 90 and the rail — checked when the
+ * tray was placed — so the tray covers every sticky toolbar a page has. Page
+ * chrome belongs below 90; anything above it would slide over the tray.
+ *
+ * ── Why the tray is a plate ─────────────────────────────────────────────────
+ *
+ * It renders into `document.body` precisely so it is NOT inside the frosted
+ * rail (DESIGN §3: a frosted panel in a frosted bar filters an empty backdrop,
+ * ignoring the operator's blur slider). `glass-plate` with `--plate-filter`
+ * puts the slider on the tray like every other sheet, without making the tray
+ * a backdrop root for anything later hung inside it.
+ *
+ * ── Why the bell is quiet until it is not ───────────────────────────────────
+ *
+ * The sidebar head already carries the store name and the AI status light, and
+ * `43-admin-sidebar.css` makes the argument there: a header that lights up for
+ * "everything is fine" is one an operator stops reading. So the bell is muted
+ * text with no plate, and the ONLY thing that takes a colour is a count greater
+ * than zero — carried on a filled pill and a weight as well as a glow, so at
+ * `--glow-strength: 0` it is still obviously a count and not a decoration.
+ */
+
+/* ── The bell ───────────────────────────────────────────────────────────── */
+
+.staff-notices-bell {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--dur-1) var(--ease-out),
+    background var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out);
+}
+
+.staff-notices-bell:hover,
+.staff-notices-bell:focus-visible {
+  color: var(--text);
+  background: rgba(var(--tint-rgb), 0.06);
+}
+
+/* Unread is the one state worth colour in this row. */
+.staff-notices-bell[data-unread='yes'] { color: var(--primary); }
+
+/* Open is a pressed key, not a hover that stuck: the plate and the rim say
+   which bell the tray belongs to while it is out. */
+.staff-notices-bell[data-open='yes'] {
+  color: var(--primary);
+  background: var(--btn-bg);
+  border-color: rgba(var(--primary-rgb), 0.35);
+}
+
+/* In the phone's top bar the bell is the last thing on the line, and a thumb
+   target: `--control-h` is 44px on a coarse pointer (01-tokens.css). */
+.staff-notices-bell[data-variant='bar'] {
+  margin-left: auto;
+  width: var(--control-h);
+  height: var(--control-h);
+}
+
+.staff-notices-count {
+  position: absolute;
+  top: calc(var(--sp-1) * -1);
+  right: calc(var(--sp-1) * -1);
+  min-width: var(--sp-4);
+  height: var(--sp-4);
+  padding: 0 var(--sp-1);
+  border-radius: 999px;
+  background: var(--primary);
+  /* The ink on a primary-filled shape is `--bg`, never white. `--primary` is
+     solved for contrast against `--bg` (theme/color.js), so the pairing clears
+     the same ratio in both modes and on every operator palette — the live-chat
+     button's header records what happens when a non-existent `--on-primary`
+     token is used with a white fallback instead. */
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: var(--sp-4);
+  text-align: center;
+  /* A ring of the bar's own ground parts the pill from the bell under it —
+     without it two primary shapes merge into one blob at this size. Then the
+     glow: a count of things waiting on a person is exactly what glow is for
+     (§3), and it degrades to the flat pill at zero. */
+  box-shadow: 0 0 0 2px var(--overlay-bg), var(--glow-sm);
+}
+
+/* A count that ROSE since the last read swings the bell once. The provider
+   decides "rose" — never on a page load, never on this tab's own arithmetic —
+   so a board with nine unread does not ring at every navigation. */
+.staff-notices-bell[data-ringing='yes'] svg {
+  transform-origin: 50% 15%;
+  animation: notices-ring calc(var(--dur-3) * 3) var(--ease-out);
+}
+
+@keyframes notices-ring {
+  0%, 100% { transform: none; }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-5deg); }
+  75% { transform: rotate(2deg); }
+}
+
+/* ── The tray ───────────────────────────────────────────────────────────── */
+
+/*
+ * `position` must stay in THIS rule and not move to a shared one:
+ * `.glass-plate` sets `position: relative`, and this file's number is what
+ * puts it later in the cascade. Move the declaration earlier and the tray
+ * silently becomes a relatively-positioned box at the bottom of the page.
+ */
+.staff-notices-tray {
+  position: fixed;
+  z-index: 90;
+  top: 0;
+  bottom: 0;
+  left: var(--admin-rail-w);
+  /* Its measure rides the type unit like the rail beside it, and never takes
+     so much of a narrow window that the console behind it disappears. */
+  width: min(calc(var(--fs-unit) * 27), calc(100vw - var(--admin-rail-w) - var(--sp-12)));
+  display: flex;
+  flex-direction: column;
+  container: notices / inline-size;
+  background: var(--overlay-bg);
+  border-right: 1px solid var(--glass-border);
+  /* A sheet the page dissolves behind — §3's `lg` — with the lit rim that
+     makes it read as glass rather than a rectangle with a border. */
+  box-shadow: var(--shadow-lg), var(--rim-inset);
+  --plate-filter: var(--glass-lg);
+  transform: translateX(-100%);
+  visibility: hidden;
+  /* `visibility` waits the slide out, so a closing tray is seen leaving, and
+     a closed one is out of the paint and (with `inert`) the tab order rather
+     than merely somewhere off-screen. */
+  transition:
+    transform var(--dur-3) var(--ease-settle),
+    visibility 0s linear var(--dur-3);
+}
+
+.staff-notices-tray[data-open='yes'] {
+  transform: none;
+  visibility: visible;
+  transition:
+    transform var(--dur-3) var(--ease-settle),
+    visibility 0s;
+}
+
+.staff-notices-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  /* Level with the rail's own head (43-admin-sidebar.css), so on a desk the
+     tray's title sits on the store name's line and the two read as one bar
+     that opened. */
+  padding: var(--sp-5) var(--sp-4) var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.staff-notices-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.staff-notices-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+/* Focus lands here when the tray opens so a keyboard starts at the top; it is
+   a heading, not a control, and needs no ring of its own. */
+.staff-notices-title:focus { outline: none; }
+
+.staff-notices-tally {
+  margin: var(--sp-05) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.staff-notices-tally b {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.staff-notices-tool {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-15);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--dur-1) var(--ease-out),
+    background var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out);
+}
+
+.staff-notices-tool:hover:not(:disabled),
+.staff-notices-tool:focus-visible {
+  color: var(--text);
+  border-color: var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.05);
+}
+
+/* Nothing unread means nothing to mark. */
+.staff-notices-tool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.staff-notices-close {
+  width: var(--control-h-sm);
+  padding: 0;
+  border-color: transparent;
+}
+
+/* A 320px phone cannot hold the title, the tally, a worded button and a close
+   on one line; the button keeps its icon and its accessible name. A container
+   query, because the tray's width — not the window's — is what runs out. */
+@container notices (max-width: 360px) {
+  .staff-notices-tool-label { display: none; }
+  .staff-notices-tool { width: var(--control-h-sm); padding: 0; }
+}
+
+.staff-notices-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── Days ───────────────────────────────────────────────────────────────── */
+
+/* Sticky, so fifty rows down the tray still says which day it is in. Opaque
+   for the same reason: a heading the rows scroll under must not show them
+   through itself. */
+.staff-notices-day-label {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4) var(--sp-15) var(--sp-5);
+  background: var(--overlay-bg);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.staff-notices-day-new {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--primary);
+}
+
+/* ── Rows ───────────────────────────────────────────────────────────────── */
+
+.staff-notices-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * A row is a one-track grid so it can COLLAPSE: dismissing slides it right and
+ * takes its track from 1fr to 0fr, so the rows beneath close the gap instead
+ * of teleporting up under the pointer (§2's 0fr → 1fr, run backwards). The
+ * inner wrapper carries the padding, because padding on the collapsing item
+ * itself is a floor the track cannot shrink below.
+ */
+.staff-notice {
+  --tone: var(--primary);
+  --tone-rgb: var(--primary-rgb);
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr;
+  border-bottom: 1px solid var(--border);
+  transition:
+    grid-template-rows var(--dur-3) var(--ease-panel),
+    opacity var(--dur-2) var(--ease-out),
+    transform var(--dur-3) var(--ease-panel),
+    background var(--dur-1) var(--ease-out);
+  /* Rows arrive on the tray's first open and whenever a new one lands —
+     `backwards`, not `both`, so nothing is pinned after the entrance and the
+     dismiss transition can still move the row. */
+  animation: rise-in var(--dur-3) var(--ease-settle) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+.staff-notice:last-child { border-bottom: 0; }
+
+.staff-notice[data-tone='warning'] { --tone: var(--warning); --tone-rgb: var(--warning-rgb); }
+.staff-notice[data-tone='danger']  { --tone: var(--danger);  --tone-rgb: var(--danger-rgb); }
+.staff-notice[data-tone='success'] { --tone: var(--success); --tone-rgb: var(--success-rgb); }
+
+.staff-notice:hover { background: rgba(var(--tint-rgb), 0.04); }
+
+/* Unread carries a rail rather than a background wash. A wash on half the rows
+   of a forty-row list is a striped panel nobody can read down; a 3px edge on
+   the left is a scannable column of exactly the rows that are new. It scales
+   away rather than blinking off when a row is read. */
+.staff-notice::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: var(--sp-2) auto var(--sp-2) 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--primary);
+  transform: scaleY(0);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.staff-notice[data-read='no']::before { transform: scaleY(1); }
+
+/* "Mark all read" retracts the rails top to bottom, so the eye sees what
+   "all" covered instead of a column that simply vanished. */
+.staff-notices-tray[data-sweeping='yes'] .staff-notice::before {
+  transition-delay: calc(var(--i, 0) * 24ms);
+}
+
+.staff-notice[data-leaving='yes'] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateX(var(--sp-8));
+  border-bottom-color: transparent;
+  pointer-events: none;
+}
+
+.staff-notice-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.staff-notice-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--sp-3);
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-5);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Inset, because the row wrapper clips — an outset ring would be cut off. */
+.staff-notice-main:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+/*
+ * The kind tile. Toned by severity while unread, grey once read — glow and
+ * colour mean live (§3), and a notice somebody has dealt with is history.
+ * Two channels, the fill and a solid inner edge, so an unread risk lamp still
+ * reads as lit on an opaque preset at `--glow-strength: 0`.
+ */
+.staff-notice-mark {
+  display: grid;
+  place-items: center;
+  width: var(--sp-8);
+  height: var(--sp-8);
+  border-radius: var(--radius-sm);
+  color: var(--tone);
+  background: rgba(var(--tone-rgb), 0.12);
+  box-shadow: inset 0 0 0 1px rgba(var(--tone-rgb), 0.3);
+  transition:
+    color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
+}
+
+.staff-notice[data-read='yes'] .staff-notice-mark {
+  color: var(--text-muted);
+  background: rgba(var(--tint-rgb), 0.04);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.staff-notice-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  min-width: 0;
+}
+
+/* Density from hierarchy, not from shrinking (§7): the title is the record,
+   the body is context, the meta line is a footnote. Two lines of title, since
+   "Order F6B9F442 needs review" is only useful if "needs review" survives. */
+.staff-notice-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.staff-notice[data-read='no'] .staff-notice-title { color: var(--text); }
+
+/* Clamped to three lines rather than cut at a character count, so a stock
+   alert naming eight variants shows three whole ones. `pre-line` keeps the
+   broadcast's own breaks — these bodies are lists far more often than
+   paragraphs. */
+.staff-notice-body {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.staff-notice[data-read='no'] .staff-notice-body { color: var(--text-secondary); }
+
+.staff-notice[data-expanded='yes'] .staff-notice-body {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.staff-notice-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  margin-top: var(--sp-05);
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+}
+
+/* The word beside the icon — the icon's second channel, and the one a screen
+   reader and a colour-blind operator both get. */
+.staff-notice-kind {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+
+.staff-notice[data-read='yes'] .staff-notice-kind { color: var(--text-muted); }
+
+/*
+ * The repeat count. A notice that fired twenty-four times while nobody read it
+ * is one row with a count, not twenty-four rows — see `services/staffNotice.js`
+ * for the measurement that forced that. The count has to be visible or the
+ * collapse would hide exactly the fact that makes the notice urgent. Mono and
+ * tabular, so a two-digit count does not shift what follows it.
+ */
+.staff-notice-repeats {
+  padding: 0 var(--sp-15);
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.07);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Where the row goes. Disclosed on hover on a desk (§4: hover can disclose
+   information, not only controls) and always shown on touch, which has none. */
+.staff-notice-go {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  margin-left: auto;
+  color: var(--primary);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    opacity var(--dur-1) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
+}
+
+/* ── The right-hand column: the age, and the row controls ───────────────── */
+
+/*
+ * The age and the controls share one grid cell. On a fine pointer the
+ * controls take the age's place on hover and keyboard focus (§4) — the cell is
+ * sized to the controls either way, so the row never reflows under the cursor.
+ */
+.staff-notice-side {
+  display: grid;
+  align-content: start;
+  justify-items: end;
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) 0;
+}
+
+.staff-notice-age,
+.staff-notice-acts { grid-area: 1 / 1; }
+
+.staff-notice-age {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  /* On the title's first line box, so the two read as one line. */
+  line-height: calc(var(--fs-sm) * 1.35);
+  white-space: nowrap;
+  color: var(--text-muted);
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+
+.staff-notice[data-read='no'] .staff-notice-age { color: var(--text-secondary); }
+
+.staff-notice-acts {
+  display: flex;
+  gap: var(--sp-05);
+  margin-top: calc(var(--sp-1) * -1);
+  transition:
+    opacity var(--dur-1) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
+}
+
+.staff-notice-act {
+  display: grid;
+  place-items: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--dur-1) var(--ease-out),
+    background var(--dur-1) var(--ease-out);
+}
+
+.staff-notice-act:hover,
+.staff-notice-act:focus-visible {
+  color: var(--text);
+  background: rgba(var(--tint-rgb), 0.08);
+}
+
+.staff-notice-act:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.staff-notice-act-dismiss:hover {
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.1);
+}
+
+@media (hover: hover) {
+  .staff-notice-acts {
+    opacity: 0;
+    transform: translateX(var(--sp-1));
+    pointer-events: none;
+  }
+
+  .staff-notice:hover .staff-notice-acts,
+  .staff-notice:focus-within .staff-notice-acts {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .staff-notice:hover .staff-notice-age,
+  .staff-notice:focus-within .staff-notice-age { opacity: 0; }
+
+  .staff-notice-go {
+    opacity: 0;
+    transform: translateX(calc(var(--sp-1) * -1));
+  }
+
+  .staff-notice:hover .staff-notice-go,
+  .staff-notice:focus-within .staff-notice-go {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (hover: none) {
+  /* Touch has no hover, so the age sits above one row control that is simply
+     there — dismiss, as a 44px target (§5). Marking a single row read happens
+     by opening it; "Mark all read" covers the rest. */
+  .staff-notice-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--sp-05);
+    padding-right: var(--sp-1);
+  }
+
+  .staff-notice-age { padding-right: var(--sp-2); }
+  .staff-notice-acts { margin-top: 0; }
+
+  .staff-notice-act {
+    width: var(--control-h);
+    height: var(--control-h);
+  }
+
+  .staff-notice-act:not(.staff-notice-act-dismiss) { display: none; }
+}
+
+/* ── States other than "a list of notices" ──────────────────────────────── */
+
+.staff-notices-state {
+  margin: 0;
+  padding: var(--sp-5);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.staff-notices-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-3) var(--sp-4) 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid rgba(var(--danger-rgb), 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--danger-rgb), 0.08);
+  color: var(--danger);
+  font-size: var(--fs-xs);
+}
+
+.staff-notices-error button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* An empty board is navigation, not apology (§9). */
+.staff-notices-empty {
+  padding: var(--sp-6) var(--sp-5);
+}
+
+.staff-notices-empty p {
+  margin: 0 0 var(--sp-2);
+  max-width: 38ch;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.staff-notices-empty .staff-notices-empty-head {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.staff-notices-empty-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+.staff-notices-empty-links a,
+.staff-notices-foot a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--primary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.staff-notices-empty-links a {
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-3);
+  border: 1px solid rgba(var(--primary-rgb), 0.3);
+  border-radius: var(--radius-sm);
+  background: var(--btn-bg);
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.staff-notices-empty-links a:hover { border-color: rgba(var(--primary-rgb), 0.6); }
+.staff-notices-foot a:hover { text-decoration: underline; }
+
+/* Dashed until pressed: it is the edge of what has been read, not a card. */
+.staff-notices-more {
+  display: block;
+  width: calc(100% - var(--sp-8));
+  height: var(--control-h-sm);
+  margin: var(--sp-3) auto 0;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.staff-notices-more:hover:not(:disabled) {
+  border-style: solid;
+  color: var(--text);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+
+.staff-notices-more:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.staff-notices-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-4) var(--sp-5) var(--sp-6);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.staff-notices-foot p { margin: 0; }
+
+/* Phone-only furniture; the block below turns both on. */
+.staff-notices-scrim,
+.staff-notices-pull { display: none; }
+
+/* ── Phone: the tray drops from the top bar ─────────────────────────────── */
+
+@media (max-width: 900px) {
+  .staff-notices-tray {
+    z-index: 190;
+    top: var(--admin-topbar-h);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    /* Short of the bottom edge on purpose: the strip of scrim left below it is
+       a place to tap that closes the tray, and it shows the page is still
+       there underneath. */
+    max-height: calc(100dvh - var(--admin-topbar-h) - var(--sp-12));
+    border-right: 0;
+    border-bottom: 1px solid var(--glass-border);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    transform: translateY(-100%);
+  }
+
+  .staff-notices-tray[data-open='yes'] { transform: none; }
+
+  .staff-notices-head { padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); }
+  .staff-notices-day-label { padding-left: var(--sp-4); }
+  .staff-notice-main { padding-left: var(--sp-4); }
+
+  /* Under the tray and clear of the top bar, so the bell that opened the tray
+     is still there to close it. Blur only, no saturate, on the operator's tier
+     — a dimming layer pushes the page back; it does not colour it. */
+  .staff-notices-scrim {
+    display: block;
+    position: fixed;
+    z-index: 180;
+    inset: var(--admin-topbar-h) 0 0 0;
+    background: rgba(var(--scrim-rgb), 0.5);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+    backdrop-filter: blur(var(--glass-blur-sm));
+    opacity: 0;
+    visibility: hidden;
+    /* A drag that starts on the scrim must not scroll the page beneath it. */
+    touch-action: none;
+    transition:
+      opacity var(--dur-3) var(--ease-panel),
+      visibility 0s linear var(--dur-3);
+  }
+
+  .staff-notices-scrim[data-open='yes'] {
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity var(--dur-3) var(--ease-panel),
+      visibility 0s;
+  }
+
+  .staff-notices-pull {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    height: var(--control-h);
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    background: transparent;
+    cursor: grab;
+    /* The tab alone. `touch-action: none` on the list would stop it scrolling
+       (DESIGN §8). */
+    touch-action: none;
+  }
+
+  .staff-notices-pull:active { cursor: grabbing; }
+
+  .staff-notices-pull span {
+    width: var(--sp-10);
+    height: var(--sp-1);
+    border-radius: 999px;
+    background: rgba(var(--tint-rgb), 0.28);
+  }
+}
+
+:root[data-theme='light'] .staff-notices-scrim {
+  background: rgba(var(--scrim-rgb), 0.3);
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  /* The tray and scrim still open and close; they stop travelling. Nothing
+     here uses an `animation: … both`, so removing the motion leaves every end
+     state where it belongs. */
+  .staff-notices-tray,
+  .staff-notices-tray[data-open='yes'],
+  .staff-notices-scrim,
+  .staff-notices-scrim[data-open='yes'] { transition: none; }
+
+  .staff-notice,
+  .staff-notice::before,
+  .staff-notice-mark { transition: none; }
+
+  .staff-notice { animation: none; }
+
+  .staff-notices-bell[data-ringing='yes'] svg { animation: none; }
+}

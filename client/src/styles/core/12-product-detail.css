@@ -1,0 +1,2198 @@
+/* ===============================
+   PRODUCT DETAIL
+   ===============================
+   Every custom property declared here is `--pd-`-prefixed. The theme tokens
+   live on `:root`, so a component property sharing one of their names would
+   shadow the theme for the whole subtree — and, where the value it holds is
+   itself a token, resolve to a cycle and silently paint nothing.
+
+   Glow is expressed through `--card-glow` / `--primary-glow` / `--glow-*`
+   rather than literal rgba, so the admin's glow-strength slider still reaches
+   this page: at 0 the store goes flat here too. */
+
+.pd-page { position: relative; }
+
+/* ── Reveal on scroll ──────────────────────────────────────────────────────
+   Scoped to this page so `data-reveal` cannot start something invisible
+   elsewhere. `useReveal` sets `data-revealed`; when the observer is unavailable
+   — or the visitor asked for reduced motion — it marks everything at once, so
+   the hidden state is never a trap. */
+.pd-page [data-reveal] {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.5s var(--ease-panel), transform 0.5s var(--ease-panel);
+}
+/* An attribute, not a class: React rewrites `className` in full whenever any
+   part of it changes, which stripped a class added from outside and faded the
+   buy box back out the moment its sale state flipped. See useReveal.js. */
+.pd-page [data-reveal][data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Breadcrumb ── */
+.pd-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin-bottom: var(--sp-5);
+  font-size: var(--fs-sm);
+  flex-wrap: wrap;
+  animation: fade-in 0.34s var(--ease-panel);
+}
+.pd-bc-link {
+  color: var(--text-muted);
+  transition: color var(--transition);
+}
+.pd-bc-link:hover { color: var(--text); }
+.pd-bc-sep { color: var(--text-muted); opacity: 0.4; flex-shrink: 0; }
+.pd-bc-current {
+  color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(46vw, 30ch);
+}
+
+/* ── Two-column shell ── */
+.pd-layout {
+  display: grid;
+  /* The buy column is the wider one now. It carries the variant list, and a
+     thirteen-variant product had a 545px column for the picture and the same
+     545px for the thing being decided — with the picture's square box running
+     out of image at 300px and the variant list running out of room. */
+  grid-template-columns: minmax(0, 0.86fr) minmax(0, 1fr);
+  gap: var(--sp-10);
+  align-items: start;
+  margin-bottom: var(--sp-10);
+}
+/* The media sticks while the buy column scrolls: on a long variant list the
+   photo is the one thing that should never leave. The offset is the bar's own
+   height plus a step of clearance for its shadow — it used to be a flat 80px
+   written down next to a bar that was 64, which was only correct while
+   neither number moved. */
+.pd-media-col { position: sticky; top: calc(var(--navbar-h) + var(--sp-4)); }
+.pd-info-col { min-width: 0; }
+
+/* ── Gallery stage ── */
+.pd-gallery { min-width: 0; }
+.pd-stage {
+  position: relative;
+  /* Landscape, not square. A 1:1 stage in a half-page column is ~545px tall
+     and this catalog's product shots are ~300px wide, so the artwork sat
+     marooned in the middle of a very large empty box. Capping the height
+     instead was worse — Chrome shrinks the box's WIDTH to keep the ratio, so
+     the stage stopped lining up with the specification panel beneath it. */
+  aspect-ratio: 5 / 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--rim-inset), var(--glass-shadow);
+  margin-bottom: var(--sp-25);
+  outline: none;
+}
+.pd-stage:focus-visible {
+  border-color: var(--primary);
+  box-shadow: var(--rim-inset), var(--glass-shadow), 0 0 0 3px var(--focus-ring);
+}
+
+/* A slow brand bloom pooled behind the artwork. Sits under the media, never
+   over it, so it cannot tint the product itself. */
+.pd-stage-glow {
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(circle at 50% 45%, var(--card-glow) 0%, transparent 62%);
+  pointer-events: none;
+  --pd-bloom-o: 0.5;
+  opacity: 0.5;
+  /* Arrives once and holds. It used to breathe on a 9s loop, which is a slow
+     pulse in the corner of a page a buyer sits on for minutes reading a
+     variant list — the exact thing the house rule means by a loop stopping
+     being decoration and starting being a distraction. The bloom still does
+     its job, which was to make the stage read as lit rather than as an empty
+     rectangle; it just stops afterwards. */
+  animation: pd-bloom-in 1.1s var(--ease-panel) both;
+}
+
+.pd-media {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  position: relative;
+  transition: transform 0.32s var(--ease-panel);
+  will-change: transform;
+}
+.pd-media-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 260px;
+  color: var(--text-muted);
+  opacity: 0.35;
+}
+
+.pd-stage-badges {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-15);
+  z-index: 2;
+  pointer-events: none;
+}
+.pd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-25);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(var(--scrim-rgb), 0.55);
+  color: var(--text);
+  border: 1px solid var(--border);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+}
+.pd-badge.sale {
+  background: rgba(var(--danger-rgb), 0.12);
+  color: var(--danger);
+  border-color: rgba(var(--danger-rgb), 0.34);
+  box-shadow: 0 0 16px rgba(var(--danger-rgb), 0.22);
+}
+.pd-badge.new {
+  background: rgba(var(--primary-rgb), 0.14);
+  color: var(--primary);
+  border-color: var(--primary-border);
+  box-shadow: 0 0 16px var(--card-glow);
+}
+
+.pd-oos-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--scrim-rgb), 0.55);
+  /* Faint veil, not a frost — the sold-out product stays recognisable. */
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-sm) * 0.3));
+  backdrop-filter: blur(calc(var(--glass-blur-sm) * 0.3));
+  z-index: 3;
+}
+.pd-oos-overlay span {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--danger);
+  border: 1px solid rgba(var(--danger-rgb), 0.4);
+  background: rgba(var(--danger-rgb), 0.12);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--pill);
+  box-shadow: 0 0 24px rgba(var(--danger-rgb), 0.2);
+}
+
+/* Stage furniture: expand, arrows, counter. All share one plate so they read
+   as one control layer rather than four stickers. */
+.pd-stage-expand,
+.pd-nav {
+  position: absolute;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: rgba(var(--scrim-rgb), 0.5);
+  color: var(--text);
+  cursor: pointer;
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  transition: background var(--transition), border-color var(--transition),
+              box-shadow var(--transition), opacity var(--transition), transform var(--transition);
+}
+.pd-stage-expand { top: 0.7rem; right: 0.7rem; width: 30px; height: 30px; opacity: 0; }
+.pd-stage:hover .pd-stage-expand,
+.pd-stage-expand:focus-visible { opacity: 1; }
+.pd-nav { top: 50%; margin-top: -19px; width: 38px; height: 38px; }
+.pd-nav.prev { left: 0.6rem; }
+.pd-nav.next { right: 0.6rem; }
+.pd-stage-expand:hover,
+.pd-nav:hover {
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  color: var(--primary);
+  box-shadow: 0 0 18px var(--card-glow);
+}
+.pd-nav:active { transform: scale(0.94); }
+
+.pd-counter {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  z-index: 4;
+  padding: var(--sp-1) var(--sp-25);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  font-feature-settings: "tnum";
+  color: var(--text-secondary);
+  background: rgba(var(--scrim-rgb), 0.5);
+  border: 1px solid var(--border);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+}
+
+/* ── Video furniture ────────────────────────────────────────────────────────
+   What replaces the native `controls` bar on the stage. That bar is a black
+   slab that lands across the bottom of the artwork the moment a clip is
+   selected, and it is the one piece of this page the operator's theme cannot
+   reach. Autoplay is only granted to a muted video, and a muted video with no
+   controls owes the buyer a pause and an unmute — so the stage grows its own,
+   on the same plate as the expand button and the arrows.
+
+   Two corners rather than a bar: the pill takes bottom-left, the counter keeps
+   bottom-right, and the scrubber is a hairline along the frame's own bottom
+   edge. A full-width control bar would spend its life fighting the counter for
+   the same 0.7rem of inset. */
+.pd-video-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  /* A positioning frame, not a lid. The previous/next arrows sit underneath at
+     the same z-index and have to stay clickable, so the layer itself never
+     takes the pointer and each control switches it back on. */
+  pointer-events: none;
+  transition: opacity var(--transition);
+}
+
+.pd-video-pill {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  pointer-events: auto;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: rgba(var(--scrim-rgb), 0.5);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+}
+.pd-video-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.pd-video-btn:hover { background: var(--btn-bg); color: var(--primary); }
+.pd-video-btn:focus-visible {
+  outline: none;
+  color: var(--primary);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+/* Four times taller than the line it draws, because a 3px seek target is a 3px
+   seek target. The extra height is transparent and stops short of the counter
+   above it. */
+.pd-video-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 12px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.pd-video-track:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
+}
+.pd-video-track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(var(--scrim-rgb), 0.55);
+}
+.pd-video-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--primary-glow);
+  transform-origin: left center;
+  transform: scaleX(0);
+  /* Smooths the quarter-second steps `timeupdate` actually arrives in; without
+     it the fill ratchets. */
+  transition: transform 0.25s linear;
+}
+
+/* Visible by default. A touch screen has no hover to reveal them with, and a
+   video whose only pause is behind a hover state has no pause at all. They
+   hide only where a pointer can bring them back — and even there they stay up
+   whenever the clip is not running, which is what a refused autoplay, a
+   finished clip and a deliberate pause have in common: all three need the
+   buyer to be able to see the way back in. */
+@media (hover: hover) and (pointer: fine) {
+  .pd-video-controls { opacity: 0; }
+  .pd-stage:hover .pd-video-controls,
+  .pd-video-controls:focus-within,
+  .pd-video-controls[data-idle] { opacity: 1; }
+}
+
+/* ── Thumbnail rail ── */
+.pd-thumbs {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  padding: var(--sp-05) var(--sp-05) var(--sp-15);
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+.pd-thumbs::-webkit-scrollbar { display: none; }
+.pd-thumb {
+  position: relative;
+  width: 66px;
+  height: 66px;
+  flex: 0 0 auto;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--surface);
+  scroll-snap-align: start;
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+.pd-thumb img,
+.pd-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (hover: hover) and (pointer: fine) {
+  .pd-thumb:hover { transform: translateY(-2px); border-color: var(--border-hover); }
+}
+.pd-thumb.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary), 0 0 16px var(--primary-glow);
+}
+.pd-thumb-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* ── Lightbox ── */
+.pd-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-12) var(--sp-4);
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: blur(var(--overlay-blur));
+  backdrop-filter: blur(var(--overlay-blur));
+  animation: fade-in 0.2s var(--ease-panel);
+}
+.pd-lightbox-frame {
+  /* Grows with the monitor. A lightbox is the one moment the interface is
+     asked for the biggest possible view of one photograph, and capping it at
+     1100px meant a 4K screen opened a product image barely larger than the
+     page thumbnail it came from. */
+  max-width: min(clamp(1100px, 76vw, 2600px), 100%);
+  max-height: 100%;
+  display: flex;
+  animation: pd-zoom-in 0.28s var(--ease-panel);
+}
+.pd-lightbox-media {
+  max-width: 100%;
+  max-height: calc(100vh - 6rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg), 0 0 60px var(--card-glow);
+}
+.pd-lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+.pd-lightbox-close:hover {
+  background: var(--btn-bg);
+  color: var(--primary);
+  box-shadow: 0 0 18px var(--card-glow);
+}
+.pd-counter.lightbox { right: 50%; transform: translateX(50%); bottom: 1.1rem; }
+
+/* ── Title block ── */
+.pd-chips {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: var(--sp-3);
+}
+.pd-chip-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  background: var(--btn-bg);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  transition: background var(--transition), box-shadow var(--transition), color var(--transition);
+}
+.pd-chip-cat:hover {
+  background: var(--btn-hover);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+.pd-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--pill);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.pd-share {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--pill);
+  font-size: var(--fs-xs);
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+.pd-share:hover {
+  color: var(--primary);
+  border-color: var(--primary-border);
+  background: var(--btn-bg);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+
+.pd-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1.14;
+  letter-spacing: -0.025em;
+  color: var(--text);
+  margin-bottom: var(--sp-25);
+  text-wrap: balance;
+}
+
+.pd-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-4);
+}
+.pd-meta-item,
+.pd-meta-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  color: var(--text-secondary);
+}
+.pd-meta-rating {
+  transition: color var(--transition);
+  text-decoration: none;
+}
+.pd-meta-rating:hover { color: var(--text); }
+.pd-meta-rating b {
+  font-family: var(--font-display);
+  color: var(--text);
+  font-feature-settings: "tnum";
+}
+.pd-meta-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.5;
+}
+
+.pd-lead {
+  color: var(--text-secondary);
+  font-size: var(--fs-md);
+  line-height: 1.65;
+  margin-bottom: var(--sp-5);
+  white-space: pre-line;
+  /* The full text has its own tab below; this is the standfirst. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Variant picker ── */
+.pd-variants {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: var(--sp-4);
+  background: rgba(var(--tint-rgb), 0.025);
+}
+.pd-variants-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-25) var(--sp-4);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.02);
+}
+.pd-oos-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.pd-oos-toggle:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface-hover); }
+
+.pd-variant-list { display: flex; flex-direction: column; }
+.pd-variant {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  outline: none;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.pd-variant:last-child { border-bottom: none; }
+.pd-variant:hover { background: var(--surface-hover); }
+.pd-variant:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-ring); }
+.pd-variant.oos { opacity: 0.55; }
+
+/* The lit edge marking the chosen row. A transform on the mark rather than a
+   border on the row, so selecting does not shift the text by 3px. */
+.pd-variant-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--primary);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 0.24s var(--ease-panel);
+}
+.pd-variant.active {
+  background: var(--btn-bg);
+  box-shadow: inset 6px 0 20px -6px var(--card-glow);
+}
+.pd-variant.active .pd-variant-mark {
+  transform: scaleY(1);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.pd-variant-main { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.pd-variant-name {
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pd-avail {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--success);
+}
+.pd-avail.low { color: var(--warning); }
+.pd-avail.oos { color: var(--danger); }
+.pd-avail-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 9px; }
+.pd-avail-bars i { width: 3px; border-radius: 1px; background: currentColor; opacity: 0.25; }
+.pd-avail-bars i:nth-child(1) { height: 4px; }
+.pd-avail-bars i:nth-child(2) { height: 6.5px; }
+.pd-avail-bars i:nth-child(3) { height: 9px; }
+.pd-avail:not(.low):not(.oos) .pd-avail-bars i { opacity: 1; }
+.pd-avail.low .pd-avail-bars i:nth-child(1) { opacity: 1; }
+
+.pd-variant-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-05);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.pd-variant-price .was {
+  font-size: var(--fs-xs);
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.pd-variant-price .now { font-size: var(--fs-md); font-weight: 700; color: var(--text); }
+.pd-variant-price .now.sale { color: var(--danger); }
+.pd-sale-tag {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.12);
+  border: 1px solid rgba(var(--danger-rgb), 0.3);
+  border-radius: var(--pill);
+  padding: var(--sp-05) var(--sp-15);
+}
+
+.pd-variant-actions { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.pd-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+.pd-icon-btn:hover { color: var(--text); background: var(--surface-hover); border-color: var(--border); }
+.pd-icon-btn.on {
+  color: var(--danger);
+  border-color: rgba(var(--danger-rgb), 0.3);
+  background: rgba(var(--danger-rgb), 0.1);
+}
+.pd-icon-btn.alerted {
+  color: var(--warning);
+  border-color: rgba(var(--warning-rgb), 0.32);
+  background: rgba(var(--warning-rgb), 0.12);
+  box-shadow: 0 0 12px rgba(var(--warning-rgb), 0.2);
+}
+
+/* ── Buy box ──────────────────────────────────────────────────────────────
+   The one panel on the page that is allowed to glow properly: it is the thing
+   the page exists for. */
+.pd-buybox {
+  position: relative;
+  overflow: hidden;
+  padding: var(--sp-5);
+  border-radius: var(--radius);
+  border: 1px solid var(--primary-border);
+  /* Neutral ground, not `--btn-bg`. The panel carries status plates — the sale
+     badge, the stock pill, the flash strip, the savings nudge — and stacking a
+     tinted plate on a brand-tinted panel cost every one of them contrast: in
+     light mode they measured 3.6–3.8:1 against the 4.4–5.0:1 the app's own
+     `.badge-*` classes reach, and no plate alpha could recover it, because the
+     panel underneath was the problem. On glass they measure 4.2–4.5, in line
+     with the rest of the store. The brand border and the glow below are what
+     make this the focal panel; the wash was never doing that work. */
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: 0 0 30px var(--card-glow), inset 0 1px 0 rgba(var(--tint-rgb), 0.07);
+}
+.pd-buybox.on-sale {
+  border-color: rgba(var(--danger-rgb), 0.32);
+  box-shadow: 0 0 30px rgba(var(--danger-rgb), 0.14), inset 0 1px 0 rgba(var(--tint-rgb), 0.07);
+}
+/* Brand light spilling in from the top-right corner, breathing very slowly.
+   Behind the content, never over it. */
+.pd-buybox-glow {
+  position: absolute;
+  inset: -50% -30% auto -30%;
+  height: 180%;
+  background: radial-gradient(circle at 78% 0%, var(--primary-glow) 0%, transparent 55%);
+  --pd-bloom-o: 0.4;
+  opacity: 0.4;
+  pointer-events: none;
+  /* Same one-shot as the stage glow above, and the same reason. */
+  animation: pd-bloom-in 1.3s var(--ease-panel) both;
+}
+.pd-buybox > *:not(.pd-buybox-glow) { position: relative; z-index: 1; }
+
+.pd-flash {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: calc(var(--sp-1) * -1) calc(var(--sp-1) * -1) var(--sp-3);
+  padding: var(--sp-15) var(--sp-25);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--danger-rgb), 0.12);
+  border: 1px solid rgba(var(--danger-rgb), 0.28);
+  color: var(--danger);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+/* The flash-sale ember pulsed on a 1.9s loop. Urgency is already carried by
+   the danger-toned plate, the word "flash" and the countdown beside it — three
+   channels — so the loop was adding nothing the reader could not already see,
+   and doing it forever. One arrival, then still. */
+.pd-flash-icon { animation: pd-ember-in 0.5s var(--ease-spring) both; flex-shrink: 0; }
+.pd-flash-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pd-flash-timer {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  font-feature-settings: "tnum";
+  letter-spacing: 0.02em;
+}
+.pd-flash-timer svg { margin-right: var(--sp-1); }
+.pd-flash-timer b {
+  background: rgba(var(--danger-rgb), 0.12);
+  border-radius: 3px;
+  padding: 0.06rem var(--sp-1);
+}
+
+.pd-price-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-15);
+}
+.pd-price {
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--text);
+  animation: pd-price-pop 0.42s var(--ease-panel);
+}
+.pd-price-aside { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.pd-price-was {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.pd-price-off {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.12);
+  border: 1px solid rgba(var(--danger-rgb), 0.32);
+  border-radius: var(--pill);
+  padding: var(--sp-05) var(--sp-2);
+  box-shadow: 0 0 14px rgba(var(--danger-rgb), 0.18);
+}
+
+.pd-stock-pill {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--pill);
+  color: var(--success);
+  background: rgba(var(--success-rgb), 0.12);
+  border: 1px solid rgba(var(--success-rgb), 0.28);
+}
+.pd-stock-pill.low {
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.12);
+  border-color: rgba(var(--warning-rgb), 0.3);
+}
+.pd-stock-pill.oos {
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.1);
+  border-color: rgba(var(--danger-rgb), 0.26);
+}
+.pd-stock-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+/* Static. A dot that blinks forever beside "7 in stock" is decoration reading
+   as an alert, and at --glow-strength: 0 the blink was the ONLY thing
+   separating in-stock from out — which is precisely the second channel the
+   glow rules require it to have. The colour and the word carry it now. */
+.pd-stock-pill:not(.oos) .pd-stock-dot { box-shadow: 0 0 6px currentColor; }
+
+.pd-price-notes {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  min-height: 1.1rem;
+  margin-bottom: var(--sp-4);
+  font-feature-settings: "tnum";
+}
+.pd-price-notes .save { color: var(--success); font-weight: 600; }
+/* A volume band can sit ABOVE the list price. That is not a saving, so it does
+   not get the saving colour. */
+.pd-price-notes .band { color: var(--warning); font-weight: 600; }
+/* Shown when siblings in the cart are carrying part of this variant's break. */
+.pd-price-notes .pool { color: var(--text-secondary); }
+
+/* ── Volume tiers ── */
+.pd-tiers {
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.035);
+  border: 1px solid var(--border);
+  margin-bottom: var(--sp-4);
+}
+.pd-tiers-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-2);
+}
+.pd-tier-rail {
+  display: flex;
+  gap: var(--sp-15);
+  overflow-x: auto;
+  padding-bottom: var(--sp-05);
+  scrollbar-width: none;
+}
+.pd-tier-rail::-webkit-scrollbar { display: none; }
+.pd-tier {
+  flex: 1 0 auto;
+  min-width: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-05);
+  padding: var(--sp-2) var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+  transition: border-color var(--transition), background var(--transition),
+              color var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+.pd-tier:hover:not(:disabled) { border-color: var(--border-hover); background: var(--surface-hover); }
+/* Readable, not merely present. At 0.4 the unreachable rungs of the ladder
+   were about 2:1 on the panel, and this row is the only place the page says
+   what six of these would cost — a break the buyer cannot reach today is still
+   the reason they might come back when it restocks. */
+.pd-tier:disabled { opacity: 0.62; cursor: not-allowed; }
+.pd-tier.reached { border-color: var(--border-hover); }
+.pd-tier.applied {
+  border-color: rgba(var(--success-rgb), 0.45);
+  background: rgba(var(--success-rgb), 0.12);
+  color: var(--success);
+  box-shadow: 0 0 16px rgba(var(--success-rgb), 0.2);
+}
+.pd-tier-qty {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.pd-tier-price {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: inherit;
+  font-feature-settings: "tnum";
+}
+.pd-tier.applied .pd-tier-price { color: var(--success); }
+/* Same rung, same "this is the one in force" emphasis — but a band dearer than
+   a single unit painted success-green reads as a discount it is not. */
+.pd-tier.applied.raised {
+  border-color: rgba(var(--warning-rgb), 0.45);
+  background: rgba(var(--warning-rgb), 0.12);
+  color: var(--warning);
+  box-shadow: 0 0 16px rgba(var(--warning-rgb), 0.2);
+}
+.pd-tier.applied.raised .pd-tier-price { color: var(--warning); }
+.pd-tier-check { position: absolute; top: 3px; right: 4px; }
+
+.pd-tier-nudge {
+  display: block;
+  width: 100%;
+  margin-top: var(--sp-2);
+  padding: var(--sp-15) var(--sp-25);
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(var(--success-rgb), 0.4);
+  background: rgba(var(--success-rgb), 0.07);
+  color: var(--success);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  font-feature-settings: "tnum";
+  transition: background var(--transition), box-shadow var(--transition), border-color var(--transition);
+}
+.pd-tier-nudge:hover {
+  background: rgba(var(--success-rgb), 0.14);
+  border-color: rgba(var(--success-rgb), 0.6);
+  box-shadow: 0 0 16px rgba(var(--success-rgb), 0.18);
+}
+
+/* The nudge's opposite number: the next break costs MORE. Deliberately not a
+   button — this is a warning, not an invitation. */
+.pd-tier-caution {
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-15) var(--sp-25);
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(var(--warning-rgb), 0.4);
+  background: rgba(var(--warning-rgb), 0.07);
+  color: var(--warning);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-feature-settings: "tnum";
+}
+
+/* ── Call to action ── */
+.pd-cta {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.pd-qty {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  overflow: hidden;
+}
+.pd-qty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  align-self: stretch;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.pd-qty-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--primary); }
+.pd-qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.pd-qty-input {
+  width: 48px;
+  text-align: center;
+  border: none;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-md);
+  font-feature-settings: "tnum";
+  padding: var(--sp-2) 0;
+  outline: none;
+  /* The native spinners fight the ± buttons for the same job and, in Firefox,
+     reserve width the 48px box does not have. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.pd-qty-input::-webkit-outer-spin-button,
+.pd-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.pd-qty-input:focus { background: var(--surface-hover); }
+
+.pd-add-btn {
+  flex: 1 1 190px;
+  min-width: 0;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between !important;
+  gap: var(--sp-2);
+  text-decoration: none;
+}
+.pd-add-total {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-feature-settings: "tnum";
+  opacity: 0.9;
+  border-left: 1px solid rgba(var(--tint-rgb), 0.22);
+  padding-left: var(--sp-25);
+  margin-left: auto;
+}
+.pd-wish-btn {
+  flex: 0 0 auto;
+  width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background var(--transition), box-shadow var(--transition);
+}
+.pd-wish-btn:hover { color: var(--danger); border-color: rgba(var(--danger-rgb), 0.35); }
+.pd-wish-btn.on {
+  color: var(--danger);
+  border-color: rgba(var(--danger-rgb), 0.4);
+  background: rgba(var(--danger-rgb), 0.1);
+  box-shadow: 0 0 16px rgba(var(--danger-rgb), 0.2);
+}
+
+.pd-assurance {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.pd-assurance > span { display: inline-flex; align-items: center; gap: var(--sp-15); }
+.pd-coins { margin-left: auto; gap: var(--sp-15) !important; }
+/* Two classes, so this wins over `.coin-glyph`'s own font-size regardless of
+   which block the cascade reaches first. */
+.pd-coin.coin-glyph {
+  font-size: var(--fs-base);
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(var(--tint-rgb), 0.07);
+  border: 1px solid var(--border);
+}
+.pd-coin.is-zelle { color: var(--secondary); }
+.pd-coin.is-cash { color: var(--success); }
+
+/* ── Sections, tabs ── */
+.pd-section {
+  margin-bottom: var(--sp-6);
+  padding: var(--sp-5);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--rim-inset), var(--glass-shadow);
+}
+.pd-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.pd-section-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.pd-section-head h2 svg { color: var(--primary); filter: drop-shadow(0 0 6px var(--primary-glow)); }
+.pd-section-count {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  padding: var(--sp-05) var(--sp-2);
+}
+.pd-section-more {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--primary);
+  transition: text-shadow var(--transition);
+}
+.pd-section-more:hover { text-shadow: var(--text-glow); }
+
+/* ── Specifications, beside the gallery ─────────────────────────────────────
+
+   Replaced the tab strip that used to sit above this page's lower half. Two
+   tabs, one of which was "Specifications", meant the spec table — the thing a
+   buyer reads *while* deciding between thirteen variants — was one click away
+   from the variant list it explains. It now sits under the gallery, in the
+   column that was otherwise several hundred pixels of empty sticky space.
+
+   Not a card inside a card: it is a sibling of the gallery in the media
+   column, at the same elevation, so the two read as one side of the page
+   rather than as two claims that something discrete is here. */
+
+.pd-aside {
+  margin-top: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--rim-inset), var(--glass-shadow);
+}
+.pd-aside-title,
+.pd-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--text);
+}
+.pd-aside-title {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+.pd-aside-title svg,
+.pd-section-title svg { color: var(--primary); }
+.pd-section-title svg { filter: drop-shadow(0 0 6px var(--primary-glow)); }
+
+/* One column: the aside is half the page's width at most, so the two-column
+   spec grid inherited from the old full-width tab panel put a 42%-wide term
+   next to a value with nowhere to wrap. */
+.pd-aside .pd-specs { grid-template-columns: 1fr; }
+
+/* ── What is in the kit ─────────────────────────────────────────────────────
+   A list, not a table: two fields per line, one of which is a small number,
+   and a table of two columns where one is always "3×" is a grid drawn around
+   nothing. The count leads because it is what a buyer scans for — "how many of
+   each" — and it is tabular so a column of them lines up without a column
+   existing. */
+.pd-kit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.pd-kit-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.pd-kit-qty {
+  flex: none;
+  min-width: 2.25em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary);
+}
+/* Underlined on hover and focus only, like the spec links above: a contents
+   list where every line is permanently underlined reads as four warnings. */
+.pd-kit-link { color: var(--text); text-decoration: none; }
+.pd-kit-link:hover,
+.pd-kit-link:focus-visible { text-decoration: underline; }
+.pd-kit-variant { color: var(--text-muted); }
+
+.pd-prose { color: var(--text-secondary); font-size: var(--fs-base); line-height: 1.72; }
+.pd-prose p { margin: 0 0 var(--sp-3); white-space: pre-line; }
+.pd-prose p:last-child { margin-bottom: 0; }
+.pd-prose h3 {
+  font-size: var(--fs-md);
+  margin: var(--sp-5) 0 var(--sp-15);
+  color: var(--text);
+}
+
+.pd-specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  gap: var(--sp-2);
+  margin: 0;
+}
+.pd-spec {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-25);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.03);
+  border: 1px solid var(--border);
+  transition: border-color var(--transition), background var(--transition);
+}
+.pd-spec:hover { border-color: var(--primary-border); background: var(--btn-bg); }
+.pd-spec dt {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex: 0 0 38%;
+  min-width: 0;
+  word-break: break-word;
+}
+.pd-spec dd {
+  margin: 0;
+  font-size: var(--fs-base);
+  color: var(--text);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.pd-tag-row { display: flex; flex-wrap: wrap; gap: var(--sp-15); margin-top: var(--sp-3); }
+.pd-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sp-1) var(--sp-25);
+  border-radius: var(--pill);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: color var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+.pd-tag:hover { color: var(--primary); border-color: var(--primary-border); box-shadow: 0 0 12px var(--card-glow); }
+
+.pd-muted-line { color: var(--text-muted); font-size: var(--fs-base); margin: var(--sp-3) 0 0; display: flex; align-items: center; gap: var(--sp-15); }
+
+/* ── Reviews ──────────────────────────────────────────────────────────────
+   A card system rather than a divided list. Each review is its own surface, so
+   a long one with three photos cannot visually bleed into the next; the compose
+   card is the first of them, because a buyer who has earned the right to review
+   this should not have to find a button to discover it. */
+
+/* The heading wraps to two rows on a narrow phone rather than crushing the
+   sort control into three characters. */
+.pd-reviews .pd-section-head { flex-wrap: wrap; row-gap: var(--sp-2); }
+
+/* Sort control, sitting on the right of the section heading. */
+.pd-sort {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pd-sort-label { letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; font-size: var(--fs-3xs); }
+.pd-sort select {
+  width: auto;
+  padding: var(--sp-1) var(--sp-8) var(--sp-1) var(--sp-25);
+  font-size: var(--fs-sm);
+  font-family: var(--font-display);
+}
+
+/* ── Score overview ── */
+.pd-rsummary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-6);
+  align-items: center;
+  padding: var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-4);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.03);
+  border: 1px solid var(--border);
+}
+.pd-rsummary-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding-right: var(--sp-6);
+  border-right: 1px solid var(--border);
+}
+.pd-rsummary-avg {
+  font-family: var(--font-display);
+  font-size: var(--fs-4xl);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--text);
+  font-feature-settings: "tnum";
+  text-shadow: 0 0 24px var(--card-glow);
+}
+.pd-rsummary-count {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pd-rsummary-bars { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+
+.pd-review-bar {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 26px;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-family: var(--font-display);
+  font-feature-settings: "tnum";
+  transition: color var(--transition);
+}
+.pd-review-bar:hover:not(:disabled) { color: var(--text); }
+.pd-review-bar:disabled { cursor: default; opacity: 0.6; }
+.pd-review-bar.active { color: var(--primary); }
+.pd-rb-label { text-align: right; }
+.pd-rb-n { text-align: left; }
+.pd-rb-track {
+  height: 6px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+}
+/* No fill mode, and the resting width is the real one. `both` would hold the
+   0%-wide first frame whenever the animation does not actually run — in a
+   backgrounded tab, that is a histogram of empty tracks. */
+.pd-rb-fill {
+  display: block;
+  height: 100%;
+  width: var(--pd-bar, 0%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  box-shadow: 0 0 10px var(--primary-glow);
+  animation: pd-bar-grow 0.65s var(--ease-panel);
+}
+.pd-review-bar.active .pd-rb-fill { background: var(--primary); }
+
+/* ── The card grid ──
+   `auto-fill` with a 320px floor gives one column on a phone and two from about
+   a tablet up, with no breakpoint to maintain. `align-items: start` keeps a
+   short card short instead of stretching it to match the tallest in its row. */
+.pd-rgrid {
+  display: grid;
+  /* `min(320px, 100%)` rather than a bare 320px floor: on a 360px phone the
+     section's content box is narrower than 320px, and a bare floor keeps the
+     column at 320px anyway — the cards then overhang the panel's own padding by
+     a dozen pixels, which reads as a broken edge rather than a grid. */
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: var(--sp-3);
+  align-items: start;
+}
+
+.pd-rcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-25);
+  padding: var(--sp-4) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.03);
+  transition: border-color var(--transition), background var(--transition),
+              box-shadow var(--transition), transform var(--transition);
+}
+/* On a light page a card has to be *lighter* than its surroundings, not a 3%
+   ink wash — and the wash was measurably costing the badges that sit on it. The
+   PGP chip, the avatar and the compose icon all fell to ~4.2:1 against the
+   4.44–4.96 the app's own `.badge-*` classes reach, because each stacked a
+   tinted plate on a tinted card. A white ground puts them back at 4.4–4.7. */
+:root[data-theme="light"] .pd-rcard { background: rgba(255, 255, 255, 0.7); }
+:root[data-theme="light"] .pd-rcard-compose { background: rgba(255, 255, 255, 0.82); }
+:root[data-theme="light"] .pd-review.pd-rcard:hover { background: #fff; }
+
+@media (hover: hover) and (pointer: fine) {
+  .pd-review.pd-rcard:hover { transform: translateY(-2px); }
+}
+.pd-review.pd-rcard:hover {
+  border-color: var(--border-hover);
+  background: rgba(var(--tint-rgb), 0.05);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16), 0 0 20px var(--card-glow);
+}
+
+/* The compose card and the filter row run the full width of the grid: a form in
+   a half-width column wraps its own controls onto four rows. */
+.pd-rcard-compose,
+.pd-rfilter { grid-column: 1 / -1; }
+
+.pd-rcard-compose {
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.045);
+  box-shadow: 0 0 24px var(--card-glow);
+}
+/* A brand hairline along the top edge, so the card reads as the store inviting
+   you rather than as another review. */
+.pd-rcard-compose::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.pd-rcard-head { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.pd-rcard-head h3 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--text);
+}
+.pd-rcard-head p {
+  margin: var(--sp-05) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.pd-rcard-icon {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+
+.pd-rcard-cta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.pd-rcard-cta .pd-muted-line { flex: 1 1 240px; }
+
+.pd-rcard-empty {
+  grid-column: 1 / -1;
+  align-items: center;
+  text-align: center;
+  padding: var(--sp-8) var(--sp-4);
+  color: var(--text-muted);
+  border-style: dashed;
+}
+.pd-rcard-empty p { margin: 0; font-size: var(--fs-base); }
+
+/* ── Compose form ── */
+.pd-rform { display: flex; flex-direction: column; gap: var(--sp-3); }
+/* Rating and purchase sit side by side where there is room: they are the two
+   required answers, and pairing them keeps the card from opening tall. The
+   select is capped rather than given the remaining space — this card spans the
+   full grid, and a 900px-wide dropdown holding "Order #95 · Large" reads as a
+   layout mistake. */
+.pd-rform-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 420px);
+  justify-content: start;
+  gap: var(--sp-3) var(--sp-8);
+  align-items: start;
+}
+.pd-rform-field { display: flex; flex-direction: column; gap: var(--sp-15); min-width: 0; }
+.pd-rform-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Active filter row ── */
+.pd-rfilter {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--pill);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.pd-chip-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-25);
+  border-radius: var(--pill);
+  border: 1px solid var(--primary-border);
+  background: transparent;
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.pd-chip-btn:hover { background: var(--btn-hover); box-shadow: 0 0 12px var(--card-glow); }
+
+/* ── One review ── */
+.pd-review-head { display: flex; align-items: center; gap: var(--sp-25); }
+.pd-review-avatar {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+}
+.pd-review-who {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+  flex: 1;
+}
+.pd-review-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pd-review-you {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--pill);
+  padding: 0.05rem var(--sp-15);
+}
+.pd-review-date { font-size: var(--fs-xs); color: var(--text-muted); }
+
+.pd-review-tags { display: flex; align-items: center; gap: var(--sp-15); flex-wrap: wrap; }
+.pd-pgp {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--success);
+  background: rgba(var(--success-rgb), 0.12);
+  border: 1px solid rgba(var(--success-rgb), 0.28);
+  border-radius: var(--pill);
+  padding: var(--sp-05) var(--sp-15);
+}
+/* Border only, no fill. A tinted plate on a lifted card stacks two washes under
+   the same ink and dropped this to 4.08:1 in dark mode — the lowest thing on the
+   page. `--text-secondary` rather than `--text-muted` because the chip names the
+   variant that was actually bought, which is the one piece of metadata on a
+   review card worth reading. */
+.pd-review-variant {
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  padding: var(--sp-05) var(--sp-2);
+}
+.pd-review-text {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* ── Show more ── */
+.pd-more-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-15);
+  margin-top: var(--sp-5);
+}
+.pd-more { gap: var(--sp-2); }
+.pd-more:hover:not(:disabled) {
+  border-color: var(--primary-border);
+  color: var(--primary);
+  box-shadow: 0 0 18px var(--card-glow);
+}
+.pd-more-count { font-size: var(--fs-xs); color: var(--text-muted); font-feature-settings: "tnum"; }
+
+/* ── Shared form bits (also used by the picker) ── */
+.pd-form-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pd-optional { text-transform: none; letter-spacing: 0; font-weight: 500; opacity: 0.8; }
+.pd-switch-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.pd-switch-line input { accent-color: var(--primary); width: 15px; height: 15px; }
+.pd-hint { margin: var(--sp-15) 0 0; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
+.pd-mono { font-family: var(--font-mono); font-size: var(--fs-xs) !important; }
+
+@media (max-width: 720px) {
+  .pd-rsummary { grid-template-columns: 1fr; gap: var(--sp-4); padding: var(--sp-4); }
+  .pd-rsummary-score {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--sp-25);
+    flex-wrap: wrap;
+    padding-right: 0;
+    border-right: none;
+    padding-bottom: var(--sp-3);
+    border-bottom: 1px solid var(--border);
+  }
+  .pd-rsummary-avg { font-size: var(--fs-3xl); }
+  /* Rating over purchase: two side-by-side controls at 340px leaves the select
+     too narrow to read an order line in. */
+  .pd-rform-top { grid-template-columns: 1fr; }
+  .pd-rcard { padding: var(--sp-4); }
+  .pd-rform-actions > .glass-btn:first-child { flex: 1; }
+}
+
+/* ── Review media ── */
+.pd-review-media {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+  margin: var(--sp-25) 0 0;
+  padding: 0;
+}
+.pd-review-media li { position: relative; }
+.pd-review-media-btn {
+  display: block;
+  width: 86px;
+  height: 86px;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.05);
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+/* The intrinsic width/height attributes reserve the box; the image itself is
+   cropped to the square rather than letterboxed into it. */
+.pd-review-media-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (hover: hover) and (pointer: fine) {
+  .pd-review-media-btn:hover { transform: translateY(-2px); }
+}
+.pd-review-media-btn:hover,
+.pd-review-media-btn:focus-visible {
+  border-color: var(--primary-border);
+  box-shadow: 0 0 16px var(--card-glow);
+  outline: none;
+}
+.pd-review-media-badge {
+  position: absolute;
+  left: 0.3rem;
+  bottom: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  font-feature-settings: "tnum";
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+.pd-review-media-x,
+.pd-media-chip-x {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--danger-rgb), 0.35);
+  background: var(--bg);
+  color: var(--danger);
+  cursor: pointer;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.pd-review-media-x:hover,
+.pd-media-chip-x:hover {
+  background: rgba(var(--danger-rgb), 0.16);
+  box-shadow: 0 0 12px rgba(var(--danger-rgb), 0.25);
+}
+
+/* ── Review media picker (compose form) ── */
+.pd-media-picker {
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-hover);
+  background: rgba(var(--tint-rgb), 0.025);
+}
+.pd-media-picker-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.pd-media-picker-head .pd-hint { flex: 1 1 220px; min-width: 0; }
+.pd-media-strip {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+}
+.pd-media-chip {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-sm);
+  overflow: visible;
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.05);
+}
+.pd-media-chip img,
+.pd-media-chip video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+.pd-media-chip-badge {
+  position: absolute;
+  left: 0.25rem;
+  bottom: 0.25rem;
+  display: inline-flex;
+  padding: var(--sp-05) var(--sp-1);
+  border-radius: var(--pill);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* ── Rails ── */
+/* The cards scroll to the panel's own edges rather than stopping short inside
+   its padding, so a rail that continues off-screen looks like it continues. */
+.pd-rail-section .pd-rail {
+  margin-left: calc(var(--sp-5) * -1);
+  margin-right: calc(var(--sp-5) * -1);
+  padding-left: var(--sp-5);
+  padding-right: var(--sp-5);
+}
+.pd-rail {
+  display: flex;
+  gap: var(--sp-3);
+  overflow-x: auto;
+  padding: var(--sp-1) var(--sp-1) var(--sp-25);
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.pd-rail-card {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.03);
+  overflow: hidden;
+  text-decoration: none;
+  scroll-snap-align: start;
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition), background var(--transition);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pd-rail-card:hover { transform: translateY(-3px); }
+}
+.pd-rail-card:hover {
+  border-color: var(--primary-border);
+  background: var(--btn-bg);
+  box-shadow: 0 6px 24px var(--card-glow);
+}
+.pd-rail-img {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 116px;
+  background-size: cover;
+  background-position: center;
+  background-color: rgba(var(--tint-rgb), 0.05);
+  color: var(--text-muted);
+}
+.pd-rail-oos {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--danger);
+  background: rgba(var(--scrim-rgb), 0.6);
+  border: 1px solid rgba(var(--danger-rgb), 0.3);
+  border-radius: var(--pill);
+  padding: var(--sp-05) var(--sp-2);
+}
+.pd-rail-body { display: flex; flex-direction: column; gap: var(--sp-05); padding: var(--sp-25) var(--sp-3) var(--sp-3); min-width: 0; }
+.pd-rail-cat {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pd-rail-name {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pd-rail-price {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  margin-top: var(--sp-05);
+  font-family: var(--font-display);
+  font-feature-settings: "tnum";
+}
+.pd-rail-price em { font-style: normal; font-size: var(--fs-3xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.pd-rail-price b { font-size: var(--fs-base); color: var(--text); }
+.pd-rail-price b.sale { color: var(--danger); }
+.pd-rail-price s { font-size: var(--fs-xs); color: var(--text-muted); }
+/* Rail digits join the ledger voice; the FROM label above stays sans. */
+.pd-rail-price b,
+.pd-rail-price s { font-family: var(--font-mono); }
+
+/* ── Floating buy bar (small screens) ──────────────────────────────────────
+   Appears once the real buy box has scrolled past the top. `visibility` rather
+   than display, so the transform can animate; `pointer-events: none` while
+   hidden keeps it from swallowing taps meant for the page underneath. */
+.pd-floatbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 180;
+  display: none;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-25) var(--sp-4) calc(var(--sp-25) + env(safe-area-inset-bottom, 0px));
+  background: var(--nav-bg);
+  /* lg tier like the navbar it mirrors — same composed blur+saturate pass,
+     so the two bars can never frost differently. */
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  border-top: 1px solid var(--primary-border);
+  box-shadow: 0 -6px 26px rgba(0, 0, 0, 0.35), 0 0 30px var(--card-glow);
+  transform: translateY(110%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.3s var(--ease-panel), visibility 0.3s;
+}
+.pd-floatbar.show { transform: none; visibility: visible; pointer-events: auto; }
+.pd-floatbar-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pd-floatbar-name {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pd-floatbar-price {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-15);
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+.pd-floatbar-price em { font-style: normal; font-size: var(--fs-2xs); font-weight: 500; color: var(--text-muted); }
+.pd-floatbar .glass-btn { flex: 0 0 auto; }
+
+/* ── Motion ── */
+/* The end opacity comes from the element, so the reduced-motion opt-out below
+   can cancel the animation and land on exactly the same resting value. A
+   keyframe with a hard-coded `to` would make `animation: none` a brightness
+   change, which is the trap DESIGN §2 names: restore the end state, or
+   cancelling the arrival changes what the page looks like. */
+@keyframes pd-bloom-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: var(--pd-bloom-o, 0.5); transform: none; }
+}
+@keyframes pd-price-pop {
+  0%   { opacity: 0.4; transform: translateY(4px) scale(0.97); }
+  60%  { transform: translateY(0) scale(1.015); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes pd-ember-in {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes pd-bar-grow {
+  from { width: 0; }
+}
+@keyframes pd-zoom-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 980px) {
+  .pd-layout { grid-template-columns: 1fr; gap: var(--sp-6); }
+  .pd-title { font-size: var(--fs-2xl); }
+
+  /* The media column dissolves so its two children become grid items in their
+     own right, and the specs can then be ordered AFTER the buy box. Left
+     nested, a single-column stack would put a spec table between the
+     photograph and the "add to cart" button — which is the whole reason
+     DESIGN §5 says the mobile view is a peer layout and not the desktop one
+     with things hidden. */
+  .pd-media-col { display: contents; }
+  .pd-gallery { order: 1; }
+  .pd-info-col { order: 2; }
+  .pd-aside { order: 3; margin-top: 0; }
+}
+
+@media (max-width: 768px) {
+  .pd-floatbar {
+    display: flex;
+    /* The bottom edge belongs to the tab bar on a phone; the buy bar docks
+       directly above it or the two fight for the same thumb. */
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+  .pd-title { font-size: var(--fs-2xl); }
+  .pd-price { font-size: var(--fs-3xl); }
+  .pd-section { padding: var(--sp-4); }
+  .pd-rail-section .pd-rail {
+    margin-left: calc(var(--sp-4) * -1);
+    margin-right: calc(var(--sp-4) * -1);
+    padding-left: var(--sp-4);
+    padding-right: var(--sp-4);
+  }
+  /* Clearance for the floating bar, which would otherwise sit on top of the
+     last section. Two classes so this outranks `.page`'s own bottom padding
+     rather than racing it on source order. (The mobile `.container` rule in
+     16-mobile-overrides.css once reset vertical padding to zero through a
+     shorthand; it is longhands now, so this override is only about the bar.) */
+  .page.pd-page { padding-bottom: var(--sp-16); }
+  .pd-specs { grid-template-columns: 1fr; }
+  .pd-spec dt { flex-basis: 42%; }
+}
+
+@media (max-width: 520px) {
+  .pd-cta { flex-wrap: wrap; }
+  .pd-add-btn { flex: 1 1 100%; order: 3; }
+  .pd-qty { flex: 1 1 auto; justify-content: center; }
+  .pd-qty-btn { flex: 1; }
+  .pd-variant { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--sp-15); }
+  .pd-variant-actions { grid-column: 2; justify-self: end; }
+  .pd-rail-card { flex-basis: 144px; }
+  .pd-nav { width: 32px; height: 32px; margin-top: -16px; }
+}
+
+/* One opt-out for everything decorative on this page. Loading spinners and the
+   countdown are untouched: a frozen timer would be a lie, not a kindness. */
+@media (prefers-reduced-motion: reduce) {
+  .pd-page [data-reveal] { transition: none; }
+  .pd-stage-glow,
+  .pd-buybox-glow,
+  .pd-flash-icon,
+  .pd-price,
+  .pd-rb-fill,
+  .pd-lightbox,
+  .pd-lightbox-frame,
+  .pd-breadcrumb { animation: none !important; }
+  .pd-media,
+  .pd-variant-mark,
+  .pd-video-controls,
+  .pd-video-btn,
+  .pd-floatbar { transition: none !important; }
+  /* The fill still moves — it is a position readout, and a frozen one is the
+     same lie as a frozen countdown — it just stops tweening between updates.
+     Video *autoplay* opts out in StageVideo.jsx rather than here: CSS can stop
+     a transition but cannot stop a clip from starting. */
+  .pd-video-fill { transition: none !important; }
+  .pd-rail-card:hover { transform: none !important; }
+}
+
+
+/* ── Specification values as filters, with their evidence ──────────────────
+   A specification was plain text while the flat tags below it were links, so
+   "Indica" was a dead end on the one screen where a buyer is most likely to
+   want more of it.
+
+   The link is styled as text that happens to be actionable rather than as a
+   chip: a spec table of twenty chips reads as a tag cloud, and the pairing
+   with its key is what makes a specification legible. */
+.pd-spec-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--border);
+}
+.pd-spec-link:hover {
+  color: var(--primary);
+  border-bottom-color: currentColor;
+}
+
+/* "6 said so" — how many reviews of this variant used the word.
+   Quiet on purpose. It is corroboration for the value beside it, not a claim
+   of its own, and at the same weight as the spec it would read as a second
+   fact rather than as support for the first. */
+.pd-spec-evidence {
+  margin-left: var(--sp-05);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

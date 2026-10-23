@@ -1,0 +1,989 @@
+/* ===============================
+   FLASH SALES (admin)
+   ===============================
+   A flash sale is an object with a clock on it, so it is drawn as a card
+   rather than a table row. The ten-column table this replaces put the
+   countdown, the discount and the buttons that change them in three places,
+   none of them beside the price they act on — and on a phone each sale became
+   ten stacked label/value pairs, which is a whole screen for one row.
+
+   Every card carries `--tone`, set inline from its state, and everything
+   coloured on it is mixed from that one value. */
+
+.fsale-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+.fsale-skeleton { min-height: 340px; }
+
+/* ── Card shell ── */
+.fsale-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--rim-inset), var(--glass-shadow);
+  overflow: hidden;
+  min-width: 0;
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+@media (hover: hover) and (pointer: fine) {
+  .fsale-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--tone) 38%, var(--glass-border));
+    box-shadow: var(--rim-inset), var(--glass-shadow), 0 0 26px color-mix(in srgb, var(--tone) 20%, transparent);
+  }
+}
+
+/* The state, read as a colour before a word: a lit edge down the left of the
+   card. Live sales get a wash behind it too, so a grid of mostly-finished
+   sales still points at the two that are running. */
+.fsale-rail {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--tone);
+  opacity: 0.85;
+}
+.fsale-live {
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--tone) 7%, transparent) 0%, transparent 46%),
+    var(--glass-bg);
+}
+.fsale-card.is-urgent {
+  border-color: color-mix(in srgb, var(--warning) 34%, transparent);
+  box-shadow: var(--rim-inset), var(--glass-shadow), 0 0 24px color-mix(in srgb, var(--warning) 16%, transparent);
+}
+.fsale-ended { opacity: 0.72; }
+.fsale-ended:hover { opacity: 1; }
+.fsale-card.is-editing {
+  border-color: var(--primary-border);
+  box-shadow: var(--rim-inset), var(--glass-shadow), 0 0 22px var(--card-glow);
+}
+
+/* ── Head ── */
+.fsale-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.fsale-title { flex: 1 1 auto; min-width: 0; }
+.fsale-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.fsale-sub {
+  margin: var(--sp-05) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.fsale-vid { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); }
+.fsale-dot { margin: 0 var(--sp-15); color: var(--text-muted); }
+
+.fsale-thumb {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.05);
+}
+.fsale-thumb-blank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.fsale-thumb-sm { width: 28px; height: 28px; border-radius: 6px; }
+
+/* ── State badge ── */
+.fsale-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-shrink: 0;
+  padding: var(--sp-1) var(--sp-25);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tone) 32%, transparent);
+}
+.fsale-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  /* This used to pulse, defended as "not decoration: the difference between a
+     sale that is charging customers right now and one that merely says it is",
+     on the same licence the urgent stat tile took.
+
+     That licence has since been revoked — `.admin-stat.is-urgent` in
+     56-admin-console.css is static now, for the DESIGN §2 reason that a loop
+     on a screen an operator works all shift stops being a signal and becomes
+     a distraction, and a board of a dozen live sales meant a dozen of them.
+
+     The argument also over-claimed. The dot is `aria-hidden` and sits inside
+     `.fsale-state-live`, which already prints the word "Live" in the live
+     tone: two channels carried the meaning before the animation was a third.
+     A drawn dot keeps the glance-value and holds still. */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 30%, transparent);
+}
+
+/* ── Prices ── */
+.fsale-prices {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+}
+.fsale-was {
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.fsale-arrow { color: var(--text-muted); font-size: var(--fs-base); }
+.fsale-now {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  text-shadow: 0 0 20px color-mix(in srgb, var(--tone) 30%, transparent);
+}
+.fsale-live .fsale-now { color: var(--success); }
+.fsale-off {
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent);
+}
+.fsale-prices-lg .fsale-now { font-size: var(--fs-3xl); }
+
+.fsale-terms {
+  margin: calc(var(--sp-15) * -1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.fsale-terms em { color: var(--text); font-style: normal; }
+
+/* ── Countdown ── */
+.fsale-timer { display: flex; flex-direction: column; gap: var(--sp-15); }
+.fsale-bar {
+  height: 5px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.09);
+  overflow: hidden;
+}
+.fsale-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 55%, transparent), var(--tone));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--tone) 45%, transparent);
+  /* One second of easing so the bar creeps rather than stepping once a tick. */
+  transition: width 1s linear;
+}
+.fsale-timer-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-25);
+}
+.fsale-timer-lab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.fsale-timer-val {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--tone);
+}
+.fsale-card.is-urgent .fsale-timer-val {
+  color: var(--warning);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--warning) 45%, transparent);
+}
+.fsale-window {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ── Facts ── */
+.fsale-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(72px, 100%), 1fr));
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+  padding: var(--sp-3) 0 0;
+  border-top: 1px solid var(--border);
+}
+.fsale-fact { min-width: 0; }
+.fsale-fact dt {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fsale-fact dd {
+  margin: var(--sp-05) 0 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+.fsale-fact dd.is-bad { color: var(--danger); }
+
+/* ── Warnings ── */
+.fsale-warnings {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 26%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+}
+.fsale-warnings li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-15);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--warning);
+}
+.fsale-warnings svg { flex-shrink: 0; margin-top: var(--sp-05); }
+
+/* ── Actions ── */
+.fsale-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+  margin-top: auto;
+  padding-top: var(--sp-25);
+  border-top: 1px solid var(--border);
+}
+.fsale-actions .glass-btn {
+  padding: var(--sp-15) var(--sp-25);
+  font-size: var(--fs-xs);
+}
+.fsale-orders {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: calc(var(--sp-15) * -1) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ── Inline editor ── */
+.fsale-editor { display: flex; flex-direction: column; gap: var(--sp-25); }
+.fsale-editor-note {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-25);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 24%, transparent);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--warning);
+}
+.fsale-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: flex-end;
+}
+.fsale-editor-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1 1 120px; }
+.fsale-editor-grow { flex: 1 1 150px; }
+.fsale-editor-lab {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+.fsale-editor-field .glass-input { padding: var(--sp-15) var(--sp-25); font-size: var(--fs-base); }
+.fsale-editor-preview { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+.fsale-editor-preview strong { color: var(--success); font-size: var(--fs-md); }
+.fsale-editor-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* ── Segmented control ── */
+.fsale-seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.05);
+  border: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+.fsale-seg-opt {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  border-radius: var(--pill);
+  padding: var(--sp-15) var(--sp-3);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+.fsale-seg-opt:hover { color: var(--text); }
+.fsale-seg-opt.is-on {
+  background: var(--btn-bg);
+  color: var(--primary);
+  box-shadow: 0 0 12px var(--card-glow), inset 0 0 0 1px var(--primary-border);
+}
+/* These are bare <button>s with their own classes, so the global focus rule —
+   which lists `.glass-btn` and friends by name — does not reach them. */
+.fsale-seg-opt:focus-visible,
+.fsale-chip:focus-visible,
+.fsale-picker-row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+/* ── Chips (presets) ── */
+.fsale-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+  margin-top: var(--sp-25);
+}
+.fsale-chips-tight { margin-top: var(--sp-2); }
+.fsale-chip {
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--pill);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.04);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+.fsale-chip:hover { color: var(--text); border-color: var(--border-hover); }
+@media (hover: hover) and (pointer: fine) {
+  .fsale-chip:hover { transform: translateY(-1px); }
+}
+.fsale-chip.is-on {
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  color: var(--primary);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+
+/* ── Create panel ── */
+.fsale-create { margin-bottom: var(--sp-6); }
+.fsale-step {
+  padding: 0 0 var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+.fsale-step:last-of-type { border-bottom: 0; }
+.fsale-step-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+.fsale-step-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+}
+
+.fsale-chosen {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-25) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--primary-border);
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+  min-width: 0;
+}
+.fsale-chosen-text { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; flex: 1 1 auto; }
+.fsale-chosen-text strong { font-size: var(--fs-base); overflow-wrap: anywhere; }
+.fsale-chosen-text span { font-size: var(--fs-xs); color: var(--text-secondary); overflow-wrap: anywhere; }
+
+.fsale-inline-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-15);
+  margin: var(--sp-25) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--warning);
+}
+.fsale-inline-warn svg { flex-shrink: 0; margin-top: var(--sp-05); }
+
+.fsale-discount-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-25);
+}
+.fsale-amount { position: relative; flex: 0 1 160px; min-width: 120px; }
+.fsale-amount .glass-input { padding-right: var(--sp-8); font-feature-settings: "tnum"; }
+.fsale-amount-unit {
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.fsale-amount-flat .glass-input { padding-right: var(--sp-4); padding-left: var(--sp-6); }
+.fsale-amount-flat .fsale-amount-unit { right: auto; left: 0.85rem; }
+
+.fsale-hint { margin: var(--sp-25) 0 0; }
+
+.fsale-sched { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-25); }
+.fsale-when {
+  flex: 0 1 230px;
+  min-width: 180px;
+  margin-top: var(--sp-25);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-base);
+}
+.fsale-sched .fsale-when { margin-top: 0; }
+.fsale-label-group { margin-top: var(--sp-4); margin-bottom: 0; }
+
+/* ── Live preview ── */
+.fsale-preview {
+  padding: var(--sp-4) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-hover);
+  background: rgba(var(--tint-rgb), 0.03);
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+  --tone: var(--success);
+}
+.fsale-preview.is-ready {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--success) 32%, transparent);
+  background: color-mix(in srgb, var(--success) 5%, transparent);
+  box-shadow: 0 0 26px color-mix(in srgb, var(--success) 12%, transparent);
+}
+.fsale-preview-head {
+  margin: 0 0 var(--sp-3);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.fsale-preview-idle { margin: 0; font-size: var(--fs-base); color: var(--text-muted); }
+.fsale-preview .fsale-now { color: var(--success); }
+.fsale-preview-line {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.fsale-tier-table {
+  margin-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-25);
+  font-family: var(--font-mono);
+}
+.fsale-tier-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-1) 0;
+  font-size: var(--fs-sm);
+}
+.fsale-tier-head {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+.fsale-tier-was { color: var(--text-muted); text-decoration: line-through; }
+.fsale-tier-now { color: var(--success); font-weight: 600; min-width: 4.2rem; text-align: right; }
+
+.fsale-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+  padding: var(--sp-25) var(--sp-4);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--danger) 11%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  font-size: var(--fs-sm);
+  color: var(--danger);
+}
+.fsale-error svg { flex-shrink: 0; margin-top: var(--sp-05); }
+
+/* ── Catalog picker ── */
+.fsale-picker {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.025);
+  overflow: hidden;
+}
+.fsale-picker-search {
+  flex: 1 1 auto;
+  padding: var(--sp-25);
+  border-bottom: 1px solid var(--border);
+}
+.fsale-picker-search .glass-input { padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+.fsale-picker-search svg { left: 1.3rem; }
+
+.fsale-picker-list {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: var(--sp-15);
+  scrollbar-width: thin;
+}
+.fsale-picker-group + .fsale-picker-group { margin-top: var(--sp-2); }
+.fsale-picker-ghead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-15) var(--sp-2);
+  position: sticky;
+  top: -0.4rem;
+  z-index: 1;
+  /* Opaque enough to hide rows scrolling under it: a translucent sticky header
+     over a scrolling list reads as a rendering fault. */
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  border-radius: var(--radius-sm);
+}
+.fsale-picker-gname {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fsale-picker-gmeta {
+  margin-left: auto;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.fsale-picker-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  width: 100%;
+  padding: var(--sp-15) var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+.fsale-picker-row.is-active {
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+.fsale-picker-row.is-current { opacity: 0.55; }
+.fsale-picker-vname {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-15);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fsale-picker-vid { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--text-muted); }
+.fsale-picker-vprice {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-base);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.fsale-picker-tags { display: flex; gap: var(--sp-1); flex-wrap: wrap; justify-content: flex-end; }
+
+/* Tints are kept lighter than the app's `.badge-*` scale on purpose: these are
+   the smallest text on the page, and a heavier wash pulls the coloured
+   foreground under the AA floor on a light background. The border carries the
+   colour instead. */
+.fsale-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.05);
+  border: 1px solid var(--border);
+}
+.fsale-tag-muted  { color: var(--text-muted); }
+.fsale-tag-danger { color: var(--danger);  background: color-mix(in srgb, var(--danger) 6%, transparent);  border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+.fsale-tag-warn   { color: var(--warning); background: color-mix(in srgb, var(--warning) 6%, transparent); border-color: color-mix(in srgb, var(--warning) 30%, transparent); }
+.fsale-tag-info   { color: var(--info);    background: color-mix(in srgb, var(--info) 6%, transparent);    border-color: color-mix(in srgb, var(--info) 30%, transparent); }
+.fsale-tag-primary{ color: var(--primary); background: var(--btn-bg); border-color: var(--primary-border); }
+
+.fsale-picker-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-8) var(--sp-4);
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Toolbar & page furniture ── */
+.fsale-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.fsale-sort { position: relative; display: flex; align-items: center; min-width: 0; }
+.fsale-sort svg {
+  position: absolute;
+  left: 0.65rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.fsale-sort .glass-input {
+  padding: var(--sp-2) var(--sp-8) var(--sp-2) var(--sp-8);
+  font-size: var(--fs-sm);
+  width: auto;
+  min-width: 0;
+}
+.fsale-refresh { padding: var(--sp-2) var(--sp-25); }
+.fsale-refresh.is-spinning svg { animation: fsale-spin 0.8s linear infinite; }
+@keyframes fsale-spin { to { transform: rotate(360deg); } }
+
+.fsale-footnote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-15);
+  margin: var(--sp-6) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.fsale-footnote svg { flex-shrink: 0; margin-top: var(--sp-05); }
+
+@media (max-width: 640px) {
+  .fsale-grid { grid-template-columns: 1fr; gap: var(--sp-3); }
+  .fsale-card { padding: var(--sp-4); }
+  .fsale-now { font-size: var(--fs-xl); }
+  .fsale-prices-lg .fsale-now { font-size: var(--fs-2xl); }
+  .fsale-toolbar-right { width: 100%; }
+  .fsale-toolbar-right .admin-search { flex: 1 1 140px; }
+  .fsale-sort .glass-input { width: 100%; }
+  .fsale-picker-list { max-height: 280px; }
+  /* The tags wrap under the row on a narrow screen rather than squeezing the
+     variant name down to an ellipsis. */
+  .fsale-picker-row { flex-wrap: wrap; }
+  .fsale-picker-tags { width: 100%; justify-content: flex-start; padding-left: var(--sp-8); }
+  .fsale-actions .glass-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fsale-card,
+  .fsale-card:hover,
+  .fsale-chip:hover { transform: none; }
+  /* Neither entry that used to sit here belongs here now.
+
+     `.fsale-live-dot` is drawn static for everyone, so there is no loop left
+     to opt out of. `.fsale-refresh.is-spinning svg` is a loader, and §2 leaves
+     loaders alone in this block on purpose: it only spins while a refresh is
+     actually in flight, and freezing it for the visitor who asked for less
+     motion hands that person a stopped spinner over a live request — which
+     reads as a hung page, the exact failure the carve-out exists to prevent. */
+  .fsale-bar-fill { transition: none; }
+}
+
+
+/* ── The board as line items ─────────────────────────────────────────────────
+   The second half of the DESIGN §6 answer recorded at the top of
+   `pages/admin/FlashSales.jsx`: the card above is what a sale looks like while
+   it is running, and this is what a season of them looks like afterwards. The
+   frame, hairline, hover, focus ring, truncation and phone shape all come from
+   the shared `.lrows` / `.lrow` primitive in 74-list-views.css; only what is
+   specific to a sale lives here.
+
+   Every field the card carries is still on the line — product, variant, label,
+   was and now, the depth as a percentage and as the stored rule, the window
+   with its bar still moving, sold, taken, orders, stock, tier floor and state.
+   §5: a compact view that drops "out of stock" is a view that lets somebody
+   extend a sale on something nobody can buy. */
+
+/* Product: a small thumbnail, because a board of forty sales is scanned by
+   picture before it is read by name. 24px is the size at which it is still a
+   recognisable product and not yet a second column. */
+.fsale-lrow-prod {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.fsale-lrow-thumb {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.05);
+}
+.fsale-lrow-thumb.is-blank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.fsale-lrow-prod .lrow-stack em { color: var(--text-secondary); font-style: normal; }
+
+/* The state pill fills its track so the column reads as one edge rather than
+   four ragged pills. `.fsale-state` already takes its colour from `--tone`,
+   which the row sets — and the live dot inside it is the drawn, static one:
+   the pulse was removed on purpose and a list of forty is precisely the case
+   that argument was made about. */
+.fsale-lrow-state { justify-content: center; }
+
+/* Prices. §6 wants numerals in the mono face so a column of money lines up;
+   the card's sizes are headline sizes and would make the row twice as tall, so
+   the same three classes are re-sized rather than re-invented. */
+.fsale-lrow-price,
+.fsale-lrow-off,
+.fsale-lrow-when,
+.fsale-lrow-perf {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.fsale-lrow-price small,
+.fsale-lrow-off small,
+.fsale-lrow-when small,
+.fsale-lrow-perf small {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fsale-lrow-money {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.fsale-lrow-money .fsale-was { font-size: var(--fs-2xs); }
+.fsale-lrow-money .fsale-arrow { font-size: var(--fs-2xs); }
+.fsale-lrow-now {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+/* Live sales price in the live tone, the same tell the card gives. A class on
+   the row rather than `:has()` on the dot: the dot is decoration the row could
+   stop drawing, and hanging the price colour off it would make that a silent
+   change to what the money looks like. */
+.fsale-lrow.is-live .fsale-lrow-now { color: var(--success); }
+
+.fsale-lrow-off { align-items: flex-end; }
+.fsale-lrow-off .lrow-num {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--danger);
+}
+.fsale-lrow-off small { text-align: right; }
+
+/* The window. The clock reads as one phrase, the bar under it is the card's
+   countdown at a third of the height, and the literal start and end sit
+   beneath in case somebody is comparing two sales rather than watching one. */
+.fsale-lrow-clock {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--tone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lrow.is-urgent .fsale-lrow-clock { color: var(--warning); }
+.fsale-lrow-bar {
+  display: block;
+  height: 3px;
+  margin: 2px 0;
+}
+
+.fsale-lrow-sold {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fsale-lrow-perf .is-bad { color: var(--danger); }
+
+/* Icon-only actions: `.glass-btn-sm`'s padding is sized for a word beside the
+   glyph, and six of those would be a third of the row. */
+.fsale-lrow .lrow-actions .glass-btn {
+  padding-inline: var(--sp-2);
+  gap: 0;
+}
+
+/* What is wrong with the sale, spanning the full row under it. Only rendered
+   when there is something to say, so a healthy board stays one line per sale —
+   and it spans rather than squeezing into the state column, because a warning
+   truncated to "Out of st…" is a warning nobody acts on. */
+.fsale-lrow-warn {
+  grid-column: 1 / -1;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-2xs);
+  color: var(--warning);
+}
+.fsale-lrow-warn li { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.fsale-lrow-warn svg { flex-shrink: 0; }
+
+/* Headings sit over their own columns, or they are worse than none. */
+.fsale-rows .lrows-head .fsale-lrow-h-num { text-align: right; }
+.fsale-rows .lrows-head .fsale-lrow-h-mid { text-align: center; }
+
+/* Editing unfolds the line back into its card. Padded away from the hairline
+   so the card reads as the row opening rather than as a card that fell into a
+   list — and the frame's `overflow: hidden` would otherwise clip the glass
+   edge against the list's own border. */
+.fsale-lrow-editing {
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.fsale-lrow-editing:last-child { border-bottom: none; }
+
+/* An intermediate step, because the row is seven columns wide and the phone
+   shape does not arrive until 560px. Between the two, everything still fits —
+   it just fits tighter. A container query, not a viewport one: this list is as
+   likely to be 900px inside a wide window as it is to be a small window.
+
+   Declared on the row rather than on `.lrows`, since a container cannot
+   restyle itself — and a declaration on `.lrow` beats the value inherited from
+   the inline style on its parent, which is exactly the override wanted. */
+@container (max-width: 1040px) {
+  .fsale-rows .lrows-head,
+  .fsale-rows .lrow {
+    --lrow-cols: minmax(0, 1.4fr) 84px 146px 68px minmax(0, 1.8fr) minmax(0, 1.2fr) 210px;
+  }
+}
+
+/* The phone shape. 74-list-views.css collapses to `1fr auto` here and the DOM
+   order was chosen so the collapse lands somewhere readable: product beside
+   its state, then the price beside how deep it is, then the window, what it
+   sold, and the controls each on a line of their own. Nothing is hidden —
+   §5 — only re-flowed. */
+@container (max-width: 560px) {
+  .fsale-lrow .fsale-lrow-state { justify-self: end; }
+  .fsale-lrow .fsale-lrow-off { align-items: flex-end; }
+  .fsale-lrow-when,
+  .fsale-lrow-perf { padding-top: var(--sp-1); }
+}
+
+/* §9: the empty board's ways out, in a row rather than stacked.
+   `.empty-state` puts 1.25rem above every button it contains, which across
+   three of them in a flex row is three separate top margins. */
+.fsale-empty-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+.fsale-empty-acts .glass-btn,
+.fsale-empty-acts a.glass-btn { margin-top: 0; }

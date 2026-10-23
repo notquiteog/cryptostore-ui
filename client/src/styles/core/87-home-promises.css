@@ -1,0 +1,620 @@
+/* ===============================
+   HOME — THE STORE'S PROMISES
+   ===============================
+   The operator's own claims, under the featured block: an asymmetric ledger,
+   not a row of cards.
+
+   ── What this shape is avoiding ──────────────────────────────────────────
+   Every storefront ships this section as three equal tiles, icon over title
+   over one sentence — DESIGN §1's first tell, a layout that never asked which
+   claim mattered. Here the headline holds one column and the claims run down
+   the other as line items threaded on a single spine, each sealed with its
+   own mark. It reads at one promise and at eight, and it never becomes a row
+   of three.
+
+   ── Elevation ────────────────────────────────────────────────────────────
+   Deliberately NOT a glass card. The featured cards above it are the md tier
+   and they are the merchandise; this section is the store talking about
+   itself, so it sits flat on the page and spends its whole light budget on
+   the seals. Cards here would be a third identical elevation and a card
+   nested inside the page's own frame — two of DESIGN §3's failures at once.
+
+   ── Where the glow goes ──────────────────────────────────────────────────
+   A seal glows only when its promise LINKS somewhere. Glow means live, and a
+   claim a buyer can go and check is the only live thing in here; an unlinked
+   promise is a statement, and statements do not light up. That also gives the
+   distinction a second channel — the proof chip — so it survives
+   `--glow-strength: 0`, where the light disappears and the wording does not. */
+
+.promises {
+  /* Queried against its own box rather than the window: this section is used
+     at container width today, but a viewport query would answer for the
+     monitor and not for the column the promises are actually drawn in. */
+  container-type: inline-size;
+  position: relative;
+  margin-top: var(--sp-8);
+  padding: var(--sp-8) 0;
+  border-top: 1px solid var(--border);
+}
+
+/* A single soft wash rising behind the headline, so the section reads as its
+   own ground without drawing a frame around itself. */
+.promises::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 60% 70% at 18% 0%,
+    rgba(var(--primary-rgb), 0.05),
+    transparent 70%
+  );
+}
+
+.promises-grid {
+  position: relative;
+  display: grid;
+  /* Asymmetric on purpose (DESIGN §1): the claims are the substance, the
+     headline is the voice, and giving them equal columns would say they
+     weigh the same. */
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: var(--sp-8);
+  align-items: start;
+}
+
+/* ── The headline column ── */
+
+.promises-lead {
+  min-width: 0;
+  /* At six or eight promises the ledger is taller than the viewport, and a
+     headline that has scrolled off is a column of claims with nothing saying
+     what they are claims about. Does nothing on a short list, which is the
+     correct amount. */
+  position: sticky;
+  top: var(--sp-8);
+}
+
+.promises-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+/* The rule that starts the line — the section's only piece of pure
+   decoration, and it earns the pixels by anchoring the eyebrow to the same
+   left edge the spine runs down on the other side of the grid. */
+.promises-eyebrow::before {
+  content: '';
+  flex: 0 0 auto;
+  width: var(--sp-6);
+  height: 1px;
+  background: currentColor;
+}
+
+.promises-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  /* Operator copy, so the line count is unknown at design time; balancing
+     stops a three-word orphan on the last line of a headline nobody here
+     wrote. */
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.promises-lede {
+  margin: var(--sp-4) 0 0;
+  max-width: 46ch;
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── The ledger column ── */
+
+.promises-list {
+  --seal-size: 44px;
+  /* 2πr for the r=19 ring below. Named once so the dash geometry and the
+     keyframe that unwinds it cannot drift apart. */
+  --seal-c: 119.38;
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The thread the seals hang on, drawn as one segment per gap rather than as a
+   single line behind the whole list.
+ *
+ * A single overlaid spine has to pass THROUGH each mark, which means hiding it
+ * behind an opaque disc the width of the ring — and that disc then has to
+ * guess the page's background, which on this storefront is a gradient with
+ * operator effects behind it, so the guess shows. A per-gap segment starts at
+ * one mark's bottom edge and ends at the next mark's top edge, exactly, with
+ * no measurement and nothing to hide behind: `bottom` reaches one row's
+ * padding into the next, which is precisely where the next seal begins. */
+.promise {
+  position: relative;
+  min-width: 0;
+}
+.promise:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--sp-2) + var(--seal-size) / 2);
+  top: calc(var(--sp-4) + var(--seal-size));
+  bottom: calc(-1 * var(--sp-4));
+  width: 1px;
+  transform-origin: top center;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(var(--primary-rgb), 0.45),
+    rgba(var(--primary-rgb), 0.18) 50%,
+    rgba(var(--primary-rgb), 0.45)
+  );
+}
+
+.promise-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--seal-size) minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: start;
+  padding: var(--sp-4) var(--sp-3) var(--sp-4) var(--sp-2);
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+
+/* ── The seal ── */
+
+.promise-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--seal-size);
+  height: var(--seal-size);
+}
+
+.promise-seal {
+  position: absolute;
+  inset: 0;
+  /* Draws from twelve o'clock. Without this the arc opens at three, which
+     reads as a progress ring that started somewhere arbitrary. */
+  transform: rotate(-90deg);
+  overflow: visible;
+  transition: filter var(--transition);
+}
+.promise-seal circle {
+  fill: none;
+  stroke-width: 1.5;
+}
+.promise-seal-track { stroke: var(--border); }
+.promise-seal-draw {
+  stroke: var(--primary);
+  stroke-linecap: round;
+  stroke-dasharray: var(--seal-c);
+  transition: stroke var(--transition);
+}
+
+.promise-glyph {
+  position: relative;
+  color: var(--primary);
+  transition: color var(--transition);
+}
+
+/* Only a promise that leads somewhere is lit. See the header comment. */
+.promise-row.is-linked .promise-seal {
+  filter: drop-shadow(0 0 7px var(--primary-glow));
+}
+
+/* ── The claim ── */
+
+.promise-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+  /* One measure for the claim, the detail and the figure together. Set here
+     rather than on the body alone: the figure is pushed to this block's right
+     edge, so a max-width on only the paragraph left the figure hanging past
+     where every line of text stopped. `ch` is sized off this element, so the
+     title's larger face cannot widen the column out from under the body. */
+  max-width: 62ch;
+  font-size: var(--fs-base);
+  /* The seal is 44px tall and the title is one line; nudging the text block
+     down puts the title's baseline through the seal's centre instead of its
+     top edge. */
+  padding-top: var(--sp-2);
+}
+
+.promise-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.promise-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  /* Operator copy capped at 60 characters, which on a narrow column is a
+     word that will not break on its own. */
+  overflow-wrap: anywhere;
+}
+
+/* Right-aligned and monospaced so a column of figures lines up down the
+   ledger the way DESIGN §6 asks numerals to. `margin-left: auto` rather than
+   a grid column, because most promises have no figure and an empty reserved
+   column would print a gutter down the middle of a section that mostly
+   doesn't use it. */
+.promise-figure {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.promise-body {
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.promise-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--primary);
+  transition: opacity var(--transition), transform var(--transition);
+}
+.promise-proof svg { transition: transform var(--transition); }
+
+/* ── Hover and focus ──
+   The proof chip is revealed, never the claim. It is hidden only where a
+   pointer can reveal it: on a touch screen there is no hover, so the chip is
+   simply always drawn (DESIGN §4). Reserved space either way — the element
+   keeps its box and only its paint changes, so a row cannot change height
+   under the cursor and slide the next record out from under a click. */
+@media (hover: hover) {
+  .promise-proof {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  .promise-row.is-linked:hover .promise-proof,
+  .promise-row.is-linked:focus-visible .promise-proof,
+  .promise-row.is-linked:focus-within .promise-proof {
+    opacity: 1;
+    transform: none;
+  }
+  .promise-row.is-linked:hover {
+    background: rgba(var(--tint-rgb), 0.045);
+  }
+  .promise-row.is-linked:hover .promise-seal {
+    filter: drop-shadow(0 0 12px var(--primary-glow));
+  }
+  .promise-row.is-linked:hover .promise-seal-draw { stroke: var(--accent); }
+  .promise-row.is-linked:hover .promise-glyph { color: var(--accent); }
+  .promise-row.is-linked:hover .promise-proof svg { transform: translateX(2px); }
+}
+
+/* Light, not thicker: the ring keeps its geometry and the row gains a lit
+   edge, so focusing a seal cannot make it bloat into its neighbours. */
+.promise-row.is-linked:focus-visible {
+  outline: none;
+  background: rgba(var(--tint-rgb), 0.045);
+  box-shadow: 0 0 0 1px var(--primary-border), 0 0 20px var(--card-glow);
+}
+
+/* ── No headline: the ledger takes the width ── */
+.promises-bare .promises-grid { grid-template-columns: minmax(0, 1fr); }
+
+/* ── Narrow: one column, headline above the ledger ── */
+@container (max-width: 860px) {
+  .promises-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-6);
+  }
+  /* Stacked, the headline is directly above the ledger and has nothing to
+     stick to — pinning it here would park it on top of the promises. */
+  .promises-lead { position: static; }
+  .promises-heading { font-size: var(--fs-2xl); }
+  .promises-lede { max-width: none; }
+}
+
+/* ===============================
+   THE STAMP
+   ===============================
+   As the section arrives, the spine grows downward and each seal draws its
+   ring and takes its glyph a beat later, in order. The motion is the claim:
+   these are checks, they were run, they passed (DESIGN §10).
+
+   `is-armed` is added from script and only once it knows an IntersectionObserver
+   exists and the visitor has not asked for less motion — so the DRAWN state is
+   what this file renders by default. Written the usual way round, with the
+   content hidden until an observer says otherwise, the section is blank
+   forever on the day the observer does not fire. */
+
+.promises.is-armed .promise:not(:last-child)::after { transform: scaleY(0); }
+.promises.is-armed .promise-row { opacity: 0; transform: translateY(10px); }
+.promises.is-armed .promise-seal-draw { stroke-dashoffset: var(--seal-c); }
+.promises.is-armed .promise-glyph { opacity: 0; transform: scale(0.55); }
+
+/* One wave travelling down the ledger: the row arrives, the thread reaches
+   for the next seal, the ring closes, the glyph lands. The ladder is capped at
+   the eighth step, which matches MAX_PROMISES in server/config/homeKeys.js —
+   a cap that is actually reached rather than theoretical, and the whole wave
+   is over inside about 1.2s at full length. */
+.promises.is-stamped .promise-row {
+  animation: promise-rise var(--dur-3) var(--ease-settle) forwards;
+  animation-delay: calc(min(var(--i), 7) * 100ms);
+}
+.promises.is-stamped .promise:not(:last-child)::after {
+  animation: promise-thread var(--dur-3) var(--ease-settle) forwards;
+  animation-delay: calc(min(var(--i), 7) * 100ms + 60ms);
+}
+.promises.is-stamped .promise-seal-draw {
+  animation: promise-seal 0.5s var(--ease-out) forwards;
+  animation-delay: calc(min(var(--i), 7) * 100ms + 120ms);
+}
+.promises.is-stamped .promise-glyph {
+  animation: promise-glyph var(--dur-3) var(--ease-spring) forwards;
+  animation-delay: calc(min(var(--i), 7) * 100ms + 340ms);
+}
+
+@keyframes promise-thread {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes promise-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes promise-seal {
+  from { stroke-dashoffset: var(--seal-c); }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes promise-glyph {
+  from { opacity: 0; transform: scale(0.55); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The opt-out. Script already declines to arm the section under reduced
+   motion, so normally there is nothing here to cancel; these rules cover the
+   case where the class arrives anyway — an extension, a preference changed
+   after mount — and they restore the END state rather than merely stopping
+   the animation, because `is-armed` holds the hidden frame on its own. */
+@media (prefers-reduced-motion: reduce) {
+  .promises.is-armed .promise:not(:last-child)::after,
+  .promises.is-armed .promise-row,
+  .promises.is-armed .promise-glyph {
+    opacity: 1;
+    transform: none;
+  }
+  .promises.is-armed .promise-seal-draw { stroke-dashoffset: 0; }
+
+  .promises.is-stamped .promise:not(:last-child)::after,
+  .promises.is-stamped .promise-row,
+  .promises.is-stamped .promise-seal-draw,
+  .promises.is-stamped .promise-glyph { animation: none; }
+
+  .promise-row,
+  .promise-proof,
+  .promise-proof svg,
+  .promise-seal,
+  .promise-seal-draw,
+  .promise-glyph { transition: none; }
+}
+
+/* ===============================
+   THE EDITOR  (/admin/home)
+   ===============================
+   Same file as the section it edits, on purpose: the two are one feature, and
+   the numbers that have to agree — the seal size, the caps, the preview's
+   ground — are easier to keep agreeing when they are forty lines apart rather
+   than in two files nobody opens together. */
+
+.promise-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.promise-card-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.promise-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+
+/* Characters used, sitting inside the field's own label so it costs no row of
+   its own. It only raises its voice near the cap — a counter that is loud at
+   3/60 is a counter people stop reading by the second field. */
+.promise-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 400;
+  color: var(--text-muted);
+  transition: color var(--transition);
+}
+.promise-count.is-tight { color: var(--warning); }
+
+.promise-lead-grid,
+.promise-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sp-4);
+}
+/* The claim gets the room; the figure is eighteen characters at most. */
+.promise-editor-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+
+.promise-lede-input { min-height: 76px; resize: vertical; }
+.promise-body-input { min-height: 64px; resize: vertical; }
+
+.promise-editor {
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.02);
+}
+.promise-editor:last-child { margin-bottom: 0; }
+
+.promise-editor-head {
+  display: flex;
+  align-items: center;
+  /* The tool buttons do not shrink; on a cover-screen phone they drop under
+     the name instead of running out of the card. */
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.promise-editor-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: var(--fs-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.promise-editor-tools {
+  display: flex;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+}
+/* The examples read as sample values, not as emphasis. Scoped to this hint
+   rather than to `.admin-hint`, which every admin page uses. */
+.promise-hint em { font-style: normal; font-family: var(--font-mono); color: var(--text-secondary); }
+
+/* The icon, as the button that changes it. A separate "change icon" control
+   beside a preview of the icon would be two things where the icon itself is
+   already the obvious place to press. */
+.promise-icon-btn {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--primary);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+}
+.promise-icon-btn:hover { border-color: var(--primary-border); background: var(--surface-hover); }
+.promise-icon-btn.is-open,
+.promise-icon-btn:focus-visible {
+  outline: none;
+  border-color: var(--primary-border);
+  box-shadow: var(--glow-sm);
+}
+
+.promise-icon-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.03);
+  animation: promise-rise var(--dur-2) var(--ease-spring) both;
+}
+.promise-icon-group-label {
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+/* Auto-fill rather than a fixed count: this picker is drawn inside the admin
+   content column, which is one drawer-toggle away from being 300px narrower. */
+.promise-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(38px, 100%), 1fr));
+  gap: var(--sp-1);
+}
+.promise-icon-option {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+.promise-icon-option:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+/* Lit, not thickened — the border was already there and only changes colour,
+   so the selected cell does not grow into its neighbours in a grid this
+   tight. */
+.promise-icon-option.is-on {
+  color: var(--primary);
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  box-shadow: var(--glow-sm);
+}
+.promise-icon-option:focus-visible {
+  outline: none;
+  border-color: var(--primary-border);
+  box-shadow: var(--glow-sm);
+}
+
+/* The preview's ground. The section is built to sit on the storefront page
+   rather than inside a card, so its page-level furniture — the top rule and
+   the margin that separates it from the featured block — is stripped here
+   instead of being made conditional in the component. */
+.promise-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.02);
+  overflow: hidden;
+}
+.promise-preview .promises {
+  margin-top: 0;
+  border-top: none;
+}
+
+@media (max-width: 720px) {
+  .promise-lead-grid,
+  .promise-editor-grid { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,0 +1,122 @@
+/* ===============================
+   HOME — FLASH SALE STRIP
+   =============================== */
+.flash-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-color: rgba(var(--danger-rgb), 0.28);
+  margin-bottom: var(--sp-6);
+}
+.flash-strip-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--danger);
+  background: linear-gradient(135deg, rgba(var(--danger-rgb), 0.16), rgba(var(--danger-rgb), 0.04));
+  border-right: 1px solid rgba(var(--danger-rgb), 0.22);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+/* The bolt is drawn, not blinked. It used to fade and shrink on a 1.8s loop
+   forever — decoration repeating in the corner of the home page, which DESIGN
+   §2 rules out, and it was doing no work the word FLASH beside it was not
+   already doing. The strip's own arrival is what announces it. */
+.flash-strip-bolt {
+  display: inline-flex;
+}
+
+/* Horizontal scroller: snaps item to item, hides its own scrollbar. */
+.flash-strip-scroll {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  flex: 1;
+  min-width: 0;
+}
+.flash-strip-scroll::-webkit-scrollbar { display: none; }
+
+.flash-strip-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  text-decoration: none;
+  color: inherit;
+  scroll-snap-align: start;
+  border-right: 1px solid var(--border);
+  transition: background var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.flash-strip-item:last-child { border-right: none; }
+.flash-strip-item:hover { background: var(--surface-hover); }
+
+.flash-strip-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  max-width: 15ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flash-strip-prices { display: flex; align-items: baseline; gap: var(--sp-15); }
+.flash-strip-was {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.flash-strip-now {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.flash-strip-off {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--pill);
+  background: var(--danger);
+  /* Ink on a brand fill is the page ground, never a pinned white. WCAG is
+     symmetric and every status colour is solved to clear AA against `--bg`,
+     so `--bg` on the fill inherits that same ratio in both modes. The `#fff`
+     this replaces measured 2.66:1 on the shipped dark danger. Same fossil
+     42-home-featured-carousel.css already documents having removed. */
+  color: var(--bg);
+  letter-spacing: 0.02em;
+}
+.flash-strip-clock {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  padding-left: var(--sp-05);
+  border-left: 1px solid var(--border);
+  margin-left: var(--sp-05);
+}
+.flash-strip-clock.ending { color: var(--danger); }
+
+@media (max-width: 720px) {
+  .flash-strip { flex-direction: column; }
+  .flash-strip-label {
+    border-right: none;
+    border-bottom: 1px solid rgba(var(--danger-rgb), 0.22);
+    justify-content: center;
+    padding: var(--sp-25) var(--sp-4);
+  }
+}
+

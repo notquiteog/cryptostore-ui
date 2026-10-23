@@ -1,0 +1,793 @@
+/* orders — feature styles.
+   Loaded after global.css, so every custom property defined there is in scope.
+   Colours must come from tokens (--primary, --surface, --text, --glow-md, …)
+   so both :root and :root[data-theme="light"] resolve correctly.
+
+   Everything here is prefixed `orderx-` and belongs to two additions to the
+   order surfaces: the reorder ("buy it again") flow, and the demo payment rail.
+   The existing `.order-card` / `.order-stepper` rules still live in global.css;
+   nothing below overrides them.
+
+   Three rules this file keeps to, because breaking any of them is silent:
+   - No literal colours. The palette exists twice — `:root` is dark,
+     `:root[data-theme="light"]` is light — so a hex value here would be correct
+     in exactly one of them and nobody would notice in the other. A scrim is the
+     one case where the polarity flips rather than the hue: use `--scrim-rgb`,
+     which is 0,0,0 dark and 255,255,255 light.
+   - `--surface` and `--glass-bg` are ALIASES, not two materials.
+     computeVars.js sets both from the same computed value in both modes
+     (`set('--glass-bg', surface); set('--surface', surface)`), so a light-mode
+     override that swaps one for the other changes nothing and ships a comment
+     claiming a fix it did not make. If a panel really needs more body on the
+     pale ground, change the *material*: `color-mix(… var(--surface) 82%,
+     var(--bg))` as the sheet below does, or an ink tint
+     `rgba(var(--text-rgb), 0.045)` as totp.css does. Then measure it.
+   - Every animation is switched off under `prefers-reduced-motion: reduce` at
+     the bottom of this file. A motion effect added without a line in that block
+     is a vestibular trigger shipped by accident — and when the animation was
+     the only thing drawing a ring, the block has to draw that ring statically
+     or the state it carried disappears with it. */
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   REORDER BUTTON
+   Sits inside an <a>-wrapped order card in the list, and beside the status
+   badge on the detail page. It has to read as a control in both places, which
+   is why it carries its own surface rather than inheriting the card's.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.orderx-reorder-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.09);
+  border: 1px solid rgba(var(--primary-rgb), 0.3);
+  border-radius: var(--pill);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition:
+    background 0.22s var(--ease-panel),
+    border-color 0.22s var(--ease-panel),
+    box-shadow 0.28s var(--ease-panel),
+    transform 0.18s var(--ease-panel),
+    color 0.22s var(--ease-panel);
+}
+
+.orderx-reorder-btn.is-block {
+  width: 100%;
+  justify-content: center;
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-sm);
+}
+
+/* The sweep is the affordance: on a card that is itself a link, a flat pill
+   reads as a label. A light pass across it on hover says "this is separately
+   clickable" without needing a second border. */
+.orderx-reorder-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(var(--primary-rgb), 0.22) 50%,
+    transparent 80%
+  );
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.orderx-reorder-btn:hover:not(:disabled),
+.orderx-reorder-btn:focus-visible {
+  background: rgba(var(--primary-rgb), 0.16);
+  border-color: rgba(var(--primary-rgb), 0.55);
+  box-shadow: var(--glow-md);
+  transform: translateY(-1px);
+}
+
+.orderx-reorder-btn:hover:not(:disabled)::after {
+  animation: orderx-sweep 0.7s var(--ease-panel);
+}
+
+.orderx-reorder-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.orderx-reorder-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-md), 0 0 0 3px var(--focus-ring);
+}
+
+.orderx-reorder-btn:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.orderx-reorder-icon {
+  transition: transform 0.42s var(--ease-panel);
+}
+
+/* The one piece of motion that is doing real work: the arrow completes a turn
+   as the pointer arrives, which is the whole idea of "again" in one gesture. */
+.orderx-reorder-btn:hover:not(:disabled) .orderx-reorder-icon {
+  transform: rotate(-180deg);
+}
+
+.orderx-reorder-btn.is-busy .orderx-reorder-icon {
+  animation: orderx-spin 0.9s linear infinite;
+}
+
+/* Keeps the two card controls on one line and lets them wrap together on a
+   narrow screen instead of the reorder pill dropping under the hint text. */
+.orderx-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Light mode sits on a pale ground, so the same alpha reads as a wash rather
+   than a control. Slightly deeper fill and border to hold the edge. */
+:root[data-theme="light"] .orderx-reorder-btn {
+  background: rgba(var(--primary-rgb), 0.11);
+  border-color: rgba(var(--primary-rgb), 0.42);
+}
+
+:root[data-theme="light"] .orderx-reorder-btn:hover:not(:disabled),
+:root[data-theme="light"] .orderx-reorder-btn:focus-visible {
+  background: rgba(var(--primary-rgb), 0.2);
+  border-color: rgba(var(--primary-rgb), 0.7);
+}
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   REORDER SUMMARY SHEET
+   A modal rather than a toast, because it carries the one thing a toast
+   cannot: the list of lines that could NOT be added, and why.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.orderx-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  /* `--scrim-rgb`, not a literal `0,0,0`: this was the one hard-coded colour
+     left in the feature CSS, and the token exists for exactly this job — it is
+     0,0,0 on the dark palette and 255,255,255 on the light one, the opposite
+     polarity to `--tint-rgb`. Identical to the literal today because the light
+     override below replaces the whole declaration; correct on its own the day
+     that override is removed or a third palette lands. global.css's own modal
+     scrims already read `rgba(var(--scrim-rgb), 0.55)`. */
+  background: rgba(var(--scrim-rgb), 0.55);
+  /* Blur only — saturating a dimming scrim makes the page it hides bloom. */
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  animation: orderx-fade-in 0.2s var(--ease-panel);
+}
+
+.orderx-sheet-backdrop.is-leaving {
+  animation: orderx-fade-out 0.2s var(--ease-panel) forwards;
+}
+
+/* Light mode: a near-black scrim over a pale page is a hole punched in the UI.
+   A lighter, warmer scrim still separates the sheet without the shock. */
+:root[data-theme="light"] .orderx-sheet-backdrop {
+  background: rgba(var(--text-rgb), 0.28);
+}
+
+.orderx-sheet {
+  width: min(560px, 100%);
+  max-height: min(78vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow), var(--glow-lg);
+  overflow: hidden;
+  animation: orderx-sheet-in 0.32s var(--ease-panel);
+}
+
+.orderx-sheet.is-leaving {
+  animation: orderx-sheet-out 0.2s var(--ease-panel) forwards;
+}
+
+/* The sheet is `tabIndex={-1}` so focus always has somewhere to land when the
+   primary action is disabled. That focus is programmatic, so no ring is drawn —
+   but if a browser ever routes real keyboard focus here, it must still be
+   visible rather than silently swallowed by a blanket `outline: none`. */
+.orderx-sheet:focus { outline: none; }
+.orderx-sheet:focus-visible { box-shadow: var(--glass-shadow), 0 0 0 3px var(--focus-ring); }
+
+/* The glass is translucent by design, but a light page shows straight through
+   it and the line list stops being readable. More opacity, same material. */
+:root[data-theme="light"] .orderx-sheet {
+  background: color-mix(in srgb, var(--surface) 82%, var(--bg));
+}
+
+.orderx-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(
+    180deg,
+    rgba(var(--success-rgb), 0.1),
+    transparent
+  );
+}
+
+.orderx-sheet-head.is-empty {
+  background: linear-gradient(
+    180deg,
+    rgba(var(--warning-rgb), 0.12),
+    transparent
+  );
+}
+
+.orderx-sheet-mark {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--success);
+  background: rgba(var(--success-rgb), 0.14);
+  border: 1px solid rgba(var(--success-rgb), 0.32);
+  animation: orderx-mark-in 0.45s var(--ease-panel) backwards;
+  animation-delay: 0.08s;
+}
+
+.orderx-sheet-head.is-empty .orderx-sheet-mark {
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.14);
+  border-color: rgba(var(--warning-rgb), 0.32);
+}
+
+.orderx-sheet-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.orderx-sheet-title {
+  font-family: var(--font-display, inherit);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.orderx-sheet-sub {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.orderx-sheet-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    background 0.2s var(--ease-panel),
+    color 0.2s var(--ease-panel),
+    border-color 0.2s var(--ease-panel);
+}
+
+.orderx-sheet-close:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.orderx-sheet-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.orderx-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-4) var(--sp-5) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.orderx-group-title {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-2);
+}
+
+.orderx-group-title.is-warn {
+  color: var(--warning);
+}
+
+.orderx-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+}
+
+
+/* ── One reordered line ─────────────────────────────────────────────────── */
+
+.orderx-line {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-05) var(--sp-3);
+  align-items: baseline;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-left: 3px solid var(--border);
+  animation: orderx-line-in 0.34s var(--ease-panel) backwards;
+}
+
+/* Staggered so the list resolves as a sequence rather than appearing all at
+   once — it is a receipt, and reading order matters. Capped at eight: past
+   that the last line waits noticeably, which is worse than no stagger. */
+.orderx-line:nth-child(1) { animation-delay: 0.04s; }
+.orderx-line:nth-child(2) { animation-delay: 0.08s; }
+.orderx-line:nth-child(3) { animation-delay: 0.12s; }
+.orderx-line:nth-child(4) { animation-delay: 0.16s; }
+.orderx-line:nth-child(5) { animation-delay: 0.2s; }
+.orderx-line:nth-child(6) { animation-delay: 0.24s; }
+.orderx-line:nth-child(7) { animation-delay: 0.28s; }
+.orderx-line:nth-child(n + 8) { animation-delay: 0.32s; }
+
+.orderx-line.is-ok {
+  border-left-color: var(--success);
+  background: rgba(var(--success-rgb), 0.06);
+}
+
+.orderx-line.is-warn {
+  border-left-color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.06);
+}
+
+.orderx-line.is-muted {
+  border-left-color: var(--text-muted);
+}
+
+.orderx-line-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+}
+
+.orderx-line-name {
+  font-size: var(--fs-base);
+  font-weight: 650;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.orderx-line-variant {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.orderx-line-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.orderx-qty {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.orderx-price {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.orderx-reason {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--warning);
+  max-width: 20ch;
+}
+
+/* Notes span both columns: they are sentences, not values, and squeezing them
+   into the right-hand column produced two-word-per-line ragging. */
+.orderx-note {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.orderx-note.is-warn { color: var(--warning); }
+.orderx-note.is-good { color: var(--success); }
+
+
+/* ── Sheet footer ───────────────────────────────────────────────────────── */
+
+.orderx-sheet-foot {
+  display: flex;
+  gap: var(--sp-25);
+  padding: var(--sp-4) var(--sp-5);
+  border-top: 1px solid var(--border);
+  background: var(--bg-wash);
+}
+
+.orderx-cta {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-15);
+  padding: var(--sp-25) var(--sp-4);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--bg);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    box-shadow 0.28s var(--ease-panel),
+    transform 0.18s var(--ease-panel),
+    filter 0.2s var(--ease-panel);
+}
+
+.orderx-cta:hover:not(:disabled) {
+  box-shadow: var(--glow-md);
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.orderx-cta:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+.orderx-cta:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-md), 0 0 0 3px var(--focus-ring);
+}
+
+.orderx-cta:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.7);
+  opacity: 0.6;
+}
+
+.orderx-ghost {
+  padding: var(--sp-25) var(--sp-4);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.2s var(--ease-panel),
+    color 0.2s var(--ease-panel),
+    border-color 0.2s var(--ease-panel);
+}
+
+.orderx-ghost:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.orderx-ghost:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   DEMO PAYMENT RAIL
+   Deliberately does NOT borrow the crypto panel's chrome. Warning-toned and
+   dashed, so it never reads as an invoice a buyer should act on.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.orderx-demo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-3xs);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.13);
+  border: 1px solid rgba(var(--warning-rgb), 0.42);
+}
+
+.orderx-demo-chip.is-lg {
+  padding: var(--sp-1) var(--sp-25);
+  font-size: var(--fs-2xs);
+}
+
+:root[data-theme="light"] .orderx-demo-chip {
+  background: rgba(var(--warning-rgb), 0.18);
+  border-color: rgba(var(--warning-rgb), 0.55);
+}
+
+.orderx-demo-panel {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  /* Dashed, and the only dashed panel on the page. Before a word is read, the
+     border says this one is not like the others. */
+  border: 1px dashed rgba(var(--warning-rgb), 0.5);
+  border-radius: var(--radius);
+  padding: var(--sp-5);
+  animation: orderx-panel-in 0.4s var(--ease-panel);
+}
+
+:root[data-theme="light"] .orderx-demo-panel {
+  background: color-mix(in srgb, var(--surface) 78%, var(--bg));
+}
+
+.orderx-demo-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-25);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-radius: var(--radius-sm);
+  color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.1);
+  border: 1px solid rgba(var(--warning-rgb), 0.3);
+}
+
+.orderx-demo-banner strong {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.orderx-demo-banner p {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.orderx-demo-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-25);
+}
+
+.orderx-demo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-base);
+}
+
+.orderx-demo-row.is-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+}
+
+.orderx-demo-row > span {
+  color: var(--text-muted);
+}
+
+.orderx-demo-row > strong {
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.orderx-demo-address {
+  display: block;
+  padding: var(--sp-2) var(--sp-25);
+  border-radius: var(--radius-sm);
+  background: var(--bg-wash);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  word-break: break-all;
+  /* No copy button, unlike every real address on this page. There is nothing
+     to paste it into, and offering one would imply otherwise. */
+  user-select: all;
+}
+
+/* Selected as a child of the row, not on the class alone. Both of these render
+   as `<strong>` inside `.orderx-demo-row`, so the row's own
+   `.orderx-demo-row > strong { color: var(--text) }` (0,1,1) outranked a bare
+   `.orderx-demo-live` (0,1,0) and the state colour lost. That was patched with
+   `!important`, which works but spends the escape hatch on this file beating
+   itself — and the next author who adds a legitimate override here has nothing
+   left to beat it with. The child selector is (0,2,0) and wins on merit.
+   Do not flatten these back to `.orderx-demo-live`; the colour silently
+   reverts to plain body text and nothing in the diff looks wrong. */
+.orderx-demo-row > .orderx-demo-live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  color: var(--warning);
+  font-size: var(--fs-sm);
+}
+
+/* The only "live" signal on the panel. It stops the moment the order settles,
+   which is how a buyer knows the wait ended without re-reading the text. */
+.orderx-demo-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 0 0 rgba(var(--warning-rgb), 0.6);
+  animation: orderx-pulse 1.8s var(--ease-panel) infinite;
+}
+
+/* Same cascade problem, same shape of fix — see `.orderx-demo-live` above. */
+.orderx-demo-row > .orderx-demo-done {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  color: var(--success);
+  font-size: var(--fs-sm);
+}
+
+.orderx-demo-foot {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   KEYFRAMES
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes orderx-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes orderx-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes orderx-sheet-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.975); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes orderx-sheet-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(8px) scale(0.985); }
+}
+
+@keyframes orderx-line-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes orderx-panel-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes orderx-mark-in {
+  0%   { opacity: 0; transform: scale(0.6); }
+  60%  { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes orderx-sweep {
+  from { transform: translateX(-120%); }
+  to   { transform: translateX(120%); }
+}
+
+@keyframes orderx-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes orderx-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--warning-rgb), 0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(var(--warning-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--warning-rgb), 0); }
+}
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   REDUCED MOTION
+   Established convention in this codebase: every animation this file
+   introduces is named here. Transitions on colour and shadow are kept — they
+   carry state, do not move anything, and removing them would leave hover and
+   focus reading as an instant swap.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .orderx-sheet-backdrop,
+  .orderx-sheet-backdrop.is-leaving,
+  .orderx-sheet,
+  .orderx-sheet.is-leaving,
+  .orderx-sheet-mark,
+  .orderx-line,
+  .orderx-demo-panel,
+  .orderx-demo-pulse,
+  .orderx-reorder-btn::after,
+  .orderx-reorder-btn:hover:not(:disabled)::after,
+  .orderx-reorder-btn.is-busy .orderx-reorder-icon {
+    animation: none !important;
+  }
+
+  /* Transforms are movement even when they are not keyframed. */
+  .orderx-reorder-btn:hover:not(:disabled),
+  .orderx-reorder-btn:active:not(:disabled),
+  .orderx-reorder-btn:hover:not(:disabled) .orderx-reorder-icon,
+  .orderx-cta:hover:not(:disabled),
+  .orderx-cta:active:not(:disabled) {
+    transform: none;
+  }
+
+  .orderx-reorder-icon {
+    transition: none;
+  }
+
+  /* The pulse carried "still confirming". With the animation off it would be a
+     plain dot indistinguishable from a settled one, so the ring is drawn
+     statically instead of being lost. */
+  .orderx-demo-pulse {
+    box-shadow: 0 0 0 4px rgba(var(--warning-rgb), 0.25);
+  }
+}

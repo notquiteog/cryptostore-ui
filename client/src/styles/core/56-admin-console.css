@@ -1,0 +1,875 @@
+/* ===============================
+   ADMIN CONSOLE — shared queue furniture
+   ===============================
+   Orders, Users and Disputes are the same screen three times: a row of
+   counters, a toolbar, a grid of cards, a pager. They are written here once
+   instead of three times because the alternative is already visible elsewhere
+   in this file — four admin families that each grew their own pager, their own
+   stat tile and their own grid, and no two of them agree on the gap.
+
+   This joins the tier `.admin-search`, `.admin-toolbar`, `.segmented` and
+   `.status-filter-pill` already occupy: shared, unprefixed, used by name from
+   any admin page. Anything genuinely particular to one page keeps its own
+   prefix below (`.aord-`, `.ausr-`, `.adsp-`).
+
+   Colour rules followed throughout:
+     · Every component custom property is prefixed. `--tone` or `--accent`
+       would shadow the theme token of that name for every descendant, and
+       where the value wanted IS that token, `--accent: var(--accent)` is a
+       cycle that resolves to nothing and paints no colour at all.
+     · Glow is expressed through `--card-glow` / `--primary-glow` or a
+       `color-mix` against the tile's own tone, never a literal rgba, so the
+       admin's palette reaches it and `prefers-contrast: more` — which zeroes
+       those tokens — switches it off.
+     · `--tint-rgb` is a surface tint that inverts between modes. It is never
+       used as a foreground.
+     · Every lift lives in `@media (hover: hover) and (pointer: fine)`. A bare
+       `:hover { transform }` latches after a tap and leaves a card raised on
+       a phone until something else is touched. */
+
+/* ── Counters ───────────────────────────────────────────────
+
+   ONE strip, not a row of equal cards.
+
+   This was `repeat(auto-fit, minmax(min(150px, 100%), 1fr))`: four separate glass panels
+   across the top of a queue, each with a 28px icon plate over a figure over a
+   label, each given identical weight. It cost about 130px on five different
+   fulfilment screens before any actual work appeared, and it read bottom-up —
+   the eye reached "8" before it reached "waiting".
+
+   The strip is one panel with ruled cells. The lead cell (see StatTiles) is
+   wider and its figure is larger, because on these queues the first counter is
+   the queue's own depth and the others are context for it. Label first, figure
+   second, hint third. */
+
+.admin-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  margin-bottom: var(--sp-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  box-shadow: var(--rim-inset), var(--shadow-sm);
+  overflow: hidden;
+}
+
+.admin-stat {
+  position: relative;
+  flex: 1 1 132px;
+  min-width: 0;
+  /* So the figure inside can be sized in `cqi` — see .admin-stat-value. Also
+     what lets a cell shrink below its content instead of overflowing it:
+     inline-size containment makes the cell's min-content width zero. */
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-3) var(--sp-4);
+  text-align: left;
+  border: none;
+  /* The divider between cells. `flex-wrap` can put a cell at the start of a
+     second row where the rule would be a stray tick on the left edge, so it is
+     drawn as a shadow that the panel's `overflow: hidden` clips away. */
+  box-shadow: inset 1px 0 0 var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  transition: background var(--transition), box-shadow var(--transition);
+  animation: admin-stat-in 0.4s var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+}
+.admin-stat:first-child { box-shadow: none; }
+
+/* The lead cell is weighted by TYPE, not by width. Giving it extra flex made
+   the widest cell on the strip the one holding a single digit, with the number
+   marooned at the left of a 460px box. Equal cells ruled like a ledger header,
+   one figure set larger — that is the hierarchy §1 asks for. */
+
+@keyframes admin-stat-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The tone as a lit cap on the cell rather than a coloured plate: at this size
+   a filled block wins the page away from the data underneath it. */
+.admin-stat::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--admin-stat-tone, var(--primary)), transparent);
+  opacity: 0.5;
+  transition: opacity var(--transition);
+}
+
+.admin-stat-top {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.admin-stat-icon {
+  color: var(--admin-stat-tone, var(--primary));
+  flex-shrink: 0;
+}
+
+.admin-stat-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-stat-value {
+  /* The ledger voice: counters are telemetry, and half of them are money.
+     Mono is inherently tabular, so a counter that changes cannot shift the
+     label under it.
+
+     Sized against the CELL, not the page. A fixed --fs-2xl on the lead cell
+     put "$19685.86" — nine mono glyphs, ~150px — into a cell the strip had
+     wrapped down to 132px on a laptop, and the figure ran straight through
+     the divider into the next counter. The cell is an inline-size container
+     (declared on .admin-stat), so `cqi` scales the figure to what the cell
+     can actually hold, between the two fixed sizes it used to be; and
+     `overflow-wrap` is the last line for a number longer than any cell. */
+  font-family: var(--font-mono);
+  font-size: clamp(var(--fs-md), 11cqi, var(--fs-xl));
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.admin-stat.is-lead .admin-stat-value { font-size: clamp(var(--fs-lg), 13cqi, var(--fs-2xl)); }
+
+.admin-stat-hint {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.admin-stat.is-clickable { cursor: pointer; }
+
+/* A cell that is currently filtering the list has to look pressed, or the grid
+   below it reads as missing rows. */
+.admin-stat.is-active {
+  background: color-mix(in srgb, var(--admin-stat-tone, var(--primary)) 10%, transparent);
+}
+.admin-stat.is-active::after { opacity: 1; }
+.admin-stat.is-active .admin-stat-label { color: var(--text-secondary); }
+
+/* A counter that is not zero and means somebody has to act.
+
+   Static. The icon used to pulse a ring forever — a loop at the top of a
+   screen an operator works in for a whole shift, which DESIGN §2 rules out
+   directly. The tinted cell, the lit cap and the toned figure say the same
+   thing without moving, and all three survive --glow-strength: 0. */
+.admin-stat.is-urgent {
+  background: color-mix(in srgb, var(--admin-stat-tone, var(--primary)) 8%, transparent);
+}
+.admin-stat.is-urgent::after { opacity: 1; }
+.admin-stat.is-urgent .admin-stat-value { color: var(--admin-stat-tone, var(--primary)); }
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-stat:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--admin-stat-tone, var(--primary)) 40%, transparent);
+    box-shadow: var(--glass-shadow), 0 0 26px color-mix(in srgb, var(--admin-stat-tone, var(--primary)) 22%, transparent);
+  }
+  .admin-stat:hover::after { opacity: 1; }
+}
+
+/* ── Toolbar additions ────────────────────────────────────── */
+
+/* `.admin-toolbar` already exists and is a two-end flex row. These pages carry
+   more than pills and a search box, so the row gets explicit groups that wrap
+   as units rather than letting nine controls reflow individually. */
+.admin-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.admin-toolbar-spacer { flex: 1 1 auto; }
+
+/* A select in a toolbar sizes to its content. `.glass-input` is width:100% by
+   design, which in a flex row makes one dropdown eat the toolbar. */
+.admin-toolbar select.glass-input,
+.admin-toolbar-group select.glass-input {
+  width: auto;
+  min-width: 8.5rem;
+  max-width: 100%;
+  padding: var(--sp-15) var(--sp-8) var(--sp-15) var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+.admin-toolbar-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* A summary line under the toolbar: what the grid below is currently showing,
+   and the way out of it. */
+.admin-filter-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin: calc(var(--sp-15) * -1) 0 var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* ── Card grid ────────────────────────────────────────────── */
+
+/* `min(…, 100%)` is load-bearing: without it a single column still demands the
+   full track width and overflows the 343px content box on a phone. */
+.acard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
+  gap: var(--sp-5);
+  align-items: start;
+}
+
+/* One column, taller cards — for a queue that is read top to bottom rather
+   than scanned. */
+.acard-grid.is-list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+
+/* Composed onto `.glass-card`, so the glass ground, the rim and the sheen come
+   from one place. Anything that has to beat a `.glass-card` declaration is
+   written as `.glass-card.acard` — specificity, never source order, because
+   this file is merged rather than ordered. */
+.glass-card.acard {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  /* The rail below is drawn at the very edge, so the card cannot rely on the
+     3px of padding an unstyled `.glass-card` would have there. */
+  overflow: hidden;
+  animation: acard-in 0.42s var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+}
+@keyframes acard-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The status rail. `.glass-card` already spends `::before` on the sheen and
+   `::after` on the rim, so this is a real child element rather than a third
+   pseudo-element: `.acard-rail`. Drawn, not bordered, so it can glow. */
+.acard-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--acard-tone, var(--primary));
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity var(--transition), box-shadow var(--transition);
+  z-index: 1;
+}
+
+/* A row that is waiting on staff keeps its marker without needing a pointer.
+
+   Static, for the same reason `.admin-stat.is-urgent` above is: the rail used
+   to breathe on a 2.4s loop, and a grid of twenty cards on a queue an operator
+   works all shift meant up to twenty of them breathing out of phase. DESIGN §2
+   rules that out directly, and the file had already retired the counter's loop
+   while leaving this one running.
+
+   Three static channels replace the one moving one, so none of them is load
+   bearing alone: the rail goes full opacity AND doubles its width, and the
+   card's left edge picks up a wash of the same tone. All three survive
+   `--glow-strength: 0`, which the loop's opacity never needed to. */
+.acard.is-urgent .acard-rail {
+  opacity: 1;
+  /* The rail widens AND carries the wash: a hard 6px edge, then the tone
+     falling away across the card's first third.
+
+     Both channels live on the rail rather than the card because `.glass-card`
+     and `.glass-card:hover` set `background` as a SHORTHAND, and a shorthand
+     resets `background-image` to none. A wash declared on `.acard.is-urgent`
+     therefore survives only by cascade order — it happens to win today, and
+     would silently stop winning the day someone reorders an @import. The rail
+     owns no shorthand, so this cannot be undone from a distance. */
+  width: 34%;
+  max-width: 190px;
+  background: linear-gradient(
+    90deg,
+    var(--acard-tone, var(--primary)) 0,
+    var(--acard-tone, var(--primary)) 6px,
+    color-mix(in srgb, var(--acard-tone, var(--primary)) 13%, transparent) 6px,
+    transparent 100%
+  );
+}
+
+/* Selected for a bulk action. Reads at a glance across a grid of twenty. */
+.glass-card.acard.is-selected {
+  border-color: var(--primary-border);
+  box-shadow: var(--rim-inset), var(--glass-shadow), 0 0 0 1px var(--primary-border), 0 0 26px var(--card-glow);
+}
+
+/* Mid-write. The card stays legible and stops accepting input. */
+.acard.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .glass-card.acard:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--acard-tone, var(--primary)) 45%, transparent);
+    box-shadow: var(--rim-inset), var(--glass-shadow),
+                0 0 26px color-mix(in srgb, var(--acard-tone, var(--primary)) 25%, transparent);
+  }
+  .glass-card.acard:hover .acard-rail {
+    opacity: 1;
+    box-shadow: 0 0 14px var(--acard-tone, var(--primary));
+  }
+}
+
+/* Keyboard parity: the same treatment when focus lands inside the card. */
+.glass-card.acard:focus-within {
+  border-color: color-mix(in srgb, var(--acard-tone, var(--primary)) 45%, transparent);
+}
+
+.acard-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  /* The chips may drop under the id. On a 320px phone the card is 288px and
+     the chip group took half of it, leaving the reference and the customer
+     name 143px in which to not fit. */
+  flex-wrap: wrap;
+  gap: var(--sp-25);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.acard-head-main {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  min-width: 0;
+  flex: 1 1 160px;
+}
+.acard-head-main > * { min-width: 0; }
+.acard-sub > * { min-width: 0; overflow-wrap: anywhere; }
+
+.acard-id {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  /* Dotted zero: an operator reads these ids aloud over support chats, and
+     0/O is the classic mistyped-search. */
+  font-feature-settings: 'zero' 1;
+}
+
+.acard-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  /* As a flex item its automatic minimum is the whole nowrap name, so the
+     ellipsis below never got the chance to fire and the box overran the card. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acard-sub {
+  margin-top: var(--sp-05);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+}
+
+.acard-body {
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  flex: 1 1 auto;
+}
+
+.acard-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(112px, 100%), 1fr));
+  gap: var(--sp-3) var(--sp-4);
+}
+
+.acard-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  min-width: 0;
+}
+
+.acard-field-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.acard-field-value {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--text);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.acard-field-value svg { color: var(--text-muted); flex-shrink: 0; }
+.acard-field-value.is-strong {
+  /* Strong values are totals and quantities — ledger voice. */
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+/* A value the server withheld. Never a zero: a hidden total rendered as $0.00
+   reads as a free order. */
+.acard-hidden {
+  color: var(--text-muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* A quoted piece of customer text — a dispute reason, an order note. */
+.acard-quote {
+  margin: 0;
+  padding: var(--sp-25) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.04);
+  border-left: 3px solid var(--acard-tone, var(--primary));
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.acard-quote strong {
+  display: block;
+  margin-bottom: var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+
+/* ── Chips ────────────────────────────────────────────────── */
+
+/* The `.badge-*` variants carry the five named statuses; these take an
+   arbitrary tone (`--acard-chip-tone`) and mix it, for chips whose colour is
+   data — a tier tone, a coin tone — rather than one of the five. (The badges
+   composed from fossil rgba literals once; they read the theme's channel
+   triples now, so the two families differ only in how the tone arrives.) */
+.acard-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  border: 1px solid color-mix(in srgb, var(--acard-chip-tone, var(--text-muted)) 34%, transparent);
+  background: color-mix(in srgb, var(--acard-chip-tone, var(--text-muted)) 12%, transparent);
+  color: var(--acard-chip-tone, var(--text-secondary));
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+.acard-chip svg { flex-shrink: 0; }
+.acard-chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.acard-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+
+/* `.glass-btn-sm` computes to about 30px tall, under the ~40px a thumb wants.
+   The footer pads around them rather than restyling the button family, so the
+   whole strip is a comfortable target without every small button in the admin
+   changing size. */
+.acard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-25) var(--sp-4) var(--sp-25) var(--sp-5);
+  border-top: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.02);
+  min-height: 46px;
+}
+.acard-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+}
+.acard-foot-note {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Expanding drawer ─────────────────────────────────────── */
+
+/* A one-track grid animating `0fr -> 1fr`. `height: auto` is not animatable, and
+   a measured pixel height goes stale the moment the content inside it changes
+   — which it does here, because the drawer is what loads a message thread. */
+.acard-drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s var(--ease-panel);
+}
+.acard-drawer.is-open { grid-template-rows: 1fr; }
+.acard-drawer-clip { overflow: hidden; min-height: 0; }
+.acard-drawer-inner {
+  padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-5);
+  border-top: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.025);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* The disclosure control. The chevron turns; the label does not move. */
+.acard-disclose {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.acard-disclose svg {
+  transition: transform 0.28s var(--ease-panel);
+}
+.acard-disclose[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+.acard-drawer-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* A definition list inside a drawer: label left, value right, one per line. */
+.acard-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+}
+.acard-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  font-size: var(--fs-sm);
+  padding-bottom: var(--sp-15);
+  border-bottom: 1px dashed var(--border);
+}
+.acard-row:last-child { border-bottom: none; padding-bottom: 0; }
+.acard-row dt, .acard-row-label {
+  color: var(--text-muted);
+  /* Not `nowrap`: in the Items section the label IS the product name, and a
+     long one pushed the price out of a card that clips its own overflow —
+     so the number the row exists to show was the part that disappeared. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.acard-row dd, .acard-row-value {
+  margin: 0;
+  text-align: right;
+  font-weight: 500;
+  color: var(--text);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-feature-settings: "tnum";
+}
+.acard-row-value.is-total {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-md);
+}
+
+/* ── Meter ────────────────────────────────────────────────── */
+
+/* A proportion bar — payment confirmations, spend toward the next tier. */
+.acard-meter {
+  height: 5px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.09);
+  overflow: hidden;
+}
+.acard-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--acard-tone, var(--primary)) 65%, transparent),
+    var(--acard-tone, var(--primary)));
+  /* Fills are exempt from the reduced-motion block below on purpose: a bar that
+     snaps is fine, but a *progress* bar that never moves reads as stalled. */
+  transition: width 0.6s var(--ease-panel);
+}
+
+/* ── Pager ────────────────────────────────────────────────── */
+
+.admin-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+  margin-top: var(--sp-6);
+  font-feature-settings: "tnum";
+}
+.admin-pager-num { min-width: 2.1rem; justify-content: center; }
+.admin-pager-gap {
+  padding: 0 var(--sp-05);
+  color: var(--text-muted);
+  user-select: none;
+}
+.admin-pager-extra {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin-left: var(--sp-2);
+}
+/* `.glass-input` is width:100% by design, which in this flex row made the
+   page-size dropdown 277px of a 343px pager. */
+.admin-pager select.glass-input {
+  width: auto;
+  min-width: 4.5rem;
+  padding: var(--sp-1) var(--sp-6) var(--sp-1) var(--sp-25);
+  font-size: var(--fs-sm);
+}
+.admin-pager-total {
+  flex-basis: 100%;
+  text-align: center;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ── Skeletons ────────────────────────────────────────────── */
+
+/* Sized to the card it replaces, so the grid does not jump height when real
+   rows arrive. */
+.acard-skel { min-height: 208px; }
+.acard-skel.is-list { min-height: 128px; }
+
+/* ── Responsive ───────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  /* Two cells per row rather than four squeezed side by side. The strip still
+     wraps rather than scrolls sideways: a counter off the right edge with
+     nothing to say it is there is a counter that does not exist. */
+  .admin-stat { flex: 1 1 46%; padding: var(--sp-2) var(--sp-3); }
+  .admin-stat.is-lead { flex: 1 1 100%; }
+  .admin-stat-value { font-size: var(--fs-lg); }
+  .admin-stat.is-lead .admin-stat-value { font-size: var(--fs-xl); }
+  /* A cell that wraps onto a new row needs the rule above it, not beside it. */
+  .admin-stat { box-shadow: inset 1px 0 0 var(--border), inset 0 1px 0 var(--border); }
+  .admin-stat:first-child { box-shadow: none; }
+
+  .acard-grid, .acard-grid.is-list { gap: var(--sp-3); }
+  .acard-head, .acard-body, .acard-foot, .acard-drawer-inner { padding-left: var(--sp-4); padding-right: var(--sp-3); }
+
+  /* A wrapped row of small buttons is a row of small targets. Full width each,
+     so every action is a comfortable tap. */
+  .acard-actions { width: 100%; }
+  /* The disclosure button is a direct child of the footer rather than of the
+     action group, so it needs naming here too — left out, it stayed at the
+     ~30px `.glass-btn-sm` computes to while everything beside it grew. */
+  .acard-actions > .glass-btn,
+  .acard-foot > .glass-btn,
+  .acard-foot > a.glass-btn { flex: 1 1 auto; justify-content: center; min-height: 38px; }
+  .acard-foot { justify-content: stretch; }
+
+  .admin-toolbar-group { width: 100%; }
+  .admin-toolbar-group select.glass-input { flex: 1 1 auto; min-width: 0; }
+  .admin-pager { gap: var(--sp-1); }
+  .admin-pager-extra { margin-left: 0; flex-basis: 100%; justify-content: center; }
+}
+
+@media (max-width: 400px) {
+  .acard-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Below this the numeric pages stop fitting; prev/next still do. */
+  .admin-pager-num { display: none; }
+}
+
+/* ── Reduced motion ───────────────────────────────────────── */
+
+/* `animation: … both` holds the `from` frame, so cancelling an arrival also has
+   to restore its end state — otherwise the opt-out deletes the content for
+   exactly the people who asked for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-stat,
+  .glass-card.acard {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  /* Neither the urgent counter nor the urgent rail animates at all any more —
+     see the notes on `.admin-stat.is-urgent` and `.acard.is-urgent`. Both say
+     what they mean standing still, so there is nothing here to cancel.
+
+     The `.acard-rail { opacity: 1 }` that used to sit here has gone with the
+     loop it existed to end. It was restoring the cancelled animation's end
+     state, but it restored it on EVERY rail — so the one group of people who
+     had opted out of motion were also the only ones who could not tell an
+     urgent card from an ordinary one, the rails having all been flattened to
+     the same full opacity. */
+  .acard-drawer { transition: none; }
+  .acard-disclose svg { transition: none; }
+}
+
+
+/* ── Saved views on the order queue ────────────────────────────────────────
+
+   A row of the operator's own filter sets, sitting between the toolbar that
+   builds a filter and the note that reports what it matched — which is the
+   order the work happens in.
+
+   Chips rather than a dropdown: at most a dozen exist, they are named in the
+   operator's words, and a list you can read at a glance is what makes this
+   faster than rebuilding the pills. */
+.aord-views {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+}
+
+.aord-views-icon {
+  color: var(--text-muted);
+  flex: none;
+}
+
+/* The chip is two controls in one shell — apply, and forget. The shell owns
+   the border so the two halves read as one object rather than as a button
+   with a button next to it. */
+.aord-view {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--glass-bg);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.aord-view:hover {
+  border-color: var(--primary);
+}
+
+/* The applied view. Filled rather than glowing: this is state, not activity,
+   and DESIGN §3 keeps glow for what is live, focused or dangerous. */
+.aord-view.is-on {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.12);
+}
+
+.aord-view-apply {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-3);
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Forgetting a view is quiet until the chip is under the cursor: it is
+   destructive-ish and permanent, and a row of twelve delete crosses reads as
+   a row of twelve warnings. Always reachable by keyboard regardless — the
+   opacity never gates the hit area, and focus brings it back to full. */
+.aord-view-drop {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-2) 0 var(--sp-1);
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.aord-view:hover .aord-view-drop,
+.aord-view-drop:focus-visible {
+  opacity: 1;
+}
+
+.aord-view-drop:hover,
+.aord-view-drop:focus-visible {
+  color: var(--danger);
+}
+
+/* Touch has no hover, so the control that only appears on hover would never
+   appear at all. */
+@media (hover: none) {
+  .aord-view-drop { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aord-view,
+  .aord-view-drop { transition: none; }
+}

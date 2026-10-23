@@ -1,0 +1,1838 @@
+/* ===============================
+   CART & CHECKOUT FLOW
+   ===============================
+   The two pages a buyer crosses to spend money, and the only place in the store
+   where hesitating is expensive. Everything here answers one question at every
+   moment: what has been decided, what is left, and what the number at the
+   bottom is going to be.
+
+   This file was rewritten against docs/DESIGN.md. What it replaces, and why —
+   because every one of these is a rule the previous version broke while looking
+   perfectly reasonable:
+
+   · **It predated the token scale.** Nine hand-picked rem literals for type
+     (0.67 / 0.72 / 0.74 / 0.78 / 0.82 / 0.85 / 0.88 / 0.92 / 1.02rem) and a
+     spacing ladder of 0.85 / 1.05 / 1.15 / 1.25 / 1.35 / 1.5rem, next to
+     `--fs-*` and `--sp-*` tokens that already said the same things. DESIGN §7:
+     "make it smaller" must not drift into nine nearly-equal values. Everything
+     below is on the 4px grid and the type ladder.
+   · **The cart was a stack of cards, not a list.** Every line its own
+     `.glass-card` with 1rem of padding and a 0.85rem gap — one elevation for
+     everything (§1), and the gap alone was the single biggest waste of vertical
+     space on the page (§7). The list is `.lrows` from 74-list-views.css now:
+     the hairline rhythm, the hover/focus-within pair and the container-query
+     phone shape, none of it reimplemented here.
+   · **Viewport queries where the box is what matters.** `max-width: 900px` on
+     a two-column layout is the query §5 says gets it exactly backwards. Both
+     layouts are `@container` now.
+   · **A hard-coded colour that had already been fixed once.** `.pm-check` kept
+     `#04121a` — the same dark-mode fossil the comment on `.summary-item-qty`
+     three rules above describes fixing. On the light-mode primary it is an
+     ink-on-ink tick.
+   · **Brand tint used as ink.** `--pm-tint` painted the method glyph directly,
+     which is fine for Bitcoin orange and unreadable for Litecoin's #bfbbbb on
+     a white page — 1.6:1. §11: a value that only works in dark mode ships a
+     broken light mode.
+
+   Both pages share the summary panel, the ledger and the step rail, so those
+   shapes are defined once and used twice: a buyer moving from cart to checkout
+   should feel like they stayed inside the same object.
+   =============================== */
+
+/* Announced to screen readers, absent from the layout. Lives here because this
+   is where it was first needed; used across the app now. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Both pages are containers so the panels inside can lay themselves out against
+   the column they actually occupy. It has to be the WRAPPER and not the layout
+   grid itself: an element cannot query its own container, so a `container-type`
+   on `.cart-layout` would leave `.cart-layout` unable to read it. */
+.cart-page,
+.ck-page { container-type: inline-size; }
+
+/* ── Step rail ─────────────────────────────────────────────────────────── */
+
+.flow-rail { margin: 0 0 var(--sp-6); }
+
+.flow-steps {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* `flex: 1 1 0` rather than `flex: 1`: equal columns regardless of how long
+   each label is, which is what lets the connector maths below assume that
+   -50% lands on the previous node's centre. */
+.flow-step {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  text-align: center;
+}
+
+/* The connector belongs to the step it arrives at, so its colour answers one
+   question — "is the step before me finished?" — instead of needing to know
+   about its neighbours. 16px puts its centre on the node's centre; the 26px
+   inset at each end clears the node and leaves a deliberate gap. */
+.flow-step + .flow-step::before {
+  content: '';
+  position: absolute;
+  top: 16px;
+  left: calc(-50% + 26px);
+  right: calc(50% + 26px);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--border);
+}
+.flow-step.is-done::before,
+.flow-step.is-current::before {
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  box-shadow: 0 0 12px var(--card-glow);
+}
+
+.flow-node {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  transition: background var(--transition), border-color var(--transition),
+              color var(--transition), box-shadow var(--transition);
+}
+.flow-step.is-done .flow-node {
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+/* The ring is static. A pulsing "you are here" in the corner of a page someone
+   is typing an address into is a distraction, not a wayfinder. Fill and border
+   carry the state as well as the ring, so it survives `--glow-strength: 0`. */
+.flow-step.is-current .flow-node {
+  background: var(--btn-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 0 4px var(--focus-ring), 0 0 22px var(--primary-glow);
+}
+
+.flow-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.flow-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-muted);
+}
+.flow-step.is-done .flow-label,
+.flow-step.is-current .flow-label { color: var(--text); }
+
+.flow-hint {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.flow-step.is-todo .flow-hint { opacity: 0.6; }
+
+/* ── Page head ─────────────────────────────────────────────────────────── */
+
+.cart-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-5);
+}
+.cart-head-text { min-width: 0; }
+.cart-head .page-title { margin-bottom: var(--sp-1); }
+.cart-head-sub {
+  margin: 0;
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+}
+.cart-head-back { flex-shrink: 0; }
+
+/* ── Cart layout ───────────────────────────────────────────────────────── */
+
+.cart-layout,
+.ck-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--sp-5);
+  align-items: start;
+}
+.ck-layout { grid-template-columns: minmax(0, 1fr) 380px; }
+
+.cart-list-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* ── The blocking banner ───────────────────────────────────────────────── */
+
+/* Lines the server will refuse the whole order over. This is the loudest thing
+   on either page on purpose: before it existed, the buyer met the refusal as a
+   400 at the end of the checkout form, naming a product but not which of their
+   rows carried it. Danger tone by fill AND border, not by glow — an operator
+   at `--glow-strength: 0` still has to be able to tell this from a tip. */
+.cart-blocked {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid rgba(var(--danger-rgb), 0.34);
+  background: rgba(var(--danger-rgb), 0.09);
+  animation: rise-in var(--dur-3) var(--ease-settle) both;
+}
+.cart-blocked > svg {
+  flex-shrink: 0;
+  color: var(--danger);
+}
+.cart-blocked p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.cart-blocked strong { color: var(--text); }
+.cart-blocked .glass-btn { flex-shrink: 0; }
+.ck-blocked { margin-bottom: var(--sp-5); }
+
+/* ── Cart lines ────────────────────────────────────────────────────────── */
+/* Column tracks for the shared `.lrow`. Declared here because the columns of a
+   cart line are not the columns of an order — which is exactly the split
+   74-list-views.css was built around. */
+
+.cart-lines {
+  --lrow-cols: 46px minmax(0, 1fr) 6.5rem auto 6rem 34px;
+}
+.cart-lines-head { font-size: var(--fs-2xs); }
+/* The heading sits over the control, not to the left of it — a column label
+   that does not line up with its column is worse than no label, because the
+   eye assigns it to whichever cell it happens to sit above. */
+.cart-lines-head .cart-line-qty { text-align: center; }
+
+.cart-line { padding-block: var(--sp-3); }
+
+/* Media. A cart thumbnail is small on purpose: the buyer has already chosen
+   this product, so the picture is a recognition aid, not the sell. The 84px
+   plate it replaces cost three lines' worth of height across a six-line cart. */
+.cart-line-media {
+  display: block;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.cart-line-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.cart-line-img.is-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.cart-line-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-decoration: none;
+  /* A ninety-character product name truncates rather than pushing the grid
+     wider than its container; the full name is in the link's own tooltip and
+     on the product page it points at. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--transition);
+}
+.cart-line-name:hover { color: var(--primary); }
+.cart-line.is-urgent .cart-line-name {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  color: var(--text-secondary);
+}
+
+/* ── Line notes ────────────────────────────────────────────────────────── */
+/* Everything a line has to say about itself, under the name rather than in
+   columns that would be empty on most rows. Three weights of the same shape —
+   §7: density comes from hierarchy, not from shrinking. */
+
+.cart-line-notes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  margin-top: var(--sp-1);
+}
+.cart-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px var(--sp-2);
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.05);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  /* Wraps. The pill was `nowrap`, and "$1.10 off — was $21.99 each" is wider
+     than the name column on a 1024px two-column cart and on every phone, so
+     `.lrows`' overflow clip cut the "was" price off mid-word. A two-line pill
+     is a pill with a second line; a clipped one is a lie about the price. */
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+.cart-note svg { flex-shrink: 0; }
+.cart-note.is-saving {
+  border-color: rgba(var(--success-rgb), 0.34);
+  background: rgba(var(--success-rgb), 0.1);
+  color: var(--success);
+}
+.cart-note.is-blocking {
+  border-color: rgba(var(--danger-rgb), 0.38);
+  background: rgba(var(--danger-rgb), 0.12);
+  color: var(--danger);
+  font-weight: 600;
+}
+.cart-note.is-ceiling {
+  border-color: rgba(var(--warning-rgb), 0.32);
+  color: var(--warning);
+}
+/* The re-reckoning's per-line half: this unit price just moved. It arrives
+   with the spring the rest of the system gives small objects, because it is
+   reporting something that happened rather than describing a standing fact. */
+.cart-note.is-shift {
+  border-style: dashed;
+  animation: cart-note-in var(--dur-3) var(--ease-spring) both;
+}
+@keyframes cart-note-in {
+  from { opacity: 0; transform: translateY(-3px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Line figures ──────────────────────────────────────────────────────── */
+
+.cart-line-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  line-height: 1.25;
+  color: var(--text-secondary);
+}
+.cart-line-unit small {
+  font-family: var(--font);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.cart-line-was {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-decoration-thickness: 1px;
+}
+
+.cart-line-qty { justify-self: center; }
+
+.cart-line-total {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+/* Marked only on a line whose UNIT price moved, not on every line the buyer
+   touches: a figure that changed because they pressed `+` needs no comment,
+   and a figure that changed because the engine re-priced the line does. The
+   settle is weight and position rather than colour — colour would have to mean
+   either "good" or "bad", and crossing a volume break is neither. */
+.cart-line-total.is-reckoned { animation: cart-reckon var(--dur-3) var(--ease-settle) both; }
+@keyframes cart-reckon {
+  0%   { transform: translateY(3px); opacity: 0.4; }
+  100% { transform: none; opacity: 1; }
+}
+
+/* The bin. Hover-revealed by `.lrow-actions` (which also shows it on
+   focus-within and on coarse pointers) — except on a line that cannot be
+   sold, where removing it is the buyer's ONLY route to checkout and §4 says
+   the only path to an action is never hidden. */
+.cart-line-actions.is-pinned { opacity: 1 !important; }
+
+.cart-line-remove {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+.cart-line-remove:hover:not(:disabled) {
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.12);
+  border-color: rgba(var(--danger-rgb), 0.32);
+}
+
+/* Loading. The list's own shape, held, so the page does not jump when the
+   answer lands. */
+.cart-line-skel {
+  height: 62px;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--tint-rgb), 0.03) 0%,
+    rgba(var(--tint-rgb), 0.07) 50%,
+    rgba(var(--tint-rgb), 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: cart-skel 1.4s linear infinite;
+}
+.summary-skel {
+  height: 210px;
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.04);
+  animation: cart-skel 1.4s linear infinite;
+  background-size: 200% 100%;
+}
+@keyframes cart-skel {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+.cart-list-foot {
+  margin: 0;
+  padding: 0 var(--sp-1);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.cart-list-foot a { color: var(--text-secondary); }
+.cart-list-foot a:hover { color: var(--primary); }
+
+/* ── Quantity stepper ──────────────────────────────────────────────────── */
+/* One control rather than three loose buttons: the count sits between its own
+   two arrows, so the thing being changed is inside the thing that changes it.
+   Shared with the mini-cart, which uses the read-only variant. */
+
+.qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.05);
+}
+.qty-stepper button {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.qty-stepper button:hover:not(:disabled) {
+  background: var(--btn-bg);
+  color: var(--primary);
+}
+.qty-stepper button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+.qty-value {
+  min-width: 2ch;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* The typable variant. A wholesale line of 24 units cost 23 presses of `+`,
+   which is only tolerable in a mockup with two rows in it. `field-sizing` grows
+   the box to the digits where it is supported and the min/max hold the shape
+   everywhere else — a fixed 2ch box clips a four-figure quantity. */
+.qty-stepper.is-editable .qty-value {
+  width: 3ch;
+  min-width: 3ch;
+  max-width: 6ch;
+  field-sizing: content;
+  padding: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.qty-stepper.is-editable .qty-value:focus-visible {
+  background: var(--btn-bg);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+.qty-stepper.is-editable .qty-value:disabled { opacity: 0.5; }
+
+/* ── Summary panel (both pages) ────────────────────────────────────────── */
+
+.summary-panel {
+  position: sticky;
+  /* Clears the fixed navbar. Named because the number is a measurement of
+     another component, not a spacing choice — a step off the 4px ladder would
+     be a bug in the ladder, this is the navbar's height plus a gap. */
+  top: 90px;
+  padding: var(--sp-5);
+  box-shadow: var(--glass-shadow), 0 0 28px var(--card-glow);
+}
+/* A panel is furniture, not an object — it should not lift toward the pointer
+   the way a product card does, least of all while pinned to the viewport. */
+.summary-panel:hover {
+  transform: none;
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow), 0 0 28px var(--card-glow);
+}
+
+.summary-title {
+  margin: 0 0 var(--sp-4);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+/* Money rows read as a ledger: label left, figure right, and a dotted leader
+   carrying the eye between them so the column of numbers stays scannable even
+   when the labels are wildly different lengths. */
+.ledger {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+}
+.ledger-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  font-size: var(--fs-base);
+}
+.ledger-row dt {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-secondary);
+}
+.ledger-row dt svg { align-self: center; flex-shrink: 0; }
+.ledger-row dt::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px dotted rgba(var(--tint-rgb), 0.16);
+  transform: translateY(-0.3em);
+}
+.ledger-row dd {
+  margin: 0;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.ledger-row dd.is-muted {
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.ledger-row dd.is-free {
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--success);
+}
+.ledger-row.is-credit dt,
+.ledger-row.is-credit dd { color: var(--success); }
+
+.summary-total {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+.summary-total-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+.summary-total-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+/* The gradient is the reward at the end of the page, but it is applied only
+   where clipping to the glyphs actually works — a plain `color: transparent`
+   in a browser without background-clip would erase the total entirely. */
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .summary-total-value {
+    background: linear-gradient(115deg, var(--text) 20%, var(--primary) 120%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* The re-reckoning's subtotal half: the step the last write took, riding just
+   above the figure it moved. Absolute so it cannot reflow the total row — a
+   number that shifts sideways as a chip appears beside it is the opposite of
+   reassuring on a money screen. */
+.summary-delta {
+  position: absolute;
+  right: 0;
+  top: calc(var(--sp-1) * -1);
+  padding: 1px var(--sp-2);
+  border-radius: var(--pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  animation: summary-delta-in var(--dur-3) var(--ease-spring) both;
+}
+.summary-delta.is-down {
+  border-color: rgba(var(--success-rgb), 0.36);
+  background: rgba(var(--success-rgb), 0.12);
+  color: var(--success);
+}
+.summary-delta.is-up {
+  border-color: rgba(var(--tint-rgb), 0.2);
+  color: var(--text-secondary);
+}
+@keyframes summary-delta-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.summary-note {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.cart-ship-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: calc(var(--sp-2) * -1) 0 var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(var(--success-rgb), 0.3);
+  background: rgba(var(--success-rgb), 0.07);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--success);
+}
+.cart-ship-hint svg { flex-shrink: 0; margin-top: 1px; }
+
+.summary-cta {
+  width: 100%;
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  min-height: var(--control-h-lg);
+  font-size: var(--fs-md);
+}
+
+/* The CTA's place, taken by the reason there is no CTA. Same footprint so the
+   panel does not change height when the last unsellable line is removed. */
+.summary-blocked {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-3) var(--sp-4);
+  min-height: var(--control-h-lg);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--danger-rgb), 0.34);
+  background: rgba(var(--danger-rgb), 0.09);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--danger);
+}
+.summary-blocked svg { flex-shrink: 0; }
+
+/* The paused till (pages/Cart.jsx, pages/Checkout.jsx). The blocked notice's
+   footprint, in the offline bar's warm tone rather than danger red: nothing
+   the buyer did is wrong and nothing is broken, the shop is closed for
+   orders — the same reading StorePausedBar gives under the navbar. */
+.summary-paused {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--warning) 40%, transparent);
+  background: color-mix(in srgb, var(--warning) 16%, var(--surface));
+}
+.summary-paused svg { color: var(--warning); }
+.summary-paused b { font-weight: 700; }
+
+.summary-trust {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-4) 0 0;
+  border-top: 1px solid var(--border);
+}
+.summary-trust li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.summary-trust svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--primary);
+  opacity: 0.85;
+}
+
+/* Where the confirmed order goes next, under the receipt. */
+.ck-after {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+/* Line items inside the checkout summary. Capped and scrollable so a large
+   cart cannot push the total — the one figure that matters — off screen. The
+   mask says the list continues, because a cut-off row and a last row look
+   identical without it. */
+.summary-items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-2) 0 var(--sp-4);
+  max-height: 15rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-bottom: 1px solid var(--border);
+  /* `#000` is not a colour here — a mask reads only the alpha channel, and
+     opaque-to-transparent is the whole declaration. Do not "fix" it to a
+     token; the token would change nothing and imply it were themed. */
+  mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - var(--sp-6)), transparent 100%);
+}
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.summary-item-media {
+  position: relative;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.summary-item-media img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+.summary-item-qty {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--pill);
+  background: var(--primary);
+  border: 1px solid var(--glass-bg);
+  /* The page ground, not a pinned near-black. `#04121a` was a dark-mode
+     fossil: on the light-mode primary #4453d6 it measures 3.12:1, under the
+     AA floor. `--bg` inherits primary's own solved ratio in both modes —
+     the identical fix 42-home-featured-carousel.css documents. */
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+.summary-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.summary-item-name,
+.summary-item-variant {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.summary-item-name {
+  font-size: var(--fs-sm);
+  color: var(--text);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+a.summary-item-name:hover { color: var(--primary); }
+.summary-item-variant { font-size: var(--fs-2xs); color: var(--text-muted); }
+.summary-item-price {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* ── Checkout form ─────────────────────────────────────────────────────── */
+
+.ck-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+.ck-section { padding: var(--sp-5); }
+/* Same reasoning as the summary panel: these are containers holding a form,
+   and a whole section sliding under the cursor mid-typing is noise. */
+.ck-section:hover {
+  transform: none;
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.ck-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+/* Numbering the sections turns a tall form into a short list of steps. */
+.ck-step {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.ck-head-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.ck-head-title svg {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+/* What this section has been answered with, so a buyer scrolling back up the
+   form can see what is decided without re-reading the controls. */
+.ck-head-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 2px var(--sp-2);
+  border-radius: var(--pill);
+  border: 1px solid rgba(var(--success-rgb), 0.34);
+  background: rgba(var(--success-rgb), 0.1);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--success);
+  white-space: nowrap;
+  animation: cart-note-in var(--dur-2) var(--ease-spring) both;
+}
+
+/* No methods, and the probe has answered. §9: this is the end of the road on
+   the page where someone is trying to spend money, so it carries the two ways
+   off it. */
+.ck-none {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+.ck-none > svg { flex-shrink: 0; color: var(--text-muted); margin-top: 2px; }
+.ck-none strong {
+  display: block;
+  font-size: var(--fs-base);
+  color: var(--text);
+}
+.ck-none p {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.ck-none-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+/* Still asking. Distinct from the panel above because "we are checking" and
+   "you have no options" are different answers, and drawing the second one
+   first tells someone their account is locked out when it is merely slow. */
+.ck-probing {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* ── Payment tiles ─────────────────────────────────────────────────────── */
+/* `--pm-tint` is set inline per tile so each method can carry its own colour —
+   Bitcoin orange, Monero orange, Zelle blue — while the shape stays identical.
+   Prefixed rather than named `--accent` or `--primary`, which would shadow the
+   theme for everything inside the tile. */
+
+.pm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
+  gap: var(--sp-2);
+}
+.pm-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition),
+              box-shadow var(--transition), transform var(--transition);
+}
+.pm-tile:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+/* Selection lights the shape without moving its edges — §3. Border COLOUR and
+   fill change; the 1px ring is inside the existing border's footprint, so a
+   tile does not grow into its neighbours when picked. */
+.pm-tile.is-selected {
+  border-color: color-mix(in srgb, var(--pm-tint, var(--primary)) 55%, transparent);
+  background: color-mix(in srgb, var(--pm-tint, var(--primary)) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pm-tint, var(--primary)) 35%, transparent),
+              0 6px 22px color-mix(in srgb, var(--pm-tint, var(--primary)) 22%, transparent);
+}
+.pm-mark {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  line-height: 1;
+  /* The tint as ink, nudged toward the solved text colour.
+     `--pm-tint` is a BRAND fact — Bitcoin orange is not a theme choice — so it
+     stays, but painting the glyph with it raw put Litecoin's #bfbbbb on the
+     tile ground at about 1.6:1 in light mode: a mark nobody could see, on the
+     control that decides how money leaves the buyer's hands. The mix is
+     invisible on a saturated hue and rescues the pale ones; light mode leans
+     on it harder because that is where a pale brand colour fails. */
+  color: color-mix(in srgb, var(--pm-tint, var(--primary)) 85%, var(--text));
+  background: color-mix(in srgb, var(--pm-tint, var(--primary)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pm-tint, var(--primary)) 30%, transparent);
+}
+/* A currency sign is typography, so it is set rather than drawn: the display
+   face at a size that matches the 17px lucide glyphs beside it. */
+.pm-glyph {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.pm-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.pm-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  /* A demo rail's operator-supplied label can be any length. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pm-note {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.pm-testnet {
+  align-self: flex-start;
+  margin-top: var(--sp-1);
+  padding: 1px 6px;
+  border-radius: var(--pill);
+  background: rgba(var(--warning-rgb), 0.18);
+  border: 1px solid rgba(var(--warning-rgb), 0.4);
+  color: var(--warning);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+/* What the rail costs the buyer — three short lines under the note. Set a step
+   smaller than the label so the tile still reads as a choice with a footnote,
+   not a paragraph with a radio in it; the terms are the constant column so the
+   eye can compare rails down the grid (DESIGN §6: like against like). Read at
+   `--glow-strength: 0` because nothing here is carried by colour. */
+.pm-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 1px var(--sp-2);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+}
+.pm-facts > div { display: contents; }
+.pm-facts dt {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pm-facts dd {
+  margin: 0;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+/* Selection lifts the facts to full ink: the chosen rail's terms are the ones
+   the buyer is about to agree to. */
+.pm-tile.is-selected .pm-facts dd { color: var(--text); }
+/* Tiles grew taller; align the mark to the top so it sits by the name. */
+.pm-tile { align-items: flex-start; container-type: inline-size; }
+.pm-mark { margin-top: 1px; }
+/* A narrow tile — three abreast on a laptop, or a phone — stacks each term
+   over its value rather than squeezing both into a column four words wide. */
+@container (max-width: 260px) {
+  .pm-facts { grid-template-columns: 1fr; gap: 2px 0; }
+  .pm-facts dt { margin-top: var(--sp-1); }
+  .pm-facts > div:first-child dt { margin-top: 0; }
+}
+
+/* The tick is the confirmation that the click landed; it scales in rather than
+   appearing, which is what makes a radio feel like a control and not a repaint. */
+.pm-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--pm-tint, var(--primary));
+  /* The page ground, not `#04121a`. That literal was the same dark-mode fossil
+     `.summary-item-qty` above carries a comment about having fixed — it stayed
+     here, so on a light page the tick was near-black on Litecoin silver and on
+     the light-mode primary, both under the AA floor. `--bg` follows the mode. */
+  color: var(--bg);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity var(--transition), transform var(--transition);
+}
+.pm-tile.is-selected .pm-check {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Contextual notices ────────────────────────────────────────────────── */
+
+.ck-notice {
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--primary);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+.ck-notice p {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.ck-notice p + p { margin-top: var(--sp-2); }
+.ck-notice p.ck-notice-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--warning);
+}
+.ck-notice-warn svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── Address ───────────────────────────────────────────────────────────── */
+
+/* The six fields as one grid rather than four stacked blocks. Name and company
+   pair, street spans, and city / state / postcode share a line — which is the
+   shape of a written address and therefore the order someone types it in
+   (§7: group by task, not by schema). */
+.ck-addr-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 var(--sp-3);
+}
+/* `display: grid` above is an author-origin declaration, so it beats the user
+   agent's `[hidden] { display: none }` and the attribute silently does nothing.
+   Checkout toggles this block with `hidden` when the buyer supplies a
+   pre-encrypted address instead, and without this the whole form stayed on
+   screen underneath it. Restated at class+attribute specificity so `hidden`
+   means hidden here too. */
+.ck-addr-form[hidden] { display: none; }
+.ck-addr-form .form-group:nth-child(1) { grid-column: span 2; }
+.ck-addr-form .form-group:nth-child(2) { grid-column: span 1; }
+.ck-addr-form .ck-addr-street { grid-column: 1 / -1; }
+
+.field-req { color: var(--accent); }
+.field-opt {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.ck-addr-mode { margin-bottom: var(--sp-4); }
+/* The two options are prose ("I'll encrypt it myself"), and `.segmented`'s
+   `nowrap` made the control wider than the card below 360px, where the
+   card's clip took the end of the second option off. Capped at the card and
+   allowed to wrap, the options split the width instead; on a desktop the
+   inline-flex still shrink-wraps its content, so nothing changes there. */
+.segmented.ck-addr-mode { max-width: 100%; }
+.segmented.ck-addr-mode .segmented-option {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
+
+/* What is about to happen to this address, in the buyer's own terms. */
+.ck-addr-state {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.ck-addr-state svg { flex-shrink: 0; margin-top: 3px; color: var(--text-muted); }
+.ck-addr-state.is-on {
+  border-color: rgba(var(--success-rgb), 0.3);
+  background: rgba(var(--success-rgb), 0.07);
+}
+.ck-addr-state.is-on svg { color: var(--success); }
+
+.ck-pgp-input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+/* Wrong-shaped input is drawn on the field, not only in the message below it. */
+.ck-pgp-invalid {
+  border-color: rgba(var(--warning-rgb), 0.5);
+  background: rgba(var(--warning-rgb), 0.05);
+}
+.ck-addr-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--warning);
+}
+.ck-addr-warn svg { flex-shrink: 0; margin-top: 2px; }
+
+.ck-notes { margin-bottom: 0; }
+
+/* The six fields travel as one block of text, so show the block. A label
+   preview catches the transposed apartment number that reading your own
+   fields back never does. */
+.ship-label {
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px dashed color-mix(in srgb, var(--primary) 30%, var(--border));
+  background: rgba(var(--tint-rgb), 0.045);
+}
+.ship-label-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px dashed color-mix(in srgb, var(--primary) 22%, var(--border));
+  background: rgba(var(--tint-rgb), 0.035);
+}
+.ship-label-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+}
+.ship-label-hint {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.ship-label-body {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.75;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── The store's public key ────────────────────────────────────────────── */
+/* Carried on the page that tells the buyer to use it, rather than named and
+   left for them to find. */
+
+.skey {
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+.skey.is-loading,
+.skey.is-missing {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.skey.is-missing {
+  border-color: rgba(var(--warning-rgb), 0.4);
+  background: rgba(var(--warning-rgb), 0.08);
+  color: var(--warning);
+}
+.skey.is-missing svg { flex-shrink: 0; margin-top: 2px; }
+
+.skey-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.skey-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+}
+.skey-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 1px var(--sp-2);
+  border-radius: var(--pill);
+  border: 1px solid rgba(var(--danger-rgb), 0.38);
+  background: rgba(var(--danger-rgb), 0.12);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.skey-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-3);
+}
+.skey-facts > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+.skey-facts dt {
+  flex-shrink: 0;
+  width: 6.5rem;
+  margin: 0;
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+/* A fingerprint is forty characters and must be comparable digit by digit, so
+   it wraps rather than truncates — a checksum with its tail cut off is worse
+   than no checksum, because it still looks like it has been checked. */
+.skey-facts dd {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.skey-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.skey-block {
+  margin-top: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+}
+.skey-note {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ── Coupon ────────────────────────────────────────────────────────────── */
+
+.ck-coupon {
+  display: flex;
+  gap: var(--sp-2);
+}
+.ck-coupon .glass-input {
+  flex: 1;
+  min-width: 0;
+  /* A coupon code is a token to be transcribed, not prose. */
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ck-coupon .glass-btn {
+  flex-shrink: 0;
+  min-width: 5.5rem;
+}
+.ck-coupon-result {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-sm);
+}
+.ck-coupon-result svg { flex-shrink: 0; }
+.ck-coupon-result.is-valid { color: var(--success); }
+.ck-coupon-result.is-invalid { color: var(--danger); }
+
+/* ── Store credit ──────────────────────────────────────────────────────── */
+/* DESIGN §10 names this: credit that counts down as it is spent. The bar is
+   what is LEFT, so switching credit on drains it — the direction the money is
+   actually going. Fill, rule and a printed figure all carry the split, so it
+   still reads at `--glow-strength: 0`. */
+
+.ckcr-meter {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+.ckcr-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.ckcr-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.ckcr-title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+.ckcr-hint {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ckcr-mark {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.05);
+  color: var(--text-muted);
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.ckcr-meter.is-spending .ckcr-mark {
+  color: var(--success);
+  border-color: rgba(var(--success-rgb), 0.36);
+  background: rgba(var(--success-rgb), 0.1);
+}
+
+/* The meter itself. Collapsed to nothing until the credit is actually being
+   spent — an unspent balance is one sentence, and a bar showing 100% of a
+   thing you have not touched is chrome. `grid-template-rows: 0fr → 1fr` is the
+   receipt's trick: it reveals natural height with no JS measurement.
+
+   Exactly ONE child, and the markup keeps it that way. The trick collapses the
+   single explicit row it declares; a second child is placed in an implicit
+   `auto` row, which does not collapse at all — the meter shipped once with the
+   bar and the figures as siblings and stayed permanently open. */
+.ckcr-bar-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-3) var(--ease-settle);
+}
+.ckcr-meter.is-spending .ckcr-bar-wrap { grid-template-rows: 1fr; }
+.ckcr-bar-inner { overflow: hidden; }
+
+.ckcr-bar {
+  display: flex;
+  height: 8px;
+  margin-top: var(--sp-3);
+  border-radius: var(--pill);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--well);
+}
+.ckcr-bar-fill {
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  transition: width var(--dur-3) var(--ease-settle);
+}
+/* The spent portion is drawn, not left as track: "gone" and "never there" are
+   different facts, and only one of them is money the buyer just committed. */
+.ckcr-bar-spent {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(var(--success-rgb), 0.5) 0 4px,
+    rgba(var(--success-rgb), 0.16) 4px 8px
+  );
+  transition: width var(--dur-3) var(--ease-settle);
+}
+
+.ckcr-figures {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-top: var(--sp-2);
+}
+.ckcr-fig {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.ckcr-fig.is-spend { text-align: right; }
+.ckcr-fig-label {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.ckcr-fig-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.ckcr-fig.is-spend .ckcr-fig-value { color: var(--success); }
+
+.ckcr-covers {
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+.ckcr-covers.is-settled {
+  border-color: rgba(var(--success-rgb), 0.34);
+  background: rgba(var(--success-rgb), 0.09);
+  color: var(--success);
+}
+
+/* ── Spent form ────────────────────────────────────────────────────────── */
+/* The order exists; these fields describe it and no longer steer it. `inert`
+   in the markup takes them out of the tab order — this is the visual half, so
+   the buyer can see the form is finished with rather than wonder why it has
+   stopped responding. */
+.ck-main.is-spent {
+  opacity: 0.55;
+  filter: saturate(0.7);
+  transition: opacity var(--dur-3) var(--ease-panel), filter var(--dur-3) var(--ease-panel);
+}
+
+/* ── Light mode ────────────────────────────────────────────────────────── */
+/* Product imagery is shot on white, so on a light page the plate vanishes and
+   the frame needs its own edge — same fix as .product-card-img. */
+:root[data-theme="light"] .cart-line-img,
+:root[data-theme="light"] .summary-item-media img {
+  border: 1px solid var(--border);
+}
+/* A pale brand colour is ink-on-white in light mode; lean harder on the mix
+   there than the shared rule does. Litecoin's #bfbbbb goes from about 1.6:1 to
+   comfortably past the AA floor for a glyph this size. */
+:root[data-theme="light"] .pm-mark {
+  color: color-mix(in srgb, var(--pm-tint, var(--primary)) 55%, var(--text));
+}
+/* Same problem one layer out: a selected tile's edge is drawn in its own brand
+   colour, and Litecoin silver against a near-white tile is not an edge. The
+   tick badge and the fill already carry the state — this is the third channel
+   §3 asks for, not the only one. Nudged toward the solved text colour rather
+   than toward the brand primary, which would have tinted every selected tile
+   indigo and thrown away the thing `--pm-tint` exists to say. */
+:root[data-theme="light"] .pm-tile.is-selected {
+  border-color: color-mix(in srgb, var(--pm-tint, var(--primary)) 60%, var(--text));
+  background: color-mix(in srgb, var(--pm-tint, var(--primary)) 14%, transparent);
+}
+
+/* ── Two viewports ─────────────────────────────────────────────────────── */
+/* Container queries, not viewport queries — DESIGN §5. The page wrapper is the
+   container, so these fire on the width the columns actually have. */
+
+@container (max-width: 900px) {
+  .cart-layout,
+  .ck-layout { grid-template-columns: minmax(0, 1fr); }
+  /* Unpinned once the summary follows the items rather than sitting beside
+     them — a sticky panel in a single column just eats the viewport. */
+  .summary-panel { position: static; }
+  .summary-items {
+    max-height: none;
+    mask-image: none;
+  }
+}
+
+@container (max-width: 620px) {
+  .ck-addr-form { grid-template-columns: minmax(0, 1fr); }
+  .ck-addr-form .form-group:nth-child(1),
+  .ck-addr-form .form-group:nth-child(2) { grid-column: 1 / -1; }
+  /* Below this the three hints wrap into stacks taller than the rail itself. */
+  .flow-hint { display: none; }
+  .flow-label { font-size: var(--fs-sm); }
+  .summary-total-value { font-size: var(--fs-xl); }
+  .cart-head-back { display: none; }
+  .cart-blocked { flex-wrap: wrap; }
+  .cart-blocked .glass-btn { margin-left: auto; }
+}
+
+/* The phone shape for a cart line. `.lrows` flips to one card per record at
+   560px of ITS OWN width (74-list-views.css); these are the cart's additions
+   on top — the thumbnail keeps its place beside the name, and the stepper and
+   the figure share the bottom line the way they do on the desktop row.
+
+   Not a viewport query, and not the desktop row with columns removed: every
+   cell is still on screen. */
+/* Every selector here is prefixed with `.cart-lines` on purpose. 74-list-views
+   is imported AFTER this file, so its own `@container (max-width: 560px)` block
+   beats anything written at equal specificity — the first draft of this shape
+   lost `.lrow-actions` to it and put the bin button on a row of its own above
+   the product it deletes. The extra class is what makes these rules win. */
+@container (max-width: 560px) {
+  .cart-lines .lrow {
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+    /* Named rather than placed one cell at a time: the phone shape is a
+       different arrangement of the same six cells, and areas are the only
+       form in which the whole arrangement is legible at a glance. */
+    grid-template-areas:
+      "media id   act"
+      "media unit unit"
+      "qty   qty  total";
+    align-items: start;
+    column-gap: var(--sp-3);
+    row-gap: var(--sp-2);
+  }
+  .cart-lines .cart-line-media { grid-area: media; }
+  .cart-lines .cart-line-id { grid-area: id; }
+  .cart-lines .cart-line-unit {
+    grid-area: unit;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: var(--sp-1);
+  }
+  .cart-lines .cart-line-qty {
+    grid-area: qty;
+    justify-self: start;
+    align-self: center;
+  }
+  .cart-lines .cart-line-total {
+    grid-area: total;
+    align-self: center;
+  }
+  .cart-lines .cart-line-actions {
+    grid-area: act;
+    justify-content: flex-end;
+    opacity: 1;
+    padding-top: 0;
+  }
+  /* Touch floor. The stepper is the control a thumb aims at most on this
+     page, and 26px buttons are a mis-tap waiting to happen. */
+  .cart-lines .qty-stepper button {
+    width: 38px;
+    height: 38px;
+  }
+  .cart-lines .cart-line-remove {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+/* Coarse pointers get the 44px floor whatever the width — a tablet at 1024px
+   is still a thumb. Gated on the pointer, not on the box (§4, §5). */
+@media (pointer: coarse) {
+  .qty-stepper button {
+    width: 40px;
+    height: 40px;
+  }
+  .qty-stepper.is-editable .qty-value { min-height: 40px; }
+  .cart-line-remove { width: 40px; height: 40px; }
+  .pm-tile { min-height: 56px; }
+  .segmented.ck-addr-mode .segmented-option { min-height: 44px; }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────── */
+/* Every decorative motion above is opt-out. `both` fills are restored to their
+   end state rather than cancelled, or the content never appears — and the
+   spinner in `.ck-probing` is deliberately left alone: a frozen loader reads
+   as a hung page. */
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-blocked,
+  .cart-note.is-shift,
+  .cart-line-total.is-reckoned,
+  .summary-delta,
+  .ck-head-state {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .cart-line-skel,
+  .summary-skel { animation: none; }
+  .pm-tile:hover { transform: none; }
+  .pm-check,
+  .ckcr-bar-wrap,
+  .ckcr-bar-fill,
+  .ckcr-bar-spent,
+  .ck-main.is-spent { transition: none; }
+}
+
+/* ── Delivery estimate under the ledger ─────────────────────────────────
+   One quiet line. Muted, because it is a courtesy drawn from history and not
+   a promise; absent entirely when the history is too thin (the server
+   suppresses it), so a new store never prints a guess. Its own line rather
+   than a ledger row: the ledger's right column is for money, and a sentence
+   wrapped into a 40% column read as "in" on a line of its own. */
+.summary-eta {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.summary-eta svg { flex-shrink: 0; margin-top: 2px; }
+.summary-eta b { font-weight: 600; color: var(--text-secondary); }
+
+/* ── The rail's fee or discount on its tile ──────────────────────────────
+   A small chip beside the rail name: "−2%" or "+$3.00". Tone carries the
+   direction but so does the sign, so it reads at --glow-strength: 0 and on
+   any preset. */
+.pm-rail {
+  display: inline-block;
+  margin-left: var(--sp-2);
+  padding: 0 6px;
+  border-radius: var(--pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  vertical-align: middle;
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+}
+.pm-rail.is-off { color: var(--success); border-color: rgba(var(--success-rgb), 0.45); }
+.pm-rail.is-fee { color: var(--warning); border-color: rgba(var(--warning-rgb), 0.45); }
+
+/* ── The voucher field ────────────────────────────────────────────────────
+   Under the coupon: a code that becomes store credit at checkout. */
+.ck-voucher { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-3); }
+.ck-voucher .glass-input { font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; }
+.ck-voucher .glass-input::placeholder { font-family: var(--font); letter-spacing: 0; text-transform: none; }
+.ck-voucher-note { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--success); }
+
+/* ── Address lookup ───────────────────────────────────────────────────────
+   A button that swaps the six fields for one search box, and the honest line
+   under it about where the query goes. */
+.ck-lookup { margin: var(--sp-3) 0; }
+.ck-lookup-form { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.ck-lookup-form .glass-input { flex: 1 1 16rem; }
+.ck-lookup-where {
+  flex-basis: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.ck-lookup-where svg { flex-shrink: 0; margin-top: 2px; }
+.ck-lookup-where b { color: var(--text-secondary); font-family: var(--font-mono); }
+.ck-lookup-hits { flex-basis: 100%; list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.ck-lookup-hits button {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: left;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.ck-lookup-hits button:hover { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.08); }
+.ck-lookup-none { font-size: var(--fs-sm); color: var(--text-muted); padding: var(--sp-2) 0; }

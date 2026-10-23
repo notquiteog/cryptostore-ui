@@ -1,0 +1,104 @@
+/* ===============================
+   LIGHT MODE
+   ===============================
+   The store's saved palette is written onto <html> as inline custom properties
+   by ThemeContext, which outranks any selector here. This block is the floor:
+   what light mode looks like before those settings arrive (first paint, a
+   failed settings fetch), and the tokens ThemeContext does not itself set.
+
+   Brand and status colours ARE present here now. They used to be omitted on
+   the theory that one palette should serve both modes — but a colour that
+   reads well on near-black almost never reads well on near-white, and the
+   proof was the old default: the brand cyan scored 1.69:1 on this background,
+   so every link, primary badge and active nav item was effectively invisible
+   the moment a store switched to light. Each mode gets its own value now. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f7f6f2;
+  --bg-wash: #f4f4f2;
+  /* Warm ink, not slate: the tint (borders, wells, shadows) is derived from
+     the text colour by the derivation, so warm paper gets warm shade. */
+  --tint-rgb: 23, 21, 15;
+  --text-rgb: 23, 21, 15;
+  --scrim-rgb: 255, 255, 255;
+
+  --primary: #4453d6;
+  --secondary: #48657d;
+  --accent: #2e3cb8;
+  --info: #48657d;
+  --success: #1c7a4e;
+  --warning: #7d5a10;
+  --danger: #bc3038;
+
+  --primary-rgb: 68, 83, 214;
+  --secondary-rgb: 72, 101, 125;
+  --accent-rgb: 46, 60, 184;
+  --success-rgb: 28, 122, 78;
+  --warning-rgb: 125, 90, 16;
+  --danger-rgb: 188, 48, 56;
+
+  --surface: rgba(246, 246, 253, 0.2);
+  --surface-hover: rgba(246, 246, 253, 0.3);
+  --surface-active: rgba(246, 246, 253, 0.38);
+  --border: rgba(23, 21, 15, 0.13);
+  --border-hover: rgba(23, 21, 15, 0.24);
+
+  --text: #17150f;
+  --text-secondary: rgba(23, 21, 15, 0.7203);
+  --text-muted: rgba(23, 21, 15, 0.5889);
+
+  /* Genuinely translucent, not a white plate. The old floor was
+     `0.55 + opacity * 1.6`, which turned the default into 61% opaque white —
+     the blur underneath had nothing left to do and the result read as a flat
+     card rather than glass. The plate is white tipped 5% toward the glow, so
+     panels separate from the paper instead of dissolving into it. */
+  --glass-bg: rgba(246, 246, 253, 0.2);
+  --glass-border: rgba(23, 21, 15, 0.14);
+  /* An order of magnitude softer than the dark tiers: ink-dark shadows under a
+     panel on a light page read as smudges, not depth. */
+  --shadow-sm: 0 1px 2px rgba(23, 21, 15, 0.05), 0 3px 8px rgba(23, 21, 15, 0.05);
+  --shadow-md: 0 1px 2px rgba(23, 21, 15, 0.04), 0 10px 30px rgba(23, 21, 15, 0.09);
+  --shadow-lg: 0 2px 4px rgba(23, 21, 15, 0.05), 0 16px 44px rgba(23, 21, 15, 0.12), 0 34px 80px rgba(23, 21, 15, 0.08);
+  --glass-shadow: var(--shadow-md);
+
+  --rim-light: rgba(255, 255, 255, 0.85);
+  --rim-dark: rgba(0, 0, 0, 0.10);
+
+  --btn-bg: rgba(68, 83, 214, 0.12);
+  --btn-hover: rgba(68, 83, 214, 0.20);
+  --btn-text: #17150f;
+
+  --primary-glow: rgba(68, 83, 214, 0.20);
+  --secondary-glow: rgba(72, 101, 125, 0.15);
+  --card-glow: rgba(68, 83, 214, 0.09);
+  --bg-glow-1: rgba(68, 83, 214, 0.008);
+  --bg-glow-2: rgba(72, 101, 125, 0.006);
+  --noise-opacity: 0.01;
+  --focus-ring: rgba(68, 83, 214, 0.28);
+  --primary-border: rgba(68, 83, 214, 0.42);
+  --glow-sm: 0 0 12px rgba(68, 83, 214, 0.11);
+  --glow-md: 0 0 22px rgba(68, 83, 214, 0.15);
+  --glow-lg: 0 4px 34px rgba(68, 83, 214, 0.19);
+  --text-glow: 0 0 18px rgba(68, 83, 214, 0.175);
+
+  --nav-bg: rgba(247, 246, 242, 0.82);
+  --overlay-bg: rgba(247, 246, 242, 0.94);
+  --surface-raised: rgba(247, 246, 242, 0.72);
+  --well: rgba(23, 21, 15, 0.05);
+}
+
+/* A pane that must stay opaque for legibility cannot be a white wash on a
+   white page; the drawer backdrop inverts with the mode. */
+:root[data-theme="light"] .admin-drawer-backdrop,
+:root[data-theme="light"] .mobile-backdrop {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+/* Product imagery sits on its own white plate in dark mode; on a light page
+   that plate disappears, so give the frame a visible edge instead. The product
+   page's own stage and rail cards carry a border in both modes already, so
+   only the catalog card needs the override. */
+:root[data-theme="light"] .product-card-img {
+  border: 1px solid var(--border);
+}

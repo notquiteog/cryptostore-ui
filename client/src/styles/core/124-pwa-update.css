@@ -1,0 +1,36 @@
+/* Uses the same raised surface and glass tier as the shared toast, so
+   operator material settings and accessibility overrides apply here too.
+   A persistent update choice above the page, reachable with a thumb or a
+   keyboard. Safe-area offsets keep installed iPhone windows clear of the
+   notch; the narrow layout gives both actions their own full-width row. */
+.pwa-update {
+  position: fixed;
+  z-index: 1100;
+  top: calc(env(safe-area-inset-top, 0px) + var(--sp-4));
+  right: calc(env(safe-area-inset-right, 0px) + var(--sp-4));
+  left: auto;
+  width: min(34em, calc(100% - var(--sp-8) - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface-raised);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  color: var(--text);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--rim-inset), var(--shadow-lg);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  animation: pwa-update-in var(--dur-2) var(--ease-panel) both;
+}
+.pwa-update > svg { flex: none; color: var(--primary); }
+.pwa-update-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.pwa-update-copy p { margin: var(--sp-1) 0 0; color: var(--text-secondary); }
+.pwa-update-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); width: 100%; }
+.pwa-update-actions button { min-height: 44px; flex: 1; }
+@keyframes pwa-update-in { from { opacity: 0; transform: translateY(calc(-1 * var(--sp-2))); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pwa-update { animation: none; } }

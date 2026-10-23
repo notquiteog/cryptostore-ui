@@ -1,0 +1,2037 @@
+/* ===============================
+   FULFILMENT — pull list, packing bench, shelf map
+   ===============================
+   Three screens that are used standing up, often one-handed, often while
+   holding something. That drives every decision here and it is worth stating
+   because it reads as over-large for an admin surface:
+
+     · Quantities are the biggest type on the page. The number of units is the
+       only thing a picker actually reads off a row; the product name is how
+       they confirm they are at the right shelf.
+     · Hit targets are ~34px minimum, and the steppers are larger. A packing
+       screen driven at arm's length with a box in one hand cannot use the
+       28px controls the rest of the console is comfortable with.
+     · Mono for every figure. A counter that changes width as it counts shifts
+       the row under the thumb that is pressing it.
+
+   Colour rules, inherited from 56-admin-console.css and followed throughout:
+     · Every component custom property is prefixed (`--pull-*`, `--pk-*`,
+       `--shelf-*`). A bare `--tone` shadows the theme token of that name for
+       every descendant, and `--accent: var(--accent)` is a cycle that paints
+       nothing at all.
+     · Glow through `--card-glow` or a `color-mix` against a token, never a
+       literal rgba, so `prefers-contrast: more` — which zeroes those tokens —
+       switches it off.
+     · Every lift lives in `@media (hover: hover) and (pointer: fine)`. A bare
+       `:hover { transform }` latches after a tap and leaves a row raised on a
+       phone until something else is touched. */
+
+/* ── Shared: empty states, skeletons ──────────────────────────── */
+
+.pull-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-8) var(--sp-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+.pull-empty p { margin: 0; }
+
+.pull-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.pull-skel-row {
+  height: 46px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: linear-gradient(
+    90deg,
+    var(--glass-bg) 0%,
+    rgba(var(--tint-rgb), 0.07) 50%,
+    var(--glass-bg) 100%
+  );
+  background-size: 200% 100%;
+  animation: fulfil-shimmer 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+@keyframes fulfil-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* On a phone the standard counter tiles are a 2×3 wall that pushes the first
+   actual work row a full screen down — measured on a 390px viewport the first
+   bin header sat at ~620px. These pages are USED on phones (that is the whole
+   point of a walk sheet), so the tiles compress to labelled pills: icon,
+   number, label on one line, the hint dropped. Scoped to the fulfilment pages
+   rather than changed in 56-admin-console.css because the money dashboards
+   read those hints. */
+@media (max-width: 640px) {
+  /* The shared counter strip is already a compact bar at every width now (see
+     the note on `.admin-stats` in 56-admin-console.css), so most of what used
+     to be overridden here is gone. What survives is the part specific to a
+     walk sheet: on a phone, held one-handed in an aisle, a fulfilment counter
+     is a number and a word — the explanatory hint underneath belongs to the
+     money dashboards, which is why this stays scoped to these three pages
+     rather than being changed in the shared file. */
+  .pull-page .admin-stat-hint,
+  .pack-page .admin-stat-hint,
+  .shelf-page .admin-stat-hint { display: none; }
+}
+
+/* A small toggle chip for list-shaping controls (hide pulled, hide empty).
+   Not a glass-btn: these are filters, and a filter that looks like an action
+   gets pressed expecting one. Shared by the pull and shelf toolbars. */
+.pull-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-25);
+  border-radius: var(--pill, 999px);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.pull-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+.pull-chip.is-active {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pull-chip:not(:disabled):hover { color: var(--text); border-color: color-mix(in srgb, var(--primary) 40%, var(--glass-border)); }
+}
+
+/* ── Pull list ────────────────────────────────────────────────── */
+
+.pull-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+.pull-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+}
+.pull-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  box-shadow: 0 0 12px var(--card-glow);
+  transition: width 0.45s var(--ease-settle);
+}
+.pull-progress-text {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pull-progress-text strong { color: var(--text); }
+
+/* A bin is one physical stop. The group reads as a card so the eye can find
+   where one shelf ends and the next begins from across a room. */
+.pull-bin {
+  margin-bottom: var(--sp-3);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  overflow: hidden;
+  animation: fulfil-rise 0.4s var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+}
+@keyframes fulfil-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.pull-bin.has-short { border-color: color-mix(in srgb, var(--danger) 35%, var(--glass-border)); }
+.pull-bin.is-unfiled { border-style: dashed; }
+
+.pull-bin-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+
+.pull-bin-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.pull-bin.is-unfiled .pull-bin-tag { color: var(--warning); }
+
+.pull-bin-count {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+.pull-bin-sep { margin: 0 var(--sp-15); opacity: 0.5; }
+
+.pull-bin-fix {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.pull-bin-fix:hover { border-bottom-color: currentColor; }
+
+.pull-rows { list-style: none; margin: 0; padding: 0; }
+
+.pull-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid rgba(var(--tint-rgb), 0.05);
+  transition: background var(--transition), opacity var(--transition);
+  animation: fulfil-rise 0.32s var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * 22ms);
+}
+.pull-row:last-child { border-bottom: none; }
+.pull-row.is-done { opacity: 0.42; }
+.pull-row.is-done .pull-name { text-decoration: line-through; }
+
+.pull-tick {
+  /* 32px, not the 26px it started at: this is the control a gloved thumb hits
+     while walking, and it was the one target on the page under the ~34px
+     floor the header comment promises. */
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--glass-border);
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.pull-tick:hover { border-color: var(--success); color: color-mix(in srgb, var(--success) 40%, transparent); }
+.pull-row.is-done .pull-tick {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success);
+}
+
+/* The number is the message. */
+.pull-qty {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-05);
+  font-family: var(--font-mono);
+  min-width: 3.2rem;
+}
+.pull-qty-num {
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.pull-qty-x { font-size: var(--fs-sm); color: var(--text-muted); }
+
+.pull-name { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; }
+.pull-group {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pull-group:hover { color: var(--primary); }
+.pull-variant {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── The sort: which units go to which order ───────────────────────────
+ *
+ * Under the product name rather than out in the meta column, because it is
+ * part of the instruction — "pull five: three for slot 1, two for slot 3" —
+ * and not a fact about the line. */
+.pull-split {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  margin-top: var(--sp-1);
+  color: var(--text-muted);
+}
+.pull-split > svg { opacity: 0.6; flex-shrink: 0; }
+.pull-split-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-05);
+  padding: 0.05rem var(--sp-1) 0.05rem 0.05rem;
+  border-radius: var(--pill, 999px);
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  font-family: var(--font-mono);
+  /* Sized up from 0.66rem after looking at it: this is read at arm's length
+     by somebody walking, and it is an instruction, not a footnote. */
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+/* An allocation with nothing left to pull is already in the packer's hand or
+   in a box. Dimmed, not dropped: the split has to keep adding up to the
+   number on the left of the row. */
+.pull-split-chip.is-done { opacity: 0.45; }
+.pull-split-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--text);
+  font-weight: 700;
+  font-size: var(--fs-2xs);
+}
+.pull-split-n { color: var(--text); font-weight: 600; }
+
+/* ── The tote: the batch as an object ─────────────────────────────────── */
+.pull-tote {
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+.pull-tote-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.pull-tote-head > svg { color: var(--primary); flex-shrink: 0; }
+.pull-tote-head strong { font-size: var(--fs-base); }
+.pull-tote-hint {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.pull-tote-slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.pull-tote-slot a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  /* 36px tall: this is a link a picker taps with the hand that is not
+     holding the tote. */
+  min-height: 36px;
+  padding: var(--sp-1) var(--sp-25) var(--sp-1) var(--sp-1);
+  border-radius: var(--pill, 999px);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.05);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color var(--transition), background var(--transition);
+}
+.pull-tote-slot.is-full a {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--glass-border));
+  background: color-mix(in srgb, var(--success) 9%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pull-tote-slot a:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--glass-border)); }
+}
+.pull-tote-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
+.pull-tote-slot.is-full .pull-tote-n { background: color-mix(in srgb, var(--success) 24%, transparent); }
+.pull-tote-ref {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.pull-tote-units { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--text-muted); }
+.pull-tote-hold { display: inline-flex; color: var(--warning); }
+
+.pull-meta { display: flex; align-items: center; gap: var(--sp-2); }
+
+.pull-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  white-space: nowrap;
+}
+
+.pull-orders {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pull-foot {
+  margin-top: var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.pull-foot a { color: var(--primary); }
+
+/* The pull toolbar: filter, list-shaping chips, and the mid-walk arrivals
+   counter. Sits between the progress bar and the first bin. */
+.pull-toolbar {
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.pull-newcount {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+/* A line the quiet poll added after the walk began. The left rail says LOOK
+   without the row shouting; the chip says why. */
+.pull-row.is-new { box-shadow: inset 2px 0 0 var(--warning); }
+.pull-new {
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  white-space: nowrap;
+}
+
+/* Stop chips: one per bin, in walk order. Horizontal scroll rather than wrap
+   because on a phone this is a thumb-strip, and a 14-bin wrap would be a
+   second stats wall in front of the sheet. */
+.pull-jumps {
+  display: flex;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.pull-jumps::-webkit-scrollbar { display: none; }
+
+.pull-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--pill, 999px);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color var(--transition), color var(--transition);
+}
+.pull-jump.is-unfiled { color: var(--warning); border-style: dashed; }
+.pull-jump.is-short { border-color: color-mix(in srgb, var(--danger) 40%, var(--glass-border)); }
+.pull-jump-n {
+  font-size: var(--fs-3xs);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pull-jump:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-border)); }
+}
+
+/* Print-only context line; see the print block at the bottom of this file. */
+.pull-print-head,
+.pack-print-head { display: none; }
+
+/* ── Packing queue ────────────────────────────────────────────── */
+
+.pkq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+
+.pkq-skel {
+  height: 148px;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: linear-gradient(90deg, var(--glass-bg), rgba(var(--tint-rgb), 0.07), var(--glass-bg));
+  background-size: 200% 100%;
+  animation: fulfil-shimmer 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+
+.pkq-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  animation: fulfil-rise 0.4s var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+}
+.pkq-card.is-mine {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--glass-border));
+  box-shadow: 0 0 20px color-mix(in srgb, var(--success) 12%, transparent);
+}
+.pkq-card.is-held { opacity: 0.62; }
+
+@media (hover: hover) and (pointer: fine) {
+  .pkq-card:not(.is-held):hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--glass-border));
+    box-shadow: 0 6px 22px var(--card-glow);
+  }
+}
+
+/* id and status sit together; the age's auto margin pushes it to the edge. */
+.pkq-head { display: flex; align-items: center; gap: var(--sp-2); }
+.pkq-id {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  /* A flex item's default `min-width: auto` refuses to shrink below its own
+     content, so once the id, the status chip and a three-day age no longer
+     fit, the auto margin collapsed and the age came down on top of the id.
+     Truncating the id is the right loss here — the age is a warning and the
+     card links to the order that carries the full reference. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pkq-age {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+/* Age escalates quietly: a day old is worth a glance, three days is a
+   problem. Colour on the age itself, not the card — a wall of red cards
+   ranks nothing. */
+.pkq-age.is-old { color: var(--warning); }
+.pkq-age.is-stale { color: var(--danger); font-weight: 600; }
+
+.pkq-status {
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  background: rgba(var(--tint-rgb), 0.07);
+  white-space: nowrap;
+}
+/* Accepted is the state a pack can actually finish (paid → the bench packs a
+   box that then waits on somebody with order permissions). */
+.pkq-status.is-accepted {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 11%, transparent);
+}
+
+.pkq-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-15);
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--warning);
+}
+.pkq-note svg { flex-shrink: 0; margin-top: var(--sp-05); }
+.pkq-note span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pkq-holder-ttl {
+  margin-left: var(--sp-15);
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.pkq-trunc {
+  margin: calc(-1 * var(--sp-2)) 0 var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.pkq-figures { display: flex; align-items: baseline; gap: var(--sp-15); flex-wrap: wrap; }
+.pkq-units {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.pkq-units-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.pkq-lines {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* What is in the order, on its queue card. The card used to carry only a unit
+   count and a line count, which made every one-line order look like every
+   other one-line order until a packer opened it. */
+.pkq-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  min-width: 0;
+}
+.pkq-items li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pkq-items b {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text);
+  margin-right: 2px;
+}
+/* An em dash that is punctuation, not content: it goes with the variant name
+   rather than leaving a dangling dash on a product that has none. */
+.pkq-item-variant { color: var(--text-muted); }
+.pkq-item-variant::before { content: ' — '; }
+.pkq-items-rest { color: var(--text-muted); font-style: italic; }
+
+/* The carton on a queue card — see components/fulfilment/Carton.jsx for why
+   this is a box and no longer a 4px bar. */
+.pkq-carton {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.pkq-carton-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  display: inline-flex;
+  flex-direction: column;
+}
+.pkq-carton-count b { color: var(--text); font-weight: 700; }
+.pkq-carton-count small { font-size: var(--fs-3xs); color: var(--text-muted); }
+
+.pkq-foot { margin-top: auto; padding-top: var(--sp-1); }
+.pkq-foot .glass-btn { width: 100%; justify-content: center; }
+
+.pkq-holder {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+/* An order somebody has explicitly asked to keep is not "about to free" —
+   telling a picker it frees in three minutes when it is parked for an hour
+   sends them to a shelf for nothing, so the chip says which kind of wait it
+   is before it says how long. */
+.pkq-holder.is-onhold { color: color-mix(in srgb, var(--warning) 80%, var(--text-muted)); }
+
+/* ── Choosing a batch ──────────────────────────────────────────────────
+ *
+ * While choosing, the CARD is the control — this is picked on a phone at a
+ * bench, often one-handed, and a 20px checkbox in a corner is the wrong
+ * target for that. The tick mark is a state indicator, not the hit area. */
+.pkq-card.is-choosing { cursor: pointer; }
+.pkq-card.is-choosing.is-held { cursor: default; }
+.pkq-card.is-picked {
+  border-color: color-mix(in srgb, var(--primary) 60%, var(--glass-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent),
+              0 4px 20px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+/* At the tote's ceiling the unpicked cards go quiet rather than disappearing:
+   the picker still needs to see what is in the queue while deciding which of
+   their picks to swap out. */
+.pkq-card.is-capped { opacity: 0.55; cursor: default; }
+
+.pkq-pick {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  display: inline-flex;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.pkq-card.is-picked .pkq-pick { color: var(--primary); }
+/* Already yours: checked, because it is in the batch — but muted, because
+   this is not where you take it back out. */
+.pkq-pick.is-locked { color: var(--success); opacity: 0.55; }
+/* The id and status would otherwise run under the mark on a narrow card. */
+.pkq-card.is-choosing .pkq-head { padding-right: var(--sp-6); }
+
+/* The footer while choosing: a label, not a button. A "Pack this" button in
+   selection mode navigates away and throws the rest of the choice out. */
+.pkq-choose {
+  display: block;
+  padding: var(--sp-1) 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-align: center;
+}
+.pkq-choose.is-picked { color: var(--primary); font-weight: 600; }
+
+/* The instruction and the confirm, in one bar above the grid — where the
+   StatTiles were, because during a selection the tiles are answering a
+   question nobody is asking. */
+.pkq-choosebar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--glass-border));
+  /* Sticky so the confirm stays reachable while scrolling a long queue: the
+     picker chooses from the bottom of the list as often as the top. */
+  position: sticky;
+  top: var(--sp-3);
+  z-index: 3;
+}
+.pkq-choosebar > svg { color: var(--primary); flex-shrink: 0; }
+.pkq-choosebar-text { min-width: 0; }
+.pkq-choosebar-text strong { display: block; font-size: var(--fs-base); }
+.pkq-choosebar-text p {
+  margin: var(--sp-05) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.pkq-choosebar .glass-btn { margin-left: auto; flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .pkq-choosebar { flex-wrap: wrap; }
+  .pkq-choosebar .glass-btn { margin-left: 0; width: 100%; justify-content: center; }
+}
+
+/* ── Supervising the bench ────────────────────────────────────────────
+ *
+ * A list, not cards: it is read top-to-bottom by somebody deciding which claim
+ * to take back, and the figure they are scanning for is the idle time. */
+.pkc-panel {
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--glass-border));
+}
+.pkc-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.pkc-head > svg { color: var(--primary); flex-shrink: 0; }
+.pkc-head strong { font-size: var(--fs-base); }
+.pkc-head .glass-btn { margin-left: auto; }
+.pkc-empty { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+
+.pkc-list { list-style: none; margin: 0; padding: 0; }
+.pkc-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-15) 0;
+  border-bottom: 1px solid rgba(var(--tint-rgb), 0.06);
+}
+.pkc-row:last-child { border-bottom: none; }
+/* An order somebody explicitly asked to keep is the one a supervisor is most
+   likely to be looking for, so it carries the only colour in the row. */
+.pkc-row.is-onhold { box-shadow: inset 2px 0 0 var(--warning); padding-left: var(--sp-2); }
+
+.pkc-ref {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  text-decoration: none;
+}
+.pkc-ref:hover { color: var(--primary); }
+.pkc-who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary, var(--text-muted));
+}
+.pkc-row.is-onhold .pkc-who { color: var(--warning); }
+.pkc-progress, .pkc-idle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+/* Half an hour of silence is the threshold worth looking at — long enough that
+   somebody actively packing would have touched something. */
+.pkc-idle.is-stale { color: var(--danger); font-weight: 600; }
+.pkc-note {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--warning);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pkc-break { margin-left: auto; flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .pkc-break { margin-left: 0; width: 100%; justify-content: center; }
+}
+
+.pkq-locked {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--glass-border));
+  color: var(--text-muted);
+}
+.pkq-locked strong { color: var(--text); display: block; }
+.pkq-locked p { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); }
+.pkq-locked > svg { color: var(--warning); flex-shrink: 0; }
+.pkq-locked .glass-btn { margin-left: auto; flex-shrink: 0; }
+
+/* ── Packing one order ────────────────────────────────────────── */
+
+.pk-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.pk-progress-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-15);
+}
+.pk-progress-words {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.pk-progress-words b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.pk-progress-done { margin-left: var(--sp-15); color: var(--success); font-weight: 600; }
+.pk-carton { filter: drop-shadow(0 4px calc(10px * var(--glow-strength, 1)) rgba(var(--tint-rgb), 0.18)); }
+.pk-progress-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+}
+.pk-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  transition: width 0.4s var(--ease-settle), background 0.4s var(--transition);
+}
+.pk-progress-fill.is-done {
+  background: linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 60%, var(--accent)));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--success) 30%, transparent);
+}
+.pk-progress-pct {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.8rem;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.pkl-list { list-style: none; margin: 0 0 var(--sp-5); padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.pkl {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  transition: border-color var(--transition), background var(--transition), opacity var(--transition);
+  animation: fulfil-rise 0.34s var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * 26ms);
+}
+
+/* The focused line is what the keyboard acts on. It has to be unmistakable
+   from a metre away, so it gets a rail rather than a tint. */
+.pkl.is-focused {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--glass-border));
+  box-shadow: inset 3px 0 0 var(--primary), 0 0 18px var(--card-glow);
+}
+.pkl.is-complete {
+  border-color: color-mix(in srgb, var(--success) 32%, var(--glass-border));
+  background: color-mix(in srgb, var(--success) 5%, var(--glass-bg));
+}
+.pkl.is-short { border-color: color-mix(in srgb, var(--danger) 35%, var(--glass-border)); }
+
+.pkl-all {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--glass-border);
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.pkl-all:hover:not(:disabled) { border-color: var(--success); color: color-mix(in srgb, var(--success) 45%, transparent); }
+.pkl-all:disabled { cursor: not-allowed; opacity: 0.5; }
+.pkl.is-complete .pkl-all {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+}
+
+.pkl-main { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.pkl-names { display: flex; flex-direction: column; gap: 0.05rem; min-width: 0; }
+.pkl-product {
+  font-weight: 600;
+  font-size: var(--fs-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pkl-variant {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pkl-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+
+.pkl-bin {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.pkl-bin.is-unfiled { color: var(--text-muted); background: rgba(var(--tint-rgb), 0.06); }
+
+.pkl-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+  background: rgba(var(--tint-rgb), 0.06);
+}
+.pkl-tag.is-warn {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+/* Big steppers. This is the control a packer presses once per physical item. */
+.pkl-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.05);
+  border: 1px solid var(--glass-border);
+}
+.pkl-step {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.pkl-step:hover:not(:disabled) { background: rgba(var(--tint-rgb), 0.1); color: var(--primary); }
+.pkl-step:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.pkl-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  min-width: 3.6rem;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.pkl-count-now { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.02em; }
+.pkl-count-of { font-size: var(--fs-xs); color: var(--text-muted); }
+
+.pkl-settle { display: inline-flex; gap: var(--sp-1); flex-shrink: 0; }
+
+/* The per-line "into box" action. Sits beside the counter because that is
+   where the packer's eyes already are after stepping a line. */
+.pkl-boxing { display: inline-flex; flex-shrink: 0; }
+
+.pkl-tobox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.08);
+  border: 1px solid rgba(var(--primary-rgb), 0.35);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-2);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pkl-tobox:hover:not(:disabled) {
+  background: rgba(var(--primary-rgb), 0.16);
+  border-color: var(--primary);
+}
+
+.pkl-tobox:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.pkl-tobox-pick { display: inline-flex; gap: var(--sp-1); flex-wrap: wrap; align-items: center; }
+
+.pkl-tobox-cancel {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* The action is bench-only: a printed slip records picks by hand. */
+@media print { .pkl-boxing { display: none !important; } }
+
+/* The bench strip: keyboard legend on the left, the finish button on the
+   right. Sticky, because on a long order the finish button would otherwise be
+   a scroll away from the last line picked. */
+.pk-bench {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-md, var(--glass-sm));
+  backdrop-filter: var(--glass-md, var(--glass-sm));
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+.pk-bench .glass-btn { margin-left: auto; }
+
+.pk-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.pk-keys kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.07);
+  color: var(--text);
+}
+/* No physical keyboard, no keyboard legend. `hover: none` is the closest
+   media truth for "this is a touch device"; a phone gains nothing from a
+   list of keys it does not have. */
+@media (hover: none) {
+  .pk-keys { display: none; }
+}
+
+/* The claim countdown. It is a button because pressing it renews the claim,
+   but it dresses as telemetry — renewing happens by working, and the pill
+   exists for the packer who paused to answer a door. */
+.pk-claim-ttl {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--pill, 999px);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition), border-color var(--transition);
+}
+.pk-claim-ttl.is-low {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+}
+/* Under an explicit hold the pill stops counting down toward alarm and starts
+   reporting a promise, so it takes the success tone and never the is-low red:
+   "kept 52m" is not a warning, it is the thing the packer asked for. */
+.pk-claim-ttl.is-held {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pk-claim-ttl:hover { color: var(--text); border-color: color-mix(in srgb, var(--primary) 40%, var(--glass-border)); }
+}
+
+/* Pill and extend button read as one control: the second is what you press
+   about the first. Joined edges rather than a gap, so the pair cannot be
+   mistaken for the pill plus some unrelated action. */
+.pk-claim-group { display: inline-flex; align-items: center; }
+.pk-claim-group .pk-claim-ttl {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right-color: transparent;
+}
+.pk-claim-extend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  /* Deliberately taller than the text needs: this is pressed by somebody
+     holding a box, and it sits beside the one control on the bench whose
+     mis-press costs them their order. */
+  padding: var(--sp-1) var(--sp-2);
+  min-height: 30px;
+  border: 1px solid var(--glass-border);
+  border-top-right-radius: var(--pill, 999px);
+  border-bottom-right-radius: var(--pill, 999px);
+  background: rgba(var(--tint-rgb), 0.05);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.pk-claim-extend:disabled { opacity: 0.5; cursor: default; }
+@media (hover: hover) and (pointer: fine) {
+  .pk-claim-extend:not(:disabled):hover {
+    color: var(--success);
+    border-color: color-mix(in srgb, var(--success) 45%, var(--glass-border));
+    background: color-mix(in srgb, var(--success) 10%, transparent);
+  }
+}
+
+/* Counting the shelf, from the line that revealed it was wrong. Quiet by
+   default: it is offered on every line with a catalogue row, and a wall of
+   buttons competing with the pick counter would be worse than no button. */
+.pkl-count { display: flex; align-items: center; }
+.pkl-countbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  /* 30px: below the bench's touch floor for primary controls, deliberately —
+     this is a secondary action beside a counter that must not be mis-hit. */
+  min-height: 30px;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--glass-border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition), border-color var(--transition);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pkl-countbtn:hover {
+    color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--glass-border));
+    border-style: solid;
+  }
+}
+/* On a short line the count is the answer most likely to be right, so it stops
+   being quiet. */
+.pkl.is-short .pkl-countbtn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, transparent); }
+
+.pk-count-delta {
+  margin: var(--sp-05) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--success);
+}
+.pk-count-delta.is-short { color: var(--danger); }
+.pk-count-foot {
+  margin: var(--sp-15) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* The handover note from whoever released this box. Warning-toned but calm:
+   it is information about the box, not an alarm about the order. */
+.pk-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--glass-border));
+}
+.pk-note > svg { color: var(--warning); flex-shrink: 0; margin-top: var(--sp-05); }
+.pk-note strong { display: block; font-size: var(--fs-sm); }
+.pk-note p { margin: var(--sp-1) 0 0; font-size: var(--fs-base); color: var(--text-secondary, var(--text-muted)); line-height: 1.45; }
+
+/* A free order reached by URL: say so, and offer the claim. The first
+   version showed "somebody else is packing this" over a claim nobody held,
+   which is the one lie a coordination screen cannot afford. */
+.pk-claim {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--glass-border));
+  color: var(--text-muted);
+}
+.pk-claim > svg { color: var(--primary); flex-shrink: 0; }
+.pk-claim strong { color: var(--text); display: block; }
+.pk-claim p { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); }
+.pk-claim .glass-btn { margin-left: auto; flex-shrink: 0; }
+
+/* ── The release dialog ───────────────────────────────────────── */
+/* Same native-<dialog> reset 66-order-line-actions.css documents: the UA
+   default is an opaque white box, which under a dark palette is a flashbang. */
+.pk-release-dialog {
+  width: min(460px, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  /* Same sampling note as .oswap-dialog: the top layer sits outside the
+     page's stacking context, so this blurs the page, not a parent card. */
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+/* `-webkit-` FIRST, standard LAST (client/test/backdropFilter.test.mjs). The
+   prefix was missing entirely here — the bundler's autoprefixer adds it back on
+   the way out, so this rule shipped correctly, but the pair is written out
+   because the suite's ordering check is what stops a future edit reintroducing
+   the version of this bug that the minifier cannot repair. */
+.pk-release-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+}
+
+.pk-release-form { padding: var(--sp-4); }
+
+.pk-release-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-25);
+}
+.pk-release-head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-md);
+}
+
+.pk-release-lead {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pk-release-note {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.2rem;
+  font-size: var(--fs-base);
+}
+
+.pk-release-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+  margin-top: var(--sp-3);
+}
+.pk-release-count {
+  margin-right: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* ── Shelf map ────────────────────────────────────────────────── */
+
+.shelf-toolbar { flex-wrap: wrap; gap: var(--sp-2); }
+
+.shelf-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Sort as a segmented control: three fixed orders, one always on. Radio
+   semantics without radio chrome. */
+.shelf-sort {
+  display: inline-flex;
+  padding: var(--sp-05);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+.shelf-sort-btn {
+  padding: var(--sp-1) var(--sp-25);
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+.shelf-sort-btn.is-active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .shelf-sort-btn:not(.is-active):hover { color: var(--text); }
+}
+
+/* Every shelf in use, tap to filter. Wraps rather than scrolls: unlike the
+   pull list's stop strip this is a map to study, and a typo shelf hiding
+   off-screen right defeats the typo-spotting it exists for. */
+.shelf-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+}
+.shelf-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--pill, 999px);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.shelf-legend-chip.is-active {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.shelf-legend-n {
+  font-weight: 400;
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+}
+@media (hover: hover) and (pointer: fine) {
+  .shelf-legend-chip:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--glass-border)); }
+}
+
+.shelf-bulk {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.shelf-bulk-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.shelf-bulk-input,
+.shelf-bin-input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: var(--sp-15) var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.shelf-bulk-input { width: 6.5rem; }
+.shelf-bin-input { width: 100%; max-width: 8rem; }
+.shelf-bulk-input:focus,
+.shelf-bin-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--card-glow);
+}
+.shelf-bin-input.is-changed {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+}
+.shelf-bin-input::placeholder { color: var(--text-muted); }
+
+.shelf-table-wrap {
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  overflow-x: auto;
+}
+
+.shelf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-base);
+  min-width: 21rem;
+}
+.shelf-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: var(--sp-3) var(--sp-3);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  background: var(--surface, var(--glass-bg));
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  border-bottom: 1px solid var(--glass-border);
+}
+.shelf-table tbody tr {
+  border-bottom: 1px solid rgba(var(--tint-rgb), 0.05);
+  transition: background var(--transition);
+  /* No entrance animation, unlike everything else on these pages: thousands
+     of rows animating on mount is a paint storm, and content-visibility
+     below would replay it every time a row scrolled back in. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 42px;
+}
+.shelf-table tbody tr:last-child { border-bottom: none; }
+.shelf-table tbody tr.is-selected { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.shelf-table tbody tr.is-changed { background: color-mix(in srgb, var(--warning) 6%, transparent); }
+.shelf-table tbody tr.is-inactive { opacity: 0.55; }
+.shelf-table td { padding: var(--sp-2) var(--sp-3); vertical-align: middle; }
+
+.shelf-col-pick { width: 2.4rem; }
+.shelf-col-num { width: 4rem; text-align: right; }
+.shelf-col-bin { width: 8.5rem; }
+
+/* Product and variant share one cell: two columns of names was half the
+   table's width spent saying the product name a thousand times over. Inline
+   flow on purpose — a long pair wraps like a sentence, and the cell stays a
+   real table cell. */
+.shelf-item { min-width: 0; }
+.shelf-group { font-weight: 600; margin-right: var(--sp-2); }
+.shelf-variant { color: var(--text-muted); }
+.shelf-ditto {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-weight: 700;
+}
+.shelf-stock {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.shelf-inactive-tag {
+  margin-left: var(--sp-15);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--warning);
+}
+
+/* ── Print: the pull list becomes a sheet of paper ────────────── */
+/*
+   A picker without a phone on the floor prints the walk. Everything that is
+   navigation, chrome or interaction is dropped; the bins, quantities and names
+   stay. Colours are forced to black-on-white because a warehouse printer is
+   monochrome and a tinted glass panel prints as a grey smear. */
+@media print {
+  /* The admin chrome does not go to paper. Scoped to the two fulfilment
+     surfaces that actually print, via the same :has() gate the coupon sheet
+     uses, so this file cannot change what some other admin page prints. */
+  body:has(.pull-page) .admin-sidebar,
+  body:has(.pack-one) .admin-sidebar,
+  body:has(.pull-page) .admin-topbar,
+  body:has(.pack-one) .admin-topbar,
+  body:has(.pull-page) .admin-drawer,
+  body:has(.pack-one) .admin-drawer {
+    display: none !important;
+  }
+  body:has(.pull-page) .admin-main,
+  body:has(.pack-one) .admin-main {
+    margin-left: 0;
+    padding: 0;
+    min-height: 0;
+  }
+
+  .admin-page.pull-page {
+    background: #fff;
+    color: #000;
+  }
+
+  /* The heading inherits theme ink, which on a dark palette prints as a
+     10% grey ghost. Paper is black on white, headings included; the icon
+     is chrome and stays behind. */
+  .pull-page .admin-page-title,
+  .pack-one .admin-page-title,
+  .pull-page .admin-page-sub,
+  .pack-one .admin-page-sub { color: #000 !important; }
+  .pull-page .admin-page-title svg,
+  .pack-one .admin-page-title svg { display: none; }
+  .pull-page .admin-page-actions,
+  .pull-page .admin-stats,
+  .pull-page .pull-progress,
+  .pull-page .pull-toolbar,
+  .pull-page .pull-jumps,
+  .pull-page .pull-new,
+  .pull-page .pull-bin-fix,
+  .pull-page .pull-foot { display: none !important; }
+
+  /* Screen-hidden context line: when the sheet was cut, and how much it
+     carries. Paper has no refresh button, so the sheet must date itself. */
+  .pull-page .pull-print-head {
+    display: block;
+    margin: 0 0 4mm;
+    font-family: var(--font-mono);
+    font-size: 9pt;
+    color: #000;
+    border-bottom: 1px solid #000;
+    padding-bottom: 2mm;
+  }
+
+  .pull-page .pull-bin {
+    border: 1px solid #000;
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    break-inside: avoid;
+    animation: none;
+  }
+  .pull-page .pull-bin-head { background: none; border-bottom: 1px solid #000; }
+  .pull-page .pull-bin-tag,
+  .pull-page .pull-bin-count,
+  .pull-page .pull-group,
+  .pull-page .pull-variant,
+  .pull-page .pull-orders,
+  .pull-page .pull-qty-num { color: #000; }
+
+  /* The split prints. A batch sheet carried to a shelf without it is a list of
+     quantities with no way to divide them, which is the state this feature
+     exists to end — and paper is exactly where a picker cannot fall back to
+     tapping a row to see the answer. Ink, not colour: the tint chips render as
+     invisible grey on most office printers. */
+  .pull-page .pull-split { color: #000; }
+  .pull-page .pull-split > svg { display: none; }
+  .pull-page .pull-split-chip {
+    border: 1px solid #000;
+    background: none;
+    color: #000;
+  }
+  .pull-page .pull-split-chip.is-done { opacity: 1; text-decoration: line-through; }
+  .pull-page .pull-split-slot { background: none; color: #000; border-right: 1px solid #000; border-radius: 0; }
+
+  /* The tote legend prints too — the slot numbers on every row below are
+     meaningless without the key to them. */
+  .pull-page .pull-tote {
+    border: 1px solid #000;
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    break-inside: avoid;
+    color: #000;
+  }
+  .pull-page .pull-tote-hint { display: none; }
+  .pull-page .pull-tote-slot a {
+    border: 1px solid #000;
+    background: none;
+    color: #000;
+    min-height: 0;
+  }
+  .pull-page .pull-tote-n { background: none; border: 1px solid #000; }
+  .pull-page .pull-tote-units { color: #000; }
+  .pull-page .pull-flag {
+    color: #000;
+    background: none;
+    border: 1px solid #000;
+  }
+  .pull-page .pull-row {
+    border-bottom: 1px solid #ccc;
+    animation: none;
+    box-shadow: none;
+  }
+  .pull-page .pull-row.is-done { opacity: 1; }
+
+  /* The tick prints as an empty square to mark with a pen — the first
+     version dropped it entirely, which left the printed sheet with nowhere
+     to record the one thing a walk sheet records. A walk half-done on screen
+     prints its ticks as filled marks. */
+  .pull-page .pull-tick {
+    width: 5mm;
+    height: 5mm;
+    border: 1.5px solid #000 !important;
+    border-radius: 1px;
+    background: none !important;
+    color: transparent !important;
+  }
+  .pull-page .pull-row.is-done .pull-tick { color: #000 !important; }
+
+  /* ── The pack slip ── */
+  .admin-page.pack-one { background: #fff; color: #000; }
+  .pack-one .admin-page-actions,
+  .pack-one .pk-progress,
+  .pack-one .pk-bench,
+  .pack-one .pkl-step,
+  .pack-one .pkl-all,
+  .pack-one .pkl-settle,
+  .pack-one .pkl-count,
+  .pack-one .pkc-panel,
+  .pack-one .pk-note svg,
+  .pack-one .pk-claim,
+  .pack-one .pkq-locked { display: none !important; }
+
+  .pack-one .pack-print-head {
+    display: block;
+    margin: 0 0 4mm;
+    font-family: var(--font-mono);
+    font-size: 9pt;
+    color: #000;
+    border-bottom: 1px solid #000;
+    padding-bottom: 2mm;
+  }
+
+  .pack-one .pk-note {
+    border: 1px solid #000;
+    background: none;
+    color: #000;
+  }
+  .pack-one .pk-note p, .pack-one .pk-note strong { color: #000; }
+
+  .pack-one .pkl {
+    border: none;
+    border-bottom: 1px solid #ccc;
+    border-radius: 0;
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    animation: none;
+    box-shadow: none;
+    break-inside: avoid;
+    grid-template-columns: auto 1fr auto;
+  }
+  .pack-one .pkl-product, .pack-one .pkl-variant,
+  .pack-one .pkl-count-now, .pack-one .pkl-count-of { color: #000; }
+  .pack-one .pkl-bin, .pack-one .pkl-tag {
+    color: #000;
+    background: none;
+    border: 1px solid #000;
+  }
+  .pack-one .pkl-counter { border: none; background: none; }
+
+  /* A hand-tick square per line, hidden on screen where the counter is the
+     record. */
+  .pack-one .pkl-print-box {
+    display: inline-block;
+    width: 5mm;
+    height: 5mm;
+    border: 1.5px solid #000;
+    border-radius: 1px;
+  }
+}
+
+/* The print-only tick square stays out of the screen layout entirely. */
+.pkl-print-box { display: none; }
+
+/* ── Motion ───────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-bin,
+  .pull-row,
+  .pkq-card,
+  .pkl,
+  .shelf-table tbody tr,
+  .pull-skel-row,
+  .pkq-skel { animation: none; }
+  .pull-progress-fill,
+  .pk-progress-fill,
+  .carton-fill { transition: none; }
+  .carton-unit, .boxp-chip.is-arriving { animation: none; }
+}
+
+/* ── Narrow ───────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .pull-row { grid-template-columns: auto auto 1fr; row-gap: var(--sp-1); }
+  .pull-meta { grid-column: 2 / -1; }
+
+  .pkl { grid-template-columns: auto 1fr; row-gap: var(--sp-2); }
+  .pkl-counter { grid-column: 1 / -1; justify-content: space-between; }
+  .pkl-settle { grid-column: 1 / -1; }
+  .pkl-count { min-width: auto; flex: 1; }
+
+  .pk-bench { flex-direction: row; flex-wrap: wrap; }
+  .pk-bench .pk-claim-ttl { order: -1; }
+  .pk-bench .glass-btn { margin-left: 0; flex: 1 1 100%; justify-content: center; }
+
+  .pk-claim { flex-wrap: wrap; }
+  .pk-claim .glass-btn { margin-left: 0; flex: 1 1 100%; justify-content: center; }
+
+  /* With rows selected the bulk controls follow the thumb to the bottom of
+     the screen — on a phone the toolbar they normally live in is somewhere
+     above three hundred rows of scrollback. */
+  .shelf-bulk.has-sel {
+    position: fixed;
+    left: var(--sp-3);
+    right: var(--sp-3);
+    bottom: calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+    z-index: 40;
+    flex-wrap: nowrap;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--radius);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-md, var(--glass-sm));
+    backdrop-filter: var(--glass-md, var(--glass-sm));
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+  }
+  .shelf-bulk.has-sel .shelf-bulk-input { flex: 1 1 auto; min-width: 0; width: auto; }
+}
+
+/* A line whose variant was deleted out from under it. Distinct from `short`:
+   short means the shelf cannot cover it, orphaned means there is no shelf and
+   no catalogue row at all, and only one of the two is fixed by walking. */
+.pull-row.is-orphan { border-left: 2px solid var(--warning); }
+
+.pull-flag.is-orphan {
+  color: var(--warning);
+  border-color: rgba(var(--warning-rgb), 0.4);
+}
+
+/* ── Short picks: the bench's handoff to the order desk ──────────────────────
+ *
+ * A packer at a shelf can see that a line cannot be filled. The person who can
+ * do something about it holds `orders.swap_items`, is somewhere else, and had
+ * no way of finding out — so the shortage sat on a half-picked order until
+ * somebody noticed.
+ *
+ * Three surfaces draw it and each has a different job:
+ *
+ *   the bench     the button that records it, and the note once it is recorded
+ *   the queues    a chip, so the order desk sees it without opening anything
+ *   the order     the packer's words, above the substitution tool
+ *
+ * All three use the warning colour rather than the danger one. Nothing has gone
+ * wrong yet — a shortage is a thing to settle, not a failure — and `--danger` on
+ * this screen already means "this action destroys something".
+ */
+
+.pkl-shortmark {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.pkl-shortbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-15);
+  border: 1px dashed color-mix(in srgb, var(--warning) 50%, transparent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--warning);
+  font-size: var(--fs-3xs);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out);
+}
+
+.pkl-shortbtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.pkl-shortbtn:disabled { opacity: 0.5; cursor: default; }
+
+/* Once marked, the row states the fact and the button becomes "clear" — the
+   packer whose stock turned up needs to un-say it, and a mark with no way back
+   is one nobody will risk setting. */
+.pkl-shortmark[data-on='yes'] .pkl-shortbtn {
+  border-style: solid;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.pkl-shortmark-flag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.pkl-shortmark-flag em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text-muted);
+  /* The note can be 280 characters and the bench row is not the place to read
+     all of it — the order page prints it in full. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 18rem;
+}
+
+/* ── The chips ──────────────────────────────────────────────────────────── */
+
+/*
+ * One rule for both queues, because they are the same chip answering the same
+ * question from two desks. Filled rather than outlined: the other figures on
+ * those cards are counts of ordinary work, and this one is the only thing on
+ * the row that wants somebody to act. It survives `--glow-strength: 0` because
+ * it never used glow — the fill, the icon and the word "short" are three
+ * channels already.
+ */
+.pkq-short,
+.shp-short {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-15);
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: var(--warning);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* ── On the order page ──────────────────────────────────────────────────── */
+
+/*
+ * The packer's own words, above the line's actions. It states what happened
+ * before the screen asks what to do about it (DESIGN §9), and it is the reason
+ * the substitution dialog has opened by itself — an operator who found a dialog
+ * on their screen with no explanation would close it.
+ *
+ * Staff-only by construction: `utils/orderVisibility.js` strips the short mark
+ * for the buyer, so a customer's own order page has nothing to render here.
+ */
+.oitem-short {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-25);
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.oitem-short svg { flex: none; margin-top: 2px; color: var(--warning); }
+.oitem-short strong { color: var(--text); font-weight: 600; }
+
+/* ── The shift panel ───────────────────────────────────────────────────────
+   
+   The claims board's past tense, sitting directly under it and inheriting
+   `.pkc-panel`'s shell so the two read as one supervisor surface rather than
+   two unrelated cards. Everything below is the differences. */
+
+/* The window buttons sit at the right of the header, where the claims board
+   puts Refresh — same position, same register, so the eye learns one place. */
+.pks-windows {
+  display: inline-flex;
+  gap: var(--sp-1);
+  margin-left: auto;
+}
+
+/* A person's row is a name and a run of figures. Wrapping rather than
+   scrolling: on a phone a supervisor reads these stacked, and a horizontal
+   scroller hides the column that matters most on the narrowest screen. */
+.pks-row {
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+}
+
+.pks-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* The units figure rides its box count rather than standing as its own
+   column: "12 boxes · 30 units" is one fact about one person's shift. */
+.pks-stat em {
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+}
+
+/* Shorts are the one figure here that is not throughput — it is work that
+   stalled and is waiting on somebody else. Warning-toned for that reason, and
+   not because raising one is a fault: DESIGN §3, the colour means "needs
+   attention", never "did badly". */
+.pks-stat.is-short {
+  color: var(--warning);
+}
+
+/* The honest footnote about what is NOT counted. Quiet, because it is a
+   qualification rather than a warning — but present, because a per-person
+   panel with a silently missing metric reads as a zero. */
+.pks-caveat {
+  margin: var(--sp-3) 0 0;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--glass-border);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}

@@ -1,0 +1,258 @@
+/* ── Admin search ──
+   The find-any-setting box at the top of the admin nav, and the glow it leaves
+   on whatever it takes you to.
+
+   This file used to style a filter bar on the Settings page. That control could
+   only ever find the sixteen cards on one route, so an operator looking for a
+   rate limit or a node password searched, found nothing, and concluded the
+   setting did not exist. The search moved to the nav, where the navigation is,
+   and this file moved with it.
+
+   The root class is `admin-nav-search`, NOT `admin-search` — that name belongs
+   to the page-toolbar search in 36-admin-page-furniture.css. When this
+   component shipped under the shared name the two stylesheets styled each
+   other: the toolbar file absolutely-positioned this component's magnifier
+   over its own placeholder text on every screen size, and this file's margin
+   and padding shoved every toolbar search off its baseline. If the field ever
+   looks broken again, the first thing to check is that nobody has "unified"
+   the two names. */
+
+.admin-nav-search {
+  position: relative;
+  /* The top margin is not decoration. This is the first thing under
+     `.admin-sidebar-head`, which ends in a 1px divider, and with no gap the
+     field's own border sat directly on that line — two rules a pixel apart
+     reading as one thick smudge, and the box looking welded to the header
+     rather than placed under it. The bottom margin was always here; the top
+     one is its pair. */
+  margin: var(--sp-3) 0 var(--sp-4);
+  padding: 0 var(--sp-3);
+}
+
+.admin-search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-25);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.05);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.admin-search-field > svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+/* Focus is styled on the WRAPPER, not the input: the magnifier and the shortcut
+   hint sit inside the same box, so a ring around the input alone would draw a
+   second rectangle inside the first. */
+.admin-search-field:focus-within {
+  border-color: var(--primary);
+  background: rgba(var(--tint-rgb), 0.08);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.admin-search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-base);
+}
+.admin-search-input:focus { outline: none; }
+.admin-search-input::placeholder { color: var(--text-muted); }
+
+.admin-search-kbd {
+  flex-shrink: 0;
+  padding: var(--sp-05) var(--sp-1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  /* `--surface-2` is not a token this app has ever declared, so the mid-grey
+     fallback always painted — and a flat 12% grey follows neither `--tint-rgb`
+     (which flips polarity between modes) nor the operator's surface scale, so
+     the shortcut chip read as a lift in dark and a smudge in light. */
+  background: rgba(var(--tint-rgb), 0.12);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  line-height: 1.4;
+}
+
+/* ── Results ── */
+
+.admin-search-results {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  top: calc(100% + 0.3rem);
+  z-index: 40;
+  margin: 0;
+  padding: var(--sp-1);
+  list-style: none;
+  max-height: 22rem;
+  overflow-y: auto;
+  /* The same surface recipe as .nav-pop in 63-nav-popovers.css — this IS a
+     popover, and it floats over scrolling nav links. `--overlay-bg` is the
+     ground the theme solves for floating panels specifically; the 5%-alpha
+     `--surface` this used to sit on left the rows dissolving into whatever
+     link happened to be passing underneath. */
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--rim-inset), var(--shadow-lg);
+}
+
+.admin-search-result {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-2);
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* One highlight style for hover, keyboard and focus. Three different ones is
+   how a list ends up showing two "selected" rows at once. */
+.admin-search-result.is-active,
+.admin-search-result:focus-visible {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  outline: none;
+}
+
+.admin-search-result-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  min-width: 0;
+}
+
+.admin-search-result-label {
+  font-size: var(--fs-sm);
+  font-weight: 550;
+  line-height: 1.3;
+}
+
+.admin-search-result-hint {
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+  color: var(--text-muted);
+  /* Two lines maximum. A hint that wraps to four turns an eight-row list into
+     a page of prose. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Which page it lives on, which is half the answer to "where is that setting". */
+.admin-search-result-page {
+  flex-shrink: 0;
+  font-size: var(--fs-3xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-search-empty,
+.admin-search-foot {
+  padding: var(--sp-2) var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.admin-search-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  border-top: 1px solid var(--border);
+  margin-top: var(--sp-1);
+  padding-top: var(--sp-2);
+}
+.admin-search-foot-sep { opacity: 0.5; }
+
+/* ── "Closest by meaning" ──
+   The divider above the second search stage (utils/paletteMeaning.js), shown
+   only when the word matcher found nothing and a model found something.
+
+   It says so in words rather than merely tinting the rows, because these
+   results do NOT contain what was typed: a list of settings with no visible
+   relationship to the query reads as a broken search unless something explains
+   it. The wording is also the honest label for the trade — everything above
+   this line was matched in the browser and went nowhere, and everything below
+   it came back from whichever machine the store embeds on.
+
+   Muted and small, in the same key as `.admin-search-foot`: it is a caption on
+   the rows beneath, and a heading that outweighs its own results is the wrong
+   emphasis for a stage that only runs when the good one failed. */
+.admin-search-meaning {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
+  font-size: var(--fs-3xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.admin-search-meaning svg { color: var(--primary); flex-shrink: 0; }
+
+/* ── The glow on arrival ──
+   Applied by the resolver in AdminLayout to whatever `?hl=` pointed at.
+
+   An outline rather than a background: the target may be a whole settings card
+   with its own surface, or a single input inside one, and a background wash
+   would recolour the first and be invisible on the second. An outline reads the
+   same on both and cannot change how the control itself looks.
+
+   `outline` specifically, not `border` — a border would reflow the element and
+   shove the page half a pixel sideways at the exact moment the operator is
+   trying to read it. */
+@keyframes admin-search-hit-pulse {
+  0%   { outline-color: color-mix(in srgb, var(--primary) 85%, transparent);
+         box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 24%, transparent); }
+  70%  { outline-color: color-mix(in srgb, var(--primary) 70%, transparent);
+         box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 8%, transparent); }
+  100% { outline-color: transparent;
+         box-shadow: 0 0 0 12px transparent; }
+}
+
+.admin-search-hit {
+  outline: 2px solid transparent;
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+  animation: admin-search-hit-pulse 2.6s ease-out forwards;
+}
+
+/* Reduced motion still gets the highlight — it is the whole point of the
+   navigation — but as a steady ring that fades once rather than a pulse.
+   Removing it entirely would leave those users on a long page with no idea
+   which of forty controls they were sent to. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-search-hit {
+    animation: none;
+    outline-color: color-mix(in srgb, var(--primary) 80%, transparent);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 18%, transparent);
+    transition: outline-color 0.4s ease 2.2s, box-shadow 0.4s ease 2.2s;
+  }
+}
+
+/* On the mobile drawer the nav is already narrow; the shortcut hint costs more
+   room than it earns, and the results panel wants the full width. */
+@media (max-width: 1024px) {
+  .admin-search-kbd { display: none; }
+}

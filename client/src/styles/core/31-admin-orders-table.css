@@ -1,0 +1,80 @@
+/* ===============================
+   ADMIN ORDERS TABLE
+   ===============================
+   Row hover used to be two inline JS handlers writing element.style, which
+   defeated the transition and could strand a row mid-highlight when React
+   re-rendered under the pointer. It belongs here. */
+.admin-th {
+  padding: var(--sp-3) var(--sp-4);
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.025);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+.admin-td {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-order-row {
+  transition: background var(--transition), box-shadow var(--transition);
+  animation: admin-row-in 0.32s var(--ease-panel) both;
+  animation-delay: calc(var(--i, 0) * 25ms);
+  position: relative;
+}
+@keyframes admin-row-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.admin-order-row:nth-child(even) { background: rgba(var(--tint-rgb), 0.015); }
+.admin-order-row:hover {
+  background: var(--surface-hover);
+  box-shadow: inset 3px 0 0 var(--row-accent, var(--primary)),
+              inset 0 0 40px color-mix(in srgb, var(--row-accent, var(--primary)) 7%, transparent);
+}
+/* A row that is waiting on staff keeps its marker without needing a hover. */
+.admin-order-row[data-status="awaiting_confirmation"],
+.admin-order-row[data-status="disputed"] {
+  box-shadow: inset 3px 0 0 var(--row-accent, var(--primary));
+}
+.admin-order-row[data-status="disputed"] {
+  background: color-mix(in srgb, var(--danger) 5%, transparent);
+}
+
+/* A counter that is not zero is the thing an operator came here for.
+
+   Static, matching `.admin-stat.is-urgent` in 56-admin-console.css. The icon
+   used to pulse a ring on a 2.2s loop at the top of a screen somebody works a
+   whole shift in — DESIGN §2 rules that out, and the console's own stat family
+   had already dropped it while this older twin kept ringing.
+
+   The lit border, the toned icon cell and the toned figure carry it standing
+   still, and all three still read at `--glow-strength: 0`. */
+.orders-stat-card.is-urgent {
+  border-color: color-mix(in srgb, var(--tone, var(--primary)) 40%, transparent);
+}
+.orders-stat-card.is-urgent .orders-stat-icon {
+  background: color-mix(in srgb, var(--tone, var(--primary)) 18%, transparent);
+  color: var(--tone, var(--primary));
+}
+.orders-stat-card.is-urgent .orders-stat-value {
+  color: var(--tone, var(--primary));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The urgent icon is not listed any more: it no longer animates for anyone,
+     so there is nothing left here to opt out of. */
+  .admin-order-row { animation: none; opacity: 1; }
+}
+

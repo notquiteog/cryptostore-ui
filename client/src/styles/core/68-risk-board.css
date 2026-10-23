@@ -1,0 +1,861 @@
+/* ===============================
+   RISK BOARD — store health, as an annunciator panel
+   ===============================
+   Read at two speeds and built for both: a glance that answers "can I close
+   this page", and a read that answers "what exactly is wrong, since when, and
+   where do I go". The banner is the first. The lit lamps are the second. The
+   roster underneath exists so that the ABSENCE of a check would be noticeable.
+
+   ── The shape, and the failure it prevents ────────────────────────────────
+   The board used to be a grid of equal cards: nine checks, one size, sorted by
+   severity and otherwise identical. That is DESIGN §1's "row of three" at
+   nine — a layout that gives every row the same weight is admitting it never
+   asked which mattered, and on this page eight of nine are usually there only
+   to be counted. So severity decides size: a tripped check is a full-width
+   panel with its numbers, its history and its way out; a clear check is one
+   line you can press.
+
+   ── Severity is never colour alone ────────────────────────────────────────
+   Every state carries an icon, a left rail and a word as well as a hue,
+   because a board whose only signal is red-versus-green is unreadable to a
+   good fraction of the people who will read it, and to anybody reading it in a
+   hurry on a phone. Everything here survives `--glow-strength: 0`: the rails,
+   the struck lamp and the badges are geometry and border, not light.
+
+   Colour rules, inherited from 56-admin-console.css:
+     · The component property is prefixed `--risk-tone`. A bare `--tone` would
+       shadow the theme token of that name for every descendant.
+     · Glow through `color-mix` against a token, never a literal rgba, so
+       `prefers-contrast: more` — which zeroes those tokens — switches it off.
+     · Every lift lives in `@media (hover: hover) and (pointer: fine)`.
+
+   ── Container queries, not viewport queries ───────────────────────────────
+   The lamps and the roster lay themselves out against their own box (§5). On
+   a 1400px desktop the roster inside the "Clear" section is still the width of
+   the content column, and a viewport query would fire the wide rules in the
+   narrowest place the component appears. */
+
+.risk-page {
+  /* The panels and the roster both measure themselves against this, so the
+     same component reads correctly in the page column and would still read
+     correctly in a narrower one. */
+  container-type: inline-size;
+  container-name: risk-board;
+}
+
+/* ── Banner: the whole board in one line ──────────────────────── */
+
+.risk-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-5);
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--risk-tone, var(--success)) 32%, var(--glass-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--risk-tone, var(--success)) 9%, transparent), transparent 62%),
+    var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  box-shadow: var(--rim-inset);
+  animation: risk-in var(--dur-3) var(--ease-settle) both;
+}
+
+.risk-banner-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--risk-tone, var(--success));
+  background: color-mix(in srgb, var(--risk-tone, var(--success)) 14%, transparent);
+}
+
+/* A store that is actually broken should feel different from one that is fine.
+
+   The old answer was a pulse on the red disc — "the cheapest way to say so
+   without sound". The trouble with cheap is that it never stops: a critical
+   banner stays up until somebody fixes the store, so the loop was guaranteed
+   to be running for exactly as long as the operator was trying to concentrate
+   on fixing it. DESIGN §2, and the same reasoning that made the urgent stat
+   counter static.
+
+   Struck rather than throbbing: the disc is filled solid in the tone instead
+   of washed at 14%, the glyph reverses out of it, and a ring holds it at the
+   radius the pulse used to expand to. That is a louder resting state than the
+   animation ever had a frame of, and it survives --glow-strength: 0. */
+.risk-banner.is-critical .risk-banner-icon {
+  background: var(--risk-tone, var(--danger));
+  color: var(--bg);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--risk-tone, var(--danger)) 22%, transparent);
+}
+
+.risk-banner-text { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; }
+.risk-banner-text strong { font-size: var(--fs-md); }
+.risk-banner-text > span {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+.risk-hidden { display: inline-flex; align-items: center; gap: var(--sp-1); }
+/* An operator who has switched the scheduled scan off is looking at a board
+   that only moves when somebody presses a button. Saying so in the tone of the
+   thing it affects, because a silently stale board is the failure mode. */
+.risk-off { color: var(--warning); font-weight: 600; }
+
+.risk-banner-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+.risk-tally { display: inline-flex; gap: var(--sp-1); }
+.risk-pip {
+  min-width: 30px;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid transparent;
+}
+.risk-pip.is-critical { color: var(--danger);  background: color-mix(in srgb, var(--danger) 12%, transparent);  border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+.risk-pip.is-warn     { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); border-color: color-mix(in srgb, var(--warning) 30%, transparent); }
+.risk-pip.is-unknown  { color: var(--text-muted); background: rgba(var(--tint-rgb), 0.06); }
+.risk-pip.is-ok       { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+
+/* ── Loading ──────────────────────────────────────────────────── */
+/* Shaped like the thing that is coming — one wide lamp, then rows — rather
+   than a grid of equal boxes the board will never render. A skeleton that
+   settles into a different layout is a page that jumps under the cursor. */
+
+.risk-skels { display: flex; flex-direction: column; gap: var(--sp-2); }
+.risk-skel {
+  height: 44px;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: linear-gradient(90deg, var(--glass-bg), rgba(var(--tint-rgb), 0.07), var(--glass-bg));
+  background-size: 200% 100%;
+  animation: risk-shimmer 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+.risk-skel:first-child { height: 132px; }
+@keyframes risk-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+@keyframes risk-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Lit lamps: the checks that need somebody ─────────────────── */
+
+.risk-lit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+
+.risk-panel {
+  position: relative;
+  display: flex;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  box-shadow: var(--rim-inset);
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  animation: risk-in var(--dur-3) var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+  /* The panel's own box is what the head row and the figures measure against,
+     so a lamp reads the same in a narrow column as in a wide one. */
+  container-type: inline-size;
+}
+
+/* The rail is the redundant channel: severity readable with the hue removed. */
+.risk-panel::before,
+.risk-row::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--risk-tone, var(--success));
+  opacity: 0.85;
+}
+
+.risk-panel.is-critical {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--glass-border));
+  box-shadow: var(--rim-inset), 0 0 22px color-mix(in srgb, var(--danger) 10%, transparent);
+}
+.risk-panel.is-warn {
+  border-color: color-mix(in srgb, var(--warning) 32%, var(--glass-border));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .risk-panel:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--rim-inset), 0 6px 22px var(--card-glow);
+  }
+}
+
+/* The lamp itself.
+
+   Struck while unacknowledged — filled solid, glyph reversed out — and steady
+   once somebody has seen it: washed back to a tint, with the ring gone. That
+   is the annunciator's own behaviour and it is doing a job here, not a
+   costume: across a board of four problems it says at a glance which ones
+   have already been picked up, without adding a column to say so.
+
+   It is geometry and fill, so it holds at --glow-strength: 0. */
+.risk-panel-lamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--bg);
+  background: var(--risk-tone, var(--success));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--risk-tone, var(--success)) 20%, transparent);
+  transition: background var(--dur-3) var(--ease-settle),
+              box-shadow var(--dur-3) var(--ease-settle),
+              color var(--dur-3) var(--ease-settle);
+}
+.risk-panel.is-acked .risk-panel-lamp {
+  color: var(--risk-tone, var(--success));
+  background: color-mix(in srgb, var(--risk-tone, var(--success)) 14%, transparent);
+  box-shadow: none;
+}
+
+.risk-panel-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.risk-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.risk-panel-label {
+  /* min-width:0 so the ellipsis engages on the LABEL rather than pushing the
+     severity badge out of the panel. Without it a flex item refuses to shrink
+     below its content and the badge is the thing that gets clipped — which is
+     the one part of this header that must never be. */
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.risk-badge {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--radius-sm);
+  color: var(--risk-tone, var(--success));
+  background: color-mix(in srgb, var(--risk-tone, var(--success)) 11%, transparent);
+  border: 1px solid color-mix(in srgb, var(--risk-tone, var(--success)) 26%, transparent);
+}
+
+.risk-held {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.risk-summary {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* ── Acknowledge ──────────────────────────────────────────────── */
+/* Pushed to the end of the head row, because it is the one control on a lamp
+   and §1 says not to print five identical buttons where one action matters. */
+
+.risk-ack-btn,
+.risk-ack.is-done { margin-left: auto; }
+
+.risk-ack-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--risk-tone, var(--primary)) 34%, var(--glass-border));
+  background: color-mix(in srgb, var(--risk-tone, var(--primary)) 10%, transparent);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+}
+.risk-ack-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--risk-tone, var(--primary)) 20%, transparent);
+}
+.risk-ack-btn:active:not(:disabled) { transform: translateY(1px); }
+.risk-ack-btn:disabled { opacity: 0.55; cursor: progress; }
+.risk-ack-btn.is-bulk { --risk-tone: var(--primary); margin-left: 0; }
+
+.risk-ack.is-done {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  /* Arrives once, when the press lands — the lamp going steady is the whole
+     feedback, and a lamp that keeps announcing itself is the pulse this file
+     already removed once. */
+  animation: risk-ack-in var(--dur-2) var(--ease-spring) both;
+}
+@keyframes risk-ack-in {
+  from { opacity: 0; transform: translateX(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Meter ────────────────────────────────────────────────────── */
+/* Only percentage checks get one. A meter on a value with no ceiling is a
+   decoration pretending to be information — and the ticks are why it is here
+   at all: a bar at 78% says nothing until you can see that the line the
+   operator drew is at 75. */
+
+.risk-meter-wrap { display: flex; align-items: center; gap: var(--sp-3); }
+
+.risk-meter {
+  position: relative;
+  flex: 1;
+  height: 7px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+}
+.risk-meter-fill {
+  height: 100%;
+  border-radius: var(--pill);
+  background: var(--risk-tone, var(--success));
+  transition: width 0.5s var(--ease-settle);
+}
+
+/* A hairline standing ON the bar rather than a mark under it: the operator is
+   comparing two positions on one axis, and moving the comparison off the axis
+   makes them do it by eye.
+
+   Drawn in the TEXT colour rather than in the page ground, which is what the
+   first version used. A ground-coloured tick is a cut through the fill and
+   invisible everywhere else — so the warn line vanished the moment the bar had
+   not reached it, which is precisely when an operator wants to see where it is.
+   A neutral at 55% reads against the fill and against the empty track, in both
+   modes, and the halo keeps it from disappearing into a fill of a similar
+   weight. */
+.risk-tick {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--text) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg) 65%, transparent);
+}
+.risk-tick.is-critical { background: color-mix(in srgb, var(--text) 80%, transparent); }
+
+.risk-meter-scale {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.risk-meter-scale b { font-size: var(--fs-sm); color: var(--text); font-weight: 600; }
+
+/* ── Figures ──────────────────────────────────────────────────── */
+
+.risk-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-5);
+  margin: 0;
+}
+.risk-figure { display: flex; flex-direction: column; gap: 0.05rem; }
+.risk-figure dt {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.risk-figure dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ── The strip chart ──────────────────────────────────────────── */
+/* Where this check has been across the window. A flex row of proportional
+   segments, because that is exactly the geometry: each state held a fraction
+   of the window, and the fractions sum to one.
+
+   The `is-none` hatch is the stretch the transition log does not cover, and it
+   is deliberately not a colour. Painting an unwatched week in whatever the
+   check happens to be now would be the most misleading thing on this page. */
+
+.risk-band-wrap { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.risk-band {
+  display: flex;
+  height: 10px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: rgba(var(--tint-rgb), 0.06);
+  box-shadow: var(--rim-inset);
+}
+/* min-width so the current state is never zero-width. A check that went unknown
+   twelve minutes ago holds 0.06% of a fortnight, and a segment rounded away is
+   a chart that disagrees with the lamp beside it. */
+.risk-band-seg { display: block; height: 100%; min-width: 2px; }
+.risk-band-seg.is-critical { background: color-mix(in srgb, var(--danger) 85%, transparent); }
+.risk-band-seg.is-warn     { background: color-mix(in srgb, var(--warning) 82%, transparent); }
+.risk-band-seg.is-unknown  { background: rgba(var(--tint-rgb), 0.28); }
+.risk-band-seg.is-ok       { background: color-mix(in srgb, var(--success) 58%, transparent); }
+/* The unwatched stretch has to be distinguishable and must not be the loudest
+   thing in the strip. On a fresh install it is most of the band, and a dense
+   high-contrast hatch there shouts about the one part of the chart that carries
+   no information — burying the two days of real history beside it. Wide pitch,
+   low contrast: legible as "not the same as the colours", quiet as a texture. */
+.risk-band-seg.is-none {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(var(--tint-rgb), 0.10) 0 2px,
+    transparent 2px 7px
+  );
+}
+
+.risk-band-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.risk-flaps { color: var(--warning); }
+
+/* ── Where to go next ─────────────────────────────────────────── */
+/* DESIGN §9. A board that says the Zelle pool is 92% consumed and offers no
+   way to reach the Zelle accounts is a screen whose only outbound path is the
+   back button. */
+
+.risk-next { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.risk-hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.risk-links { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+.risk-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  /* --control-h-sm on a pointer, stepped up on touch below: §5's 44px floor is
+     about the finger, not about the window. */
+  min-height: var(--control-h-sm);
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.04);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.risk-link:hover,
+.risk-link:focus-visible {
+  color: var(--text);
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.08);
+}
+
+/* ── Dark lamps: the roster ───────────────────────────────────── */
+
+.risk-dark { margin-bottom: var(--sp-6); }
+
+.risk-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+}
+.risk-section-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  padding: 0.05rem var(--sp-15);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.07);
+}
+
+.risk-roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.risk-row {
+  position: relative;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: rgba(var(--tint-rgb), 0.03);
+  overflow: hidden;
+  animation: risk-in var(--dur-2) var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+  transition: border-color var(--transition), background var(--transition);
+  container-type: inline-size;
+}
+/* A clear row recedes. It is on the board so its absence would be noticeable,
+   not so it competes with the one that is red. */
+.risk-row.is-ok::before { opacity: 0.3; }
+.risk-row.is-critical { border-color: color-mix(in srgb, var(--danger) 34%, transparent); }
+.risk-row.is-warn { border-color: color-mix(in srgb, var(--warning) 26%, transparent); }
+.risk-row.is-open { background: rgba(var(--tint-rgb), 0.05); border-color: var(--glass-border); }
+
+/* One press opens the detail. Not a hover: DESIGN §4 — "never hide the only
+   path to an action", and "touch has no hover". A hover-only disclosure here
+   would leave a phone with nine check names and none of their numbers. */
+.risk-row-main {
+  display: grid;
+  grid-template-columns: auto minmax(9ch, 15ch) 1fr auto auto;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.risk-row-main:hover { background: rgba(var(--tint-rgb), 0.04); }
+
+.risk-row-icon { display: inline-flex; color: var(--risk-tone, var(--success)); }
+
+.risk-row-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The summary is the flexible column and the one allowed to truncate: it is a
+   sentence, the severity beside it is not, and a row that wraps to three lines
+   destroys the single scanning axis §6 asks a line item for. The full text is
+   one press away in the detail, so nothing is lost — only folded. */
+.risk-row-summary {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.risk-row-state { display: inline-flex; align-items: center; gap: var(--sp-2); }
+
+.risk-row-chev {
+  color: var(--text-muted);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.risk-row.is-open .risk-row-chev { transform: rotate(180deg); }
+
+.risk-row-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-4) var(--sp-4) var(--sp-4);
+  animation: risk-open var(--dur-2) var(--ease-settle) both;
+}
+@keyframes risk-open {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.risk-row-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+/* The compact roster under "Clear" carries less: those rows are a count with
+   names attached, and the summary sentence on a healthy check is "the disk is
+   41% full", which the figure says better. */
+.risk-roster.is-compact .risk-row-main { min-height: var(--control-h-sm); }
+
+/* ── The tape: what changed ───────────────────────────────────── */
+/* The part the latch could never answer. The board says what is wrong now;
+   this says what changed, in what order, and whether it changed back. */
+
+.risk-tape { margin-top: var(--sp-6); }
+
+.risk-tape-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.risk-tape-head h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+}
+.risk-tape-more {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.risk-tape-more:hover { color: var(--primary); }
+
+.risk-tape-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+
+.risk-tape-row {
+  display: grid;
+  grid-template-columns: 7ch minmax(9ch, 14ch) auto 1fr;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  border-top: 1px solid var(--glass-border);
+}
+.risk-tape-row:first-child { border-top: 0; }
+.risk-tape-row:nth-child(even) { background: rgba(var(--tint-rgb), 0.025); }
+
+.risk-tape-when { color: var(--text-muted); font-size: var(--fs-2xs); }
+.risk-tape-check {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.risk-tape-check:hover { color: var(--primary); }
+
+/* Two dots and an arrow: the crossing itself, which is the row's subject. A
+   rise reads left-to-right into the louder colour and a recovery reads back
+   out of it, so the direction of the fault is visible without reading. */
+.risk-tape-move { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-muted); }
+.risk-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.risk-dot.is-critical { background: var(--danger); }
+.risk-dot.is-warn { background: var(--warning); }
+.risk-dot.is-unknown { background: var(--text-muted); }
+.risk-dot.is-ok { background: var(--success); }
+
+.risk-tape-text {
+  min-width: 0;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Footer ───────────────────────────────────────────────────── */
+
+.risk-empty-sub { font-size: var(--fs-sm); color: var(--text-muted); max-width: 52ch; }
+
+.risk-foot {
+  margin-top: var(--sp-5);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 68ch;
+}
+
+/* ── Keyboard ─────────────────────────────────────────────────── */
+/* Ordered after the hover rules so the two do not cancel out, and answered
+   with light rather than with the user agent's outline. */
+
+.risk-row-main:focus-visible,
+.risk-link:focus-visible,
+.risk-ack-btn:focus-visible,
+.risk-tape-check:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Touch ────────────────────────────────────────────────────── */
+/* Gated on the pointer, not on the width: a laptop at 700px still has a mouse,
+   and a tablet at 1024px still has a thumb. */
+
+@media (pointer: coarse) {
+  .risk-row-main { min-height: 44px; }
+  .risk-roster.is-compact .risk-row-main { min-height: 44px; }
+  .risk-link,
+  .risk-ack-btn { min-height: 44px; }
+}
+
+/* ── Narrow ───────────────────────────────────────────────────── */
+/* Container queries, so these fire when the COMPONENT is narrow rather than
+   when the window is. The roster below a phone width is a different layout,
+   not the same layout with columns hidden — hiding the summary would silently
+   delete the one field that says what is wrong. */
+
+@container risk-board (max-width: 640px) {
+  .risk-banner { flex-wrap: wrap; }
+  .risk-banner-actions { margin-left: 0; width: 100%; justify-content: space-between; }
+
+  .risk-panel { flex-direction: column; gap: var(--sp-3); }
+  .risk-panel-head { row-gap: var(--sp-1); }
+  /* The acknowledge control drops to its own line rather than fighting the
+     label for the same row and truncating it to four characters. */
+  .risk-ack-btn,
+  .risk-ack.is-done { margin-left: 0; width: 100%; justify-content: center; }
+
+  .risk-meter-wrap { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  /* `flex: 1` on the bar means `flex-basis: 0%`, and once the wrap turns to a
+     column that basis applies to the HEIGHT — so the bar's own 7px is
+     overridden, it grows into zero free space, and the meter disappears
+     entirely on a phone while the numbers beside it stay. Pinned to its
+     intrinsic height here rather than dropped from the row layout, where the
+     grow is what makes it fill the space beside the scale. */
+  .risk-meter { flex: 0 0 auto; }
+  .risk-meter-scale { justify-content: space-between; }
+
+  /* Two lines per row: identity and state on the first, the sentence beneath
+     it in full. Nothing is dropped and nothing scrolls sideways. */
+  .risk-row-main {
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-areas:
+      'icon label state chev'
+      'summary summary summary summary';
+    row-gap: var(--sp-1);
+    padding: var(--sp-2) var(--sp-3);
+  }
+  .risk-row-icon { grid-area: icon; }
+  .risk-row-label { grid-area: label; }
+  .risk-row-state { grid-area: state; }
+  .risk-row-chev { grid-area: chev; }
+  .risk-row-summary {
+    grid-area: summary;
+    white-space: normal;
+    overflow: visible;
+    font-size: var(--fs-xs);
+  }
+
+  /* Same rule, same reason: the tape's timestamp and its sentence stack rather
+     than the sentence being clipped to nothing at 375px. */
+  .risk-tape-row {
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      'when move check'
+      'text text text';
+    row-gap: var(--sp-1);
+  }
+  .risk-tape-when { grid-area: when; }
+  .risk-tape-move { grid-area: move; }
+  .risk-tape-check { grid-area: check; }
+  .risk-tape-text { grid-area: text; white-space: normal; overflow: visible; font-size: var(--fs-xs); }
+}
+
+/* ── Motion ───────────────────────────────────────────────────── */
+/* Every decorative motion is opt-out; the shimmer is a loader and stays, because
+   a frozen skeleton reads as a hung page. Animations declared `both` have their
+   end state restored here rather than merely cancelled — an `animation: … both`
+   switched off with `animation: none` leaves the content at its FROM keyframe,
+   which for every one of these means invisible. */
+
+@media (prefers-reduced-motion: reduce) {
+  .risk-panel,
+  .risk-row,
+  .risk-banner,
+  .risk-row-detail,
+  .risk-ack.is-done {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .risk-meter-fill,
+  .risk-row-chev,
+  .risk-panel-lamp { transition: none; }
+  /* The critical banner's icon is struck static for everyone, so it is not
+     listed here — there is nothing to switch off. */
+}

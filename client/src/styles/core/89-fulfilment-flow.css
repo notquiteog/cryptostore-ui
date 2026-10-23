@@ -1,0 +1,401 @@
+/* ── The fulfilment flow: the strip, the scanner, the paper ─────────────────
+ *
+ * Three things the four fulfilment pages share and none of them owned:
+ *
+ *   `.fflow`    the Pull → Pack → Ship → Manifest strip at the top of each
+ *               page, with the backlog at every station and this one lit.
+ *   `.scanbox`  the field a box tag or order reference is scanned or typed
+ *               into, on the bench and at the desk.
+ *   `.fsheet`   the two printed sheets a packer produces — box tags and the
+ *               packing slip — hidden on screen and revealed by print CSS
+ *               behind the same body:has() gate the pull sheet, pack slip and
+ *               address label use, so this file cannot change what any other
+ *               admin page prints.
+ *
+ * Plus the bench's "packed" panel and the desk's scanned-box highlight, which
+ * are the two ends of a handoff and read as one motion: the box leaves the
+ * bench lit, and arrives at the desk lit.
+ *
+ * Theme tokens only. The strip must survive --glow-strength: 0 — the current
+ * station is carried by border and weight, the glow is the emphasis. */
+
+/* ── The strip ──────────────────────────────────────────────────────────── */
+
+.fflow {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-4);
+}
+
+.fflow-step {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  animation: rise-in 0.36s var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger));
+}
+
+.fflow-link {
+  display: inline-flex;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.fflow-station {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--control-h-lg);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.03);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+a.fflow-station:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+a.fflow-station:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Here. Border colour and weight carry it; the glow is the emphasis. */
+.fflow-station.is-here {
+  border-color: rgba(var(--primary-rgb), 0.55);
+  background: rgba(var(--primary-rgb), 0.08);
+  box-shadow: var(--glow-sm), var(--rim-inset);
+}
+.fflow-station.is-here .fflow-label { color: var(--primary); }
+.fflow-station.is-here .fflow-icon { color: var(--primary); }
+
+/* A station this person's grants do not open. Drawn, counted, not a link —
+   the count is the point: "eleven orders are waiting at a desk that is not
+   mine" is the honest answer to where the box went. */
+.fflow-station.is-locked {
+  border-style: dashed;
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.fflow-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(var(--tint-rgb), 0.06);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.fflow-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.fflow-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.fflow-count {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.fflow-n {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--fs-base);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.fflow-n.is-loading { color: var(--text-muted); }
+.fflow-station.has-work .fflow-n { color: var(--primary); }
+.fflow-station.is-locked.has-work .fflow-n { color: var(--text-secondary); }
+
+.fflow-hint {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Phone: a 2×2 grid, no arrows, the hint dropped. The strip is read as four
+   tiles there, and four tiles need no connective glyph between them. */
+@media (max-width: 640px) {
+  .fflow {
+    display: grid;
+    /* `minmax(0, 1fr)`, not `1fr`: a bare `1fr` will not shrink below its
+       station's content, so on a 320px phone the pair of tracks was 327px in
+       a 288px column and the strip ran off the page. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-2);
+  }
+  .fflow-step { display: contents; }
+  .fflow-link { display: none; }
+  .fflow-station { width: 100%; min-width: 0; padding: var(--sp-2); }
+  .fflow-station > * { min-width: 0; }
+  .fflow-hint { display: none; }
+}
+/* One station per line on the narrowest phones: two 140px stations cannot
+   hold "Ship desk" and its count side by side. */
+@media (max-width: 380px) {
+  .fflow { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── The scanner ────────────────────────────────────────────────────────── */
+
+.scanbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--well);
+  color: var(--text-muted);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.scanbox:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  color: var(--primary);
+}
+.scanbox-icon { flex-shrink: 0; }
+.scanbox-input {
+  width: 15rem;
+  max-width: 50vw;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.scanbox-input::placeholder {
+  font-family: var(--font);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+.scanbox-kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  padding: 0 var(--sp-1);
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+}
+@media (max-width: 640px) {
+  .scanbox { width: 100%; height: var(--control-h); }
+  .scanbox-input { width: 100%; max-width: none; }
+}
+
+/* ── The tag beside every box, on screen ────────────────────────────────── */
+
+/* What a packer writes on the carton if there is no printer: nine mono
+   characters, always visible, never behind a hover. */
+.boxp-tag,
+.shp-box-tag {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  padding: var(--sp-05) var(--sp-15);
+  white-space: nowrap;
+  background: rgba(var(--tint-rgb), 0.04);
+}
+
+/* ── The bench's "packed" panel ─────────────────────────────────────────── */
+
+/* Replaces the bench strip once the pack is done: the next move, offered.
+   Lit, because it is the one thing on the screen asking to be pressed. */
+.pk-done {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-top: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--radius);
+  border: 1px solid rgba(var(--success-rgb), 0.45);
+  background: rgba(var(--success-rgb), 0.07);
+  box-shadow: var(--glow-sm), var(--rim-inset);
+  animation: rise-in 0.42s var(--ease-settle) both;
+}
+.pk-done-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--success);
+  background: rgba(var(--success-rgb), 0.14);
+  flex-shrink: 0;
+}
+.pk-done-text { flex: 1; min-width: 12rem; }
+.pk-done-text strong { display: block; font-family: var(--font-display); font-size: var(--fs-md); }
+.pk-done-text p { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+.pk-done-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* ── The desk's scanned box ─────────────────────────────────────────────── */
+
+/* The box the scanner just named: lit once, then it settles. A single pulse
+   rather than a loop (DESIGN §2: nothing loops), long enough to find with
+   the eyes after the card scrolls into view. */
+.shp-box.is-scanned {
+  animation: shp-scan-land 2.4s var(--ease-panel) both;
+}
+@keyframes shp-scan-land {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.55), var(--glow-md); border-color: var(--primary); }
+  60%  { box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0), var(--glow-sm); border-color: var(--primary); }
+  100% { box-shadow: none; border-color: var(--border); }
+}
+.shp-card.is-scanned { border-color: rgba(var(--primary-rgb), 0.45); }
+
+/* ── The paper ──────────────────────────────────────────────────────────── */
+
+/* Hidden on screen. The print block below shows exactly one of them, and
+   only while the page carries the matching `is-printing-*` class. */
+.fsheet { display: none; }
+
+@media print {
+  body:has(.is-printing-tags) .admin-sidebar,
+  body:has(.is-printing-slip) .admin-sidebar,
+  body:has(.is-printing-tags) .admin-topbar,
+  body:has(.is-printing-slip) .admin-topbar,
+  body:has(.is-printing-tags) .admin-drawer,
+  body:has(.is-printing-slip) .admin-drawer { display: none !important; }
+  body:has(.is-printing-tags) .admin-main,
+  body:has(.is-printing-slip) .admin-main { margin-left: 0; padding: 0; min-height: 0; }
+
+  /* Everything on the page but the sheet goes. `.fsheet` is a direct child
+     of the page wrapper on both the bench and the desk, which is what lets
+     one selector do it. */
+  .is-printing-tags > *:not(.fsheet-tags),
+  .is-printing-slip > *:not(.fsheet-slip) { display: none !important; }
+  .is-printing-tags .fsheet-tags,
+  .is-printing-slip .fsheet-slip { display: block !important; }
+
+  .is-printing-tags,
+  .is-printing-slip { background: #fff !important; color: #000 !important; }
+
+  /* The address label's own print block hides everything in a card that is
+     not the label sheet; a desk card printing tags or a slip is not printing
+     a label, and the sheet lives at page level anyway. */
+
+  /* ── Box tags: 100 × 62mm, one per carton, two to a row on A4/Letter, or
+     one per page on a label printer set to that size. ── */
+  .fsheet-tags {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 6mm;
+    padding: 6mm;
+  }
+  .ftag {
+    box-sizing: border-box;
+    width: 100mm;
+    height: 62mm;
+    padding: 4mm 5mm;
+    border: 1px solid #000;
+    border-radius: 2mm;
+    display: flex;
+    flex-direction: column;
+    gap: 2mm;
+    break-inside: avoid;
+    font-family: system-ui, sans-serif;
+    color: #000;
+  }
+  .ftag-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 9pt;
+  }
+  .ftag-store { font-weight: 600; }
+  .ftag-box { font-weight: 800; font-size: 13pt; letter-spacing: 0.04em; }
+  .ftag-code { display: flex; flex-direction: column; align-items: center; gap: 1mm; }
+  .ftag-code .barcode { width: 100%; height: 14mm; color: #000; }
+  .ftag-tag { font-family: ui-monospace, monospace; font-size: 12pt; font-weight: 700; letter-spacing: 0.16em; }
+  .ftag-lines {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 8.5pt;
+    line-height: 1.3;
+    flex: 1;
+    overflow: hidden;
+  }
+  .ftag-lines b { font-weight: 700; }
+  .ftag-more { color: #444; font-style: italic; }
+  .ftag-foot {
+    display: flex;
+    gap: 3mm;
+    font-size: 8pt;
+    color: #333;
+    border-top: 1px dashed #999;
+    padding-top: 1.5mm;
+  }
+  .ftag-note { font-style: italic; }
+
+  /* ── Packing slip ── */
+  .fsheet-slip {
+    padding: 10mm 12mm;
+    font-family: system-ui, sans-serif;
+    color: #000;
+    max-width: 180mm;
+  }
+  .fslip-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8mm;
+    border-bottom: 2px solid #000;
+    padding-bottom: 4mm;
+    margin-bottom: 5mm;
+  }
+  .fslip-store { font-size: 11pt; font-weight: 600; }
+  .fslip-title { font-size: 18pt; font-weight: 800; letter-spacing: -0.01em; }
+  .fslip-meta { font-size: 9pt; color: #333; font-family: ui-monospace, monospace; margin-top: 1mm; }
+  .fslip-code { display: flex; flex-direction: column; align-items: center; gap: 1mm; width: 60mm; }
+  .fslip-code .barcode { width: 100%; height: 12mm; color: #000; }
+  .fslip-code span { font-family: ui-monospace, monospace; font-size: 10pt; letter-spacing: 0.14em; font-weight: 700; }
+  .fslip-box { margin-bottom: 5mm; break-inside: avoid; }
+  .fslip-box h3 { font-size: 11pt; margin: 0 0 2mm; display: flex; justify-content: space-between; }
+  .fslip-tag { font-family: ui-monospace, monospace; font-weight: 600; letter-spacing: 0.1em; }
+  .fslip-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  .fslip-table th { text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: #333; border-bottom: 1px solid #000; padding: 1mm 0; }
+  .fslip-table td { padding: 1.5mm 0; border-bottom: 1px solid #ccc; vertical-align: top; }
+  .fslip-qty { width: 12mm; font-family: ui-monospace, monospace; font-weight: 700; text-align: right; padding-right: 4mm !important; }
+  .fslip-none { color: #666; font-style: italic; }
+  .fslip-foot { margin-top: 8mm; font-size: 8.5pt; color: #444; border-top: 1px dashed #999; padding-top: 3mm; }
+}
+
+/* ── Motion opt-out ─────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .fflow-step,
+  .pk-done { animation: none; opacity: 1; transform: none; }
+  .shp-box.is-scanned { animation: none; border-color: var(--primary); }
+  a.fflow-station:hover { transform: none; }
+}

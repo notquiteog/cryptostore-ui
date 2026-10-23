@@ -1,0 +1,530 @@
+/* ===============================
+   AI DRAFTS — the staff tools, and the slip a draft lands on
+   ===============================
+   components/admin/ai/*, used by the product editor, the ticket composer and
+   the dashboard.
+
+   ── The border is the whole idea ──
+   98-tag-suggestions.css settled this language already: a tag the product HAS
+   wears a solid border, one it COULD have wears a dashed one. A draft is the
+   same claim about a paragraph — the model proposes, the operator disposes,
+   and nothing in the form has changed yet. So every proposed surface here is
+   dashed, and the moment an operator presses "use this" the text moves into a
+   field with an ordinary solid border and stops being a proposal.
+
+   That is also the answer to DESIGN §1. The generic AI panel is a gradient
+   with a sparkle on it, recognisable across ten thousand products; this one
+   is built out of the vocabulary the rest of this admin already speaks, and
+   it survives a theme where --glow-strength is 0 and the two tints are close,
+   because a dashed line is not a colour.
+
+   ── Why the slip is not a modal ──
+   The draft has to be readable NEXT TO the field it would replace. An
+   operator's actual question is "is this better than what I have", and a
+   dialog that covers the current value makes that question unanswerable
+   without dismissing the answer. So it sits inline, under the field, and the
+   field stays on screen. */
+
+.aidraft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+/* ── The trigger ─────────────────────────────────────────────────────────── */
+
+.aidraft-trigger-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.aidraft-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  min-height: 0;
+  border-radius: var(--pill);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px dashed var(--border);
+  cursor: pointer;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  transition:
+    color var(--transition),
+    border-color var(--transition),
+    background var(--transition),
+    box-shadow var(--transition),
+    transform var(--dur-1) var(--ease-spring);
+}
+
+.aidraft-trigger:hover:not(:disabled),
+.aidraft-trigger:focus-visible {
+  color: var(--text);
+  border-style: solid;
+  border-color: rgba(var(--primary-rgb), 0.55);
+  background: rgba(var(--primary-rgb), 0.1);
+  box-shadow: var(--glow-sm);
+  transform: translateY(-1px);
+  outline: none;
+}
+.aidraft-trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.aidraft-trigger:active:not(:disabled) { transform: translateY(0); }
+
+.aidraft-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.aidraft-hint {
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ── The optional refinement each tool may carry on its trigger row ──────── */
+
+.aidraft-input {
+  /* Grows into the row, but yields to the trigger: the button is the part
+     that must stay pressable at every width, and a field that pushed it onto
+     a second line on a laptop would have been worse than no field. */
+  flex: 1 1 11rem;
+  min-width: 0;
+  max-width: 24rem;
+  padding: var(--sp-1) var(--sp-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: rgba(var(--tint-rgb), 0.03);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+.aidraft-input:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-style: solid;
+  border-color: rgba(var(--primary-rgb), 0.45);
+}
+.aidraft-input::placeholder { color: var(--text-muted); }
+
+/* ── The slip ────────────────────────────────────────────────────────────── */
+
+.aidraft-slip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px dashed var(--border);
+  border-left-width: 3px;
+  border-left-color: rgba(var(--primary-rgb), 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.03);
+  animation: aidraft-slip-in var(--dur-2) var(--ease-spring) both;
+}
+
+@keyframes aidraft-slip-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.aidraft-slip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.aidraft-slip-title {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.aidraft-slip-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.aidraft-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-1);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), background var(--transition);
+}
+.aidraft-link:hover,
+.aidraft-link:focus-visible {
+  color: var(--text);
+  background: var(--surface-hover);
+  outline: none;
+}
+.aidraft-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.aidraft-link:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.aidraft-slip-body {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  /* A long draft scrolls inside the slip rather than pushing the form's save
+     button off the bottom of the screen. */
+  max-height: 22rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Prose drafts keep the paragraph breaks the model produced. `pre-wrap` and
+   not a markdown pass: `prompts.parseProse` already returns plain text, and
+   rendering it as markdown would be the one place in this feature where model
+   output chooses what an operator's screen does. */
+.aidraft-prose {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── While it is still going ─────────────────────────────────────────────── */
+
+/* The in-progress slip. Same object as the finished one — it becomes the
+   finished one — so it wears the same dashes and only its left edge is
+   muted, saying "not settled yet" without moving anything on the page when
+   the answer lands. */
+.aidraft-slip.is-live {
+  border-left-color: rgba(var(--tint-rgb), 0.25);
+}
+
+/* The model's working-out. Visibly subordinate to the answer: smaller, muted,
+   monospaced because it is machine chatter rather than shop copy, and inside
+   a <details> so it can be shut. It opens by itself while there is no answer
+   text yet — on a reasoning model that is the only thing happening for the
+   first minute, and an empty box would be worse than the chatter. */
+.aidraft-thinking {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  border-left: 2px solid var(--border);
+  padding-left: var(--sp-2);
+}
+
+.aidraft-thinking > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--fs-3xs);
+  padding: var(--sp-05) 0;
+}
+.aidraft-thinking > summary::-webkit-details-marker { display: none; }
+.aidraft-thinking > summary:hover { color: var(--text-secondary); }
+.aidraft-thinking > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.aidraft-thinking-text {
+  margin: var(--sp-1) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Pinned to the last few lines. The working-out of a reasoning model runs to
+     thousands of words and it is glanceable evidence that something is
+     happening, not a document — letting it grow unbounded pushes the whole
+     form off the screen while the operator is trying to watch it. */
+  max-height: 7.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The text cursor at the end of a streaming answer. The one piece of motion
+   here that is a loader, so DESIGN §2's rule applies: it keeps blinking under
+   `prefers-reduced-motion`, because a frozen cursor reads as a hung
+   generation, which is exactly what it exists to disprove. */
+.aidraft-cursor {
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--primary);
+  opacity: 0.7;
+  animation: aidraft-blink 1s steps(2, start) infinite;
+}
+
+@keyframes aidraft-blink {
+  to { visibility: hidden; }
+}
+
+.aidraft-slip-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.aidraft-accept {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-25);
+  min-height: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.05);
+  /* Solid: pressing this is the moment the thing stops being a proposal. */
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition),
+    background var(--transition), box-shadow var(--transition);
+}
+.aidraft-accept:hover,
+.aidraft-accept:focus-visible {
+  color: var(--text);
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+  outline: none;
+}
+.aidraft-accept:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.aidraft-accept.is-primary {
+  color: var(--text);
+  border-color: rgba(var(--primary-rgb), 0.55);
+  background: rgba(var(--primary-rgb), 0.12);
+}
+.aidraft-accept.is-primary:hover,
+.aidraft-accept.is-primary:focus-visible {
+  background: rgba(var(--primary-rgb), 0.18);
+  box-shadow: var(--glow-sm);
+}
+
+.aidraft-slip-note {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ── Failure ─────────────────────────────────────────────────────────────── */
+
+.aidraft-error {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid rgba(var(--warning-rgb), 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--warning-rgb), 0.07);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* ── Tag and attribute chips ─────────────────────────────────────────────── */
+
+.aidraft-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+/* Sized and dashed to match .apedit-suggest-chip exactly: a suggested tag is
+   the same kind of object whether the store's own vocabulary proposed it or
+   the model did, and making the two rows look like different mechanisms would
+   claim a difference that does not exist at the point of pressing one. */
+.aidraft-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-15) var(--sp-05) var(--sp-15);
+  min-height: 0;
+  border-radius: var(--pill);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px dashed var(--border);
+  cursor: pointer;
+  transition:
+    color var(--transition),
+    border-color var(--transition),
+    background var(--transition),
+    box-shadow var(--transition),
+    transform var(--dur-1) var(--ease-spring);
+}
+.aidraft-chip:hover,
+.aidraft-chip:focus-visible {
+  color: var(--text);
+  border-style: solid;
+  border-color: rgba(var(--primary-rgb), 0.55);
+  background: rgba(var(--primary-rgb), 0.1);
+  box-shadow: var(--glow-sm);
+  transform: translateY(-1px);
+  outline: none;
+}
+.aidraft-chip:active { transform: translateY(0); }
+
+/* A chip with nothing to press it into (AttributeAssist: the words are
+   evidence, not a destination). Same shape so it reads as the same kind of
+   object, no cursor and no hover lift so it does not promise an action it
+   does not have. */
+.aidraft-chip.is-static {
+  cursor: default;
+  transform: none;
+}
+.aidraft-chip.is-static:hover {
+  color: var(--text-secondary);
+  border-style: dashed;
+  border-color: var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  box-shadow: none;
+  transform: none;
+}
+
+/* How many reviews contained the word. A numeral, so mono — and the same
+   treatment .apedit-suggest-uses gets, for the same reason: the count is
+   evidence, the word is the thing you read. */
+.aidraft-chip-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  line-height: 1;
+  padding: var(--sp-05) var(--sp-1);
+  border-radius: var(--pill);
+  color: var(--text-muted);
+  background: rgba(var(--tint-rgb), 0.08);
+}
+
+/* ── The dashboard's daily note ──────────────────────────────────────────── */
+
+.aidraft-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  padding-top: var(--sp-2);
+  border-top: 1px dashed var(--border);
+}
+
+.aidraft-fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-15);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.aidraft-fact-n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+/* A fact worth acting on is a link, not a number. DESIGN §9: if a field names
+   another record, it is a link. */
+a.aidraft-fact:hover .aidraft-fact-n,
+a.aidraft-fact:focus-visible .aidraft-fact-n { color: var(--primary); }
+a.aidraft-fact { text-decoration: none; }
+a.aidraft-fact:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* ── Touch and reduced motion ────────────────────────────────────────────── */
+
+@media (pointer: coarse) {
+  .aidraft-trigger { padding: var(--sp-15) var(--sp-3); }
+  .aidraft-chip { padding: var(--sp-15) var(--sp-25) var(--sp-15) var(--sp-2); }
+  .aidraft-link { padding: var(--sp-15) var(--sp-15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aidraft-slip { animation: none; }
+  /* .aidraft-cursor is deliberately NOT stopped here. DESIGN §2 leaves
+     loaders alone: a frozen cursor at the end of a half-written answer reads
+     as a generation that has died, which is the one thing this element exists
+     to disprove. */
+  .aidraft-trigger,
+  .aidraft-chip {
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+  }
+  .aidraft-trigger:hover:not(:disabled),
+  .aidraft-trigger:focus-visible,
+  .aidraft-chip:hover,
+  .aidraft-chip:focus-visible { transform: none; }
+}
+
+
+/* A suggested word the operator has ticked, waiting on Apply.
+   These chips were `.is-static` for as long as there was nowhere to press them
+   into; now that a variant carries its own tags they are real buttons, and the
+   selected state has to be visible without relying on the tick alone — a chip
+   whose only "on" signal is a 11px glyph is one people mis-select. */
+.aidraft-chip.is-on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--text-primary);
+}
+.aidraft-chip.is-on .aidraft-chip-count { color: var(--primary); }
+
+/* A suggestion the operator has PRESSED, on the catalogue-health tag queue.
+   Solid where the unpicked chips are dashed — the same "has / could have"
+   pair 98-tag-suggestions.css settled — because picking is the approval and
+   the row must show which of them are about to be saved. */
+.aidraft-chip.is-picked {
+  border-style: solid;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ── The FAQ entry drafted from a closed ticket ──────────────────────────────
+ *
+ * `components/admin/ai/FaqAssist.jsx`. Drawn as the two parts it will become
+ * on the page — a heading and a paragraph — rather than as one block of prose,
+ * because the operator's job here is to check the HEADING generalises. An
+ * entry titled "Where is order 4821?" is the failure this feature has to make
+ * visible at a glance, and it is invisible if the question is the first
+ * sentence of a paragraph.
+ */
+
+.faqdraft-q {
+  margin: 0 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text);
+  /* The `###` it will be on the page, shown as the heading it will be. */
+  line-height: 1.3;
+}
+
+/*
+ * The one instruction that matters before publishing, and the reason it is
+ * lit: this draft is built from a customer's own words and is headed for a
+ * public page. Warning rather than danger — nothing has happened yet, and the
+ * operator is being asked to read, not stopped from acting.
+ */
+.faqdraft-note {
+  margin: var(--sp-2) 0 0;
+  padding-top: var(--sp-2);
+  border-top: 1px dashed var(--border);
+  font-size: var(--fs-2xs);
+  color: var(--warning);
+}

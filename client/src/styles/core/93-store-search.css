@@ -1,0 +1,194 @@
+/* ── The storefront palette ──
+   components/StoreSearch.jsx. Same surface recipe as the admin search's
+   results (65-settings-search.css) — `--overlay-bg` behind glass, the rim
+   inset, one highlight style for hover, keyboard and focus — but it is a
+   dialog, not a dropdown: on a desktop it floats near the top of the
+   viewport, on a phone it is a sheet that IS the page until dismissed. */
+
+/* The scrim carries `glass-plate` in StoreSearch.jsx, and both halves of that
+   matter.
+
+   Its veil is on a backing layer because `.ss-dialog` is its CHILD: a
+   `backdrop-filter` here made the scrim the dialog's backdrop root, so the
+   dialog's own `--glass-lg` sampled a flat dim instead of the page and the
+   palette sat over perfectly legible product names. See `.glass-plate` in
+   06-glass-primitives.css.
+
+   And the veil is `--glass-scrim` rather than the `blur(3px)` that used to be
+   written here, which was the one blur in the app no operator could reach —
+   the flat theme, the reduced-transparency mode and a slider dragged to zero
+   all left this 3px in place. */
+.ss-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10vh var(--sp-4) var(--sp-4);
+  --plate-filter: var(--glass-scrim);
+  background: rgba(0, 0, 0, 0.42);
+  animation: ss-fade var(--dur-2, 0.18s) ease-out both;
+}
+@keyframes ss-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.ss-dialog {
+  width: min(640px, 100%);
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  box-shadow: var(--rim-inset), var(--shadow-lg);
+  overflow: hidden;
+  animation: ss-rise var(--dur-3, 0.3s) var(--ease-settle, ease-out) both;
+}
+@keyframes ss-rise {
+  from { transform: translateY(-10px) scale(0.985); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+.ss-field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--glass-border);
+}
+.ss-field > svg { flex-shrink: 0; color: var(--text-muted); }
+.ss-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+}
+.ss-input:focus { outline: none; }
+.ss-input::placeholder { color: var(--text-muted); }
+.ss-close {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.08);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ss-close:hover { background: rgba(var(--tint-rgb), 0.14); color: var(--text); }
+.ss-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--tint-rgb), 0.18);
+  border-top-color: var(--primary);
+  animation: ss-spin 0.8s linear infinite;
+}
+@keyframes ss-spin { to { transform: rotate(360deg); } }
+
+.ss-results {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-15);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 3rem;
+}
+.ss-group {
+  padding: var(--sp-2) var(--sp-25) var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ss-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-25);
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ss-row.is-active,
+.ss-row:focus-visible {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  outline: none;
+}
+.ss-row-icon {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(var(--tint-rgb), 0.08);
+  color: var(--text-secondary);
+  overflow: hidden;
+}
+.ss-row-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ss-row-main { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; flex: 1; }
+.ss-row-label {
+  font-size: var(--fs-base);
+  font-weight: 550;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-row-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-row-enter { flex-shrink: 0; color: var(--text-muted); }
+.ss-empty { padding: var(--sp-4) var(--sp-3); color: var(--text-muted); font-size: var(--fs-base); }
+
+.ss-foot {
+  display: flex;
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--glass-border);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.ss-foot kbd {
+  display: inline-block;
+  margin-right: var(--sp-1);
+  padding: 0.05rem var(--sp-1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(var(--tint-rgb), 0.12);
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+}
+
+/* There is no trigger in the navbar any more. The palette is a hidden
+   hotkey — Ctrl/Cmd K, from useStorePalette — and the keycap button that
+   used to sit beside the product search was removed on the operator's call:
+   the search field is the visible door, the palette is the one people who
+   know it is there reach for. */
+
+/* On a phone the palette is a sheet from the top, full width, most of the
+   height; the keyboard hints mean nothing on a touch screen and go. */
+@media (max-width: 768px) {
+  .ss-backdrop { padding: 0; align-items: stretch; }
+  .ss-dialog { width: 100%; max-height: none; border-radius: 0 0 var(--radius) var(--radius); border-width: 0 0 1px; }
+  .ss-foot { display: none; }
+}

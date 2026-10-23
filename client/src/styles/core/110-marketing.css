@@ -1,0 +1,589 @@
+/* ===============================
+   MARKETING — the funnel, the channels, the campaign list
+   ===============================
+   Skin for `pages/admin/Marketing.jsx`. Built on `.lrows` / `.lrow`
+   (74-list-views.css) for the same reason the invite-links console and the
+   credit ledger are: that pair already owns the rhythm, the zebra, the paired
+   hover/focus-within rule, the reserved action space and the container query
+   that turns a line item into a card. A second copy of any of them is how one
+   console stops looking like one product.
+
+   What this file adds, and the failure each shape prevents:
+
+   · **The funnel band.** Four counters in a row state the numbers and hide the
+     shape, and the shape is the entire point — the question is never "how many
+     arrived", it is "where do they stop". Each stage is drawn at its true
+     proportion of the arrivals, so a link everybody clicks and nobody signs up
+     through looks different from one nobody clicks, before either is read as a
+     number. The proportion is PRINTED under every stage as well as drawn: a
+     bar is `aria-hidden` decoration over a figure, never the only way to read
+     it, and a width alone would not survive a screen reader or an operator who
+     has flattened every effect in the theme.
+
+   · **Channels as pressable chips, not a second table.** They are the filter
+     the list is read through, so they are laid out as something to press. Each
+     carries its own arrivals → accounts pair, because a channel with no
+     figures on it is a filter you have to try before you know whether it is
+     worth trying.
+
+   · **The URL is the row's identity.** A campaign has no code anyone reads;
+     what it has is a link, and the only thing anybody does with a link is copy
+     it. It sits inside the identity cell, one line with ellipsis, and the copy
+     button confirms in place — a toast fires in a corner of the screen the eye
+     is not on, having just clicked a control inside a table.
+
+   Tokens only, both modes, no hard-coded colour. Every state carries a border
+   as well as a fill so nothing here depends on `--glow-strength`.
+   =============================== */
+
+.mkt-page { --mkt-meter-h: 4px; }
+
+/* ── Header controls ─────────────────────────────────────────────────────── */
+
+.mkt-window {
+  display: flex;
+  gap: var(--sp-1);
+}
+.mkt-window .glass-btn { min-width: 46px; justify-content: center; }
+
+/* ── Notices ─────────────────────────────────────────────────────────────── */
+
+/* A failed fetch. Most often the export limiter, so it is said in place and
+   stays readable when the operator comes back to the tab — a toast would have
+   gone. */
+.mkt-error {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--warning-rgb), 0.45);
+  background: rgba(var(--warning-rgb), 0.08);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.mkt-notice,
+.mkt-privacy {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.mkt-notice svg { flex-shrink: 0; color: var(--warning); }
+.mkt-notice span { min-width: 0; flex: 1; }
+
+/* Sits under the list rather than above it: it answers a question the operator
+   only has once they have read the page and gone looking for a drill-down. */
+.mkt-privacy { margin: var(--sp-3) 0 0; }
+
+.mkt-track-btn { flex-shrink: 0; margin-left: auto; }
+
+/* ── The funnel ──────────────────────────────────────────────────────────── */
+
+.mkt-funnel {
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.02);
+}
+
+.mkt-funnel.is-empty {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+.mkt-funnel.is-empty p { margin: 0; max-width: 62ch; margin-inline: auto; text-wrap: pretty; }
+
+.mkt-funnel-stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* One column per stage on a wide screen, stacking to one column when the
+     stages get too narrow to hold their own labels. `auto-fit` rather than a
+     fixed four, because the first stage is dropped entirely on a store that
+     does not count arrivals — a four-column grid would then leave a hole. */
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+
+.mkt-stage { min-width: 0; }
+
+.mkt-stage-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.mkt-stage-head svg {
+  align-self: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.mkt-stage-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.mkt-stage-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* The taper. Width is the real proportion of arrivals, so a band that stays
+   wide is a funnel that is not losing anybody — which is the good news this
+   drawing exists to make visible at a glance. */
+.mkt-stage-bar {
+  display: block;
+  height: 8px;
+  margin: var(--sp-15) 0 var(--sp-1);
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+}
+.mkt-stage-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--primary-rgb), 0.85),
+    rgba(var(--primary-rgb), 0.45)
+  );
+  /* Grows from nothing on arrival, once. A meter that animates on every
+     re-render turns a window change into four bars sliding about. */
+  animation: mkt-fill 0.5s var(--ease-settle) both;
+  transform-origin: left center;
+}
+@keyframes mkt-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mkt-stage-fill { animation: none; }
+}
+
+.mkt-stage-foot {
+  display: block;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.mkt-funnel-note {
+  margin: var(--sp-25) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* ── Channels ────────────────────────────────────────────────────────────── */
+
+.mkt-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+  margin: 0 0 var(--sp-3);
+}
+
+.mkt-channel {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--sp-15) var(--sp-25);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+@media (hover: hover) {
+  .mkt-channel:hover { background: var(--surface-hover); color: var(--text); }
+}
+.mkt-channel:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* Selected carries fill AND border, not a glow — DESIGN §3, it has to read
+   with every effect turned off. */
+.mkt-channel.is-active {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.12);
+  color: var(--text);
+}
+
+.mkt-channel-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-05);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.mkt-channel-figures {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+.mkt-channel-sep { opacity: 0.5; }
+.mkt-channel-money { color: var(--success); }
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.mkt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-3);
+}
+.mkt-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex: 1;
+  min-width: 200px;
+  padding-left: var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-muted);
+}
+.mkt-search:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.18);
+}
+.mkt-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.mkt-search input:focus { outline: none; box-shadow: none; }
+.mkt-source { display: flex; gap: var(--sp-1); }
+
+/* ── The list ────────────────────────────────────────────────────────────── */
+
+/* Identity is given the room, because it holds a label, a URL and a line of
+   provenance; every counter after it is a mono figure that needs only its own
+   width. `minmax(0, …)` on the first track so a long label truncates instead
+   of pushing the counters off the end. */
+/* The identity column carries three things — a label, a path and a line of
+   provenance — and is the only cell here that becomes useless rather than
+   merely tight when it is squeezed. It gets a hard floor; the counters are
+   mono figures that need only their own width, and columns are dropped from
+   the right as the container narrows rather than every column shrinking until
+   nothing is legible. */
+.mkt-rows {
+  --lrow-cols: minmax(230px, 2.6fr) 5rem 5rem 4.5rem 5rem 6.5rem 7.5rem auto;
+}
+
+.mkt-head .mkt-num-head { text-align: right; }
+
+.mkt-row { align-items: center; }
+
+.mkt-ident { gap: var(--sp-1); }
+.mkt-ident-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  min-width: 0;
+}
+.mkt-label { font-weight: 600; }
+.mkt-channel-tag { flex-shrink: 0; font-size: var(--fs-3xs); }
+
+.mkt-url { width: 100%; }
+
+.mkt-provenance {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-05);
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+}
+.mkt-provenance svg { vertical-align: -1px; }
+
+.mkt-num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* The one derived figure, and the one links are compared by — it gets the
+   weight, the rest are its inputs. */
+.mkt-rate { color: var(--primary); font-weight: 600; }
+.mkt-money { color: var(--success); }
+
+.mkt-dim { color: var(--text-muted); font-weight: 400; }
+.mkt-uncapped { display: inline-flex; vertical-align: -1px; margin-left: 1px; }
+
+.mkt-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+.mkt-cap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-05);
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+}
+
+/* The fuse. Length is the meaning, so no glow and no gradient — it has to be
+   readable at `--glow-strength: 0` and legible at 40px wide. */
+.mkt-meter {
+  display: block;
+  width: 40px;
+  height: var(--mkt-meter-h);
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.1);
+  overflow: hidden;
+}
+.mkt-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+/* A stopped, expired or filled link recedes without disappearing: its state is
+   already carried by the badge and the row's left rule, so the row only has to
+   stop competing. Dimming the fields rather than the row, so the badge that
+   explains WHY keeps its colour. */
+.mkt-row.is-spent .mkt-label,
+.mkt-row.is-spent .mkt-num,
+.mkt-row.is-spent .ref-url code { opacity: 0.62; }
+
+.mkt-skel { height: 56px; }
+
+/* ── Onward links ────────────────────────────────────────────────────────── */
+
+.mkt-onward {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--sp-4);
+}
+
+/* ── The create / edit sheet ─────────────────────────────────────────────── */
+
+/* The veil, built the way the store-search dialog's is and for the reasons
+   93-store-search.css and 06-glass-primitives.css set out at length.
+
+   Two mistakes were in the first draft of this rule and both are invisible in
+   dev:
+
+   · `backdrop-filter: blur(4px)` written directly here. That is a blur no
+     operator can reach — the flat theme, the reduced-transparency mode and a
+     blur slider dragged to zero all leave it in place. The veil is
+     `--glass-scrim` through `.glass-plate` instead, which every one of those
+     controls.
+
+   · Declaring the filter on the backdrop AT ALL makes the backdrop a backdrop
+     root, so the card inside it can only sample what is painted within the
+     veil's own box — which is nothing. The card then renders as a translucent
+     fill with no blur and the page reads straight through the form. That is
+     the glass-in-glass failure `.glass-plate` exists for: the class goes on
+     the container, the filter moves to its `::before`, and the card inside
+     keeps the document as its own backdrop. The element carries
+     `glass-plate` in Marketing.jsx. */
+.mkt-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--sp-4) var(--sp-3);
+  overflow-y: auto;
+  --plate-filter: var(--glass-scrim);
+  background: rgba(0, 0, 0, 0.42);
+  animation: mkt-sheet-fade 0.18s var(--ease-out) both;
+}
+@keyframes mkt-sheet-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* A veil dims the page behind it, and dimming is dark in BOTH modes: a white
+   wash on a white page hides nothing, and `--scrim-rgb` flips to white in
+   light exactly so that surfaces which LIFT can use it. This is the same
+   navy the drawer and mobile backdrops take in 02-light-mode.css, and it is
+   one of the two hard-coded colours in this file for the same stated reason
+   they are hard-coded there. */
+:root[data-theme="light"] .mkt-sheet-backdrop {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.mkt-sheet {
+  width: 100%;
+  max-width: 640px;
+  /* Its own margin rather than centring: a form taller than the viewport must
+     scroll from its top, and `align-items: center` on the backdrop clips the
+     head of anything that overflows. */
+  margin: auto 0;
+  /* `--overlay-bg` rather than the card's own translucent fill. A form is read
+     and typed into, and a panel you can read the page through is one you
+     cannot read the labels on — the same reason `.ss-dialog` is opaque. */
+  background: var(--overlay-bg);
+  /* `-webkit-` FIRST. lightningcss collapses the pair to the last declaration,
+     so the conventional order ships the vendor property alone and Chrome and
+     Firefox draw no blur at all. client/test/backdropFilter.test.mjs fails if
+     this is ever flipped back. */
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  animation: mkt-sheet-in 0.28s var(--ease-settle) both;
+}
+@keyframes mkt-sheet-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.99); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mkt-sheet-backdrop,
+  .mkt-sheet { animation: none; }
+}
+
+.mkt-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.mkt-sheet-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.mkt-sheet-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+
+.mkt-markup-row {
+  display: flex;
+  gap: var(--sp-15);
+}
+.mkt-markup-row input { flex: 1; min-width: 0; }
+.mkt-markup-row select { flex-shrink: 0; width: auto; }
+
+.mkt-sheet-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+.mkt-sheet-foot .glass-btn { min-width: 120px; justify-content: center; }
+
+/* ── The phone shape ─────────────────────────────────────────────────────── */
+
+/* The shared container query at 560px already turns each row into a card and
+   re-flows every cell. What it cannot know is which of THIS list's cells want
+   their heading printed beside them once the column header is gone — a bare
+   column of five numbers in a card is five numbers with no names. */
+@container (max-width: 560px) {
+  .mkt-rows { --lrow-cols: 1fr auto; }
+
+  .mkt-num {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    grid-column: 1 / -1;
+    padding: 1px 0;
+    text-align: left;
+    font-size: var(--fs-xs);
+  }
+  .mkt-num::before {
+    content: attr(data-label);
+    font-family: var(--font);
+    font-variant-numeric: normal;
+    color: var(--text-muted);
+  }
+  .mkt-ident { grid-column: 1 / -1; }
+  .mkt-state {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+}
+
+/* Between the card shape and the full table there is a band where eight
+   columns are too many and one is too few. The two least-consulted figures —
+   the raw signup-view count is already in the funnel, and revenue has its own
+   tile — give up their width first rather than every column shrinking until
+   nothing is legible. */
+/* Two bands between the card shape and the full table, each dropping the
+   least-consulted surviving column.
+
+   ── The failure that produced these numbers ─────────────────────────────────
+
+   The first draft picked its breakpoints by eye and over-committed the row:
+   at a 790px container the fixed track widths plus the reserved action space
+   summed to ~880px, so the grid overflowed and the revenue figure printed on
+   top of the Stop button. `scripts/tools/uisweep.mjs` caught it at 1024x768
+   as an OVERLAP; no amount of reading the stylesheet would have. Each band
+   below is sized so the tracks, the gaps, the row padding and the two action
+   buttons ADD UP to less than the band's own floor — if you add a column or
+   widen one, do that arithmetic again and re-run the sweep.
+
+   ── The order columns are dropped in ────────────────────────────────────────
+
+   By how much each duplicates something already on screen, not by how far
+   right it sits.
+
+   `Buyers` goes first: it is a strict subset of `Signups` and is already drawn
+   as a stage in the funnel band above.
+
+   `Signups` goes second, which looks wrong until you notice the state cell
+   prints the lifetime signup count beside its badge — so the number survives
+   the column being dropped — and that the window's figure is recoverable from
+   the two that remain, since the rate IS signups over arrivals.
+
+   Revenue, the rate and the state badge survive to the narrowest band. Those
+   three are what an operator compares links by and what tells them a link has
+   stopped; a report that drops its comparison columns first has dropped the
+   report. */
+@container (min-width: 800px) and (max-width: 1029px) {
+  .mkt-rows { --lrow-cols: minmax(200px, 2.2fr) 4rem 4rem 3.75rem 5.5rem 6rem auto; }
+  .mkt-rows .lrow,
+  .mkt-rows .lrows-head { gap: var(--sp-2); }
+  /* Buyers — the 5th cell. */
+  .mkt-rows .mkt-head > :nth-child(5),
+  .mkt-rows .mkt-row > :nth-child(5) { display: none; }
+}
+@container (min-width: 561px) and (max-width: 799px) {
+  .mkt-rows { --lrow-cols: minmax(180px, 2fr) 4rem 3.75rem 5.5rem 5.5rem auto; }
+  .mkt-rows .lrow,
+  .mkt-rows .lrows-head { gap: var(--sp-2); }
+  /* Signups (3rd) and Buyers (5th). */
+  .mkt-rows .mkt-head > :nth-child(3),
+  .mkt-rows .mkt-row > :nth-child(3),
+  .mkt-rows .mkt-head > :nth-child(5),
+  .mkt-rows .mkt-row > :nth-child(5) { display: none; }
+}

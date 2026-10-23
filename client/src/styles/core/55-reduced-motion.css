@@ -1,0 +1,55 @@
+/* ===============================
+   REDUCED MOTION
+   ===============================
+   `animation: … both` holds the `from` frame, so cancelling it also has to
+   restore the end state or the cards never appear. Loaders are left alone —
+   a frozen spinner reads as a hung page. */
+
+@media (prefers-reduced-motion: reduce) {
+  .asup-grid > *,
+  .asup-msg {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  /* `.asup-clock.is-critical` is not listed any more — the overdue chip is
+     drawn static for everyone, so there is no loop left to cancel. */
+  .asup-clock,
+  .asup-quote,
+  .asup-order,
+  .asup-subject { transition: none; }
+
+  /* Money still settling keeps its hatch and loses only the drift — the
+     pattern is the information, the motion was the emphasis. */
+  .od-track.is-settling .od-track-recv::after { animation: none; }
+  .od-track-fill { transition: none; }
+
+  /* Payments seen: rows appear in place, the empty-state ring does not turn,
+     the mempool hatch stands still, and depth changes land without a tween.
+     The hatch stays because the pattern is the information. */
+  .od-tx,
+  .od-txs-empty-dot,
+  .od-tx.is-mempool .od-tx-bar::after { animation: none; }
+  .od-tx-bar-fill,
+  .od-tx-ring { transition: none; }
+
+  /* The tier window's queue is drawn where it stands: no segment slides in,
+     and the leaving-soon segments keep their hatch and lose the breathing. */
+  .member-queue-seg,
+  .member-queue-seg.is-leaving { animation: none; }
+
+  /* The carton's level moves without the settle and nothing drops in; the
+     chip that arrived in a box simply appears there. */
+  .carton-fill { transition: none; }
+  .carton-unit,
+  .boxp-chip.is-arriving { animation: none; }
+
+  /* The mode toggle wraps its repaint in a view transition; ThemeContext
+     already skips that under reduced motion, but this covers any other
+     startViewTransition a future feature (or an extension) starts. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+

@@ -1,0 +1,261 @@
+/* ===============================
+   LAYOUT
+   =============================== */
+/* The page shell. One measure token (`--shell`, 01-tokens) rather than the
+   flat 1200px this used to be: on a 3840px monitor that literal rendered the
+   whole storefront as a 1200px column with 1300px of empty background either
+   side, and the sweep measured the widest real text on the page reaching 0.57
+   of the window at 3840 and 0.16 at 7680 — `DESIGN.md` §1's "max-width that
+   leaves half the monitor empty", exactly.
+
+   `padding-inline`, never the `padding` shorthand: the shorthand's implied 0
+   top/bottom silently beat `.page`'s own vertical padding at equal
+   specificity once already (see 16-mobile-overrides). Only the gutter is the
+   shell's business; the vertical rhythm belongs to `.page`. */
+.container {
+  width: 100%;
+  max-width: var(--shell);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Two variants, for pages whose content is not a column of prose.
+
+   `.container-wide` is the shop window: the home page's rails and widget
+   bands, and the catalog. Extra monitor becomes extra facings, which is
+   information rather than stretch. It rides `--shell-shelf` and not
+   `--shell-wide` — a shelf of cards reads fine at 5000px, a table does not,
+   and 01-tokens keeps those two answers apart.
+
+   `.container-prose` is for a policy page, a ticket thread, a paragraph in
+   an empty state: a line of text has a length past which it stops being
+   readable no matter how much monitor is available, so this measure grows
+   with the type size and not with the window. */
+.container-wide { max-width: var(--shell-shelf); }
+.container-prose { max-width: var(--shell-prose); }
+
+/* One number for "how far below the bar a page starts", on every shell and
+   every viewport. It used to be 2rem here, 1.5rem inside the order page's own
+   wrapper, 1.5rem under the admin topbar on a phone, 3.5rem on the home page
+   and 0 on a phone for every `.page.container` page (16-mobile-overrides
+   reset it, see there) — six answers to one question, and the audit that
+   found them measured all six. The storefront `.page`, the admin shell and
+   the one page that carries its own wrapper all read this. */
+:root { --page-top: var(--sp-8); }
+
+.page {
+  padding-top: var(--page-top);
+  padding-bottom: var(--sp-12);
+  min-height: calc(100vh - 80px);
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  margin-bottom: var(--sp-6);
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.grid {
+  display: grid;
+  gap: var(--sp-5);
+}
+/* `min(Npx, 100%)` on every auto-fill floor here and elsewhere: a bare pixel
+   minimum is a promise the track will never be narrower than that, and on a
+   phone narrower than the floor the grid keeps the promise by running out of
+   its container. Clamped to the container, the last column simply shrinks. */
+/* Floors in type units rather than pixels: ~294px at 320 and ~412px at 7680,
+   so a card holds about the same amount of text at both ends instead of a
+   300px box built for a laptop carrying 8K-sized type. */
+.grid-2 { grid-template-columns: repeat(auto-fill, minmax(min(calc(var(--fs-unit) * 18.75), 100%), 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fill, minmax(min(calc(var(--fs-unit) * 17.5), 100%), 1fr)); }
+.grid-4 { grid-template-columns: repeat(auto-fill, minmax(min(calc(var(--fs-unit) * 15), 100%), 1fr)); }
+
+/* Form */
+.form-group {
+  margin-bottom: var(--sp-5);
+}
+.form-group label {
+  display: block;
+  margin-bottom: var(--sp-15);
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-family: var(--font);
+}
+
+/* Single-line fields stop growing at the field measure; everything else in a
+   form group — a textarea, a media picker, a row of chips — is left alone,
+   because those genuinely use the width. Direct children only, so a control
+   deliberately wrapped in its own layout box keeps whatever width that box
+   gives it. */
+.form-group > input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+.form-group > select {
+  max-width: var(--field-max);
+}
+
+.form-row {
+  display: flex;
+  gap: var(--sp-4);
+}
+.form-row > * { flex: 1; min-width: 0; }
+
+/* Table */
+.table-container {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  -webkit-overflow-scrolling: touch;
+}
+
+.glass-table,
+.glass-card > table,
+.table-container > table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.glass-table th,
+.glass-card > table th,
+.table-container > table th {
+  padding: var(--sp-2) var(--sp-4);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.025);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+/* Working density: a queue is read twenty rows at a sitting, and the old
+   ~14px/20px cell box spent a third of the viewport on padding. 12/16 keeps a
+   44px pointer target per row while fitting five more rows per screen. */
+.glass-table td,
+.glass-card > table td,
+.table-container > table td {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+/* Faint zebra under the hover: with tight rows the stripe is what keeps the
+   eye on one record across eight columns. Kept under 2% so it disappears into
+   the glass rather than turning the table into a picnic blanket. */
+.glass-table tbody tr:nth-child(even) td,
+.glass-card > table tbody tr:nth-child(even) td,
+.table-container > table tbody tr:nth-child(even) td {
+  background: rgba(var(--tint-rgb), 0.015);
+}
+.glass-table tbody tr:last-child td,
+.glass-card > table tbody tr:last-child td,
+.table-container > table tbody tr:last-child td {
+  border-bottom: none;
+}
+.glass-table tbody tr:hover td,
+.glass-card > table tbody tr:hover td,
+.table-container > table tbody tr:hover td {
+  background: var(--surface-hover);
+}
+
+/* Status colors */
+.status-pending    { color: var(--warning); }
+.status-paid       { color: var(--info); }
+.status-accepted   { color: var(--primary); }
+.status-shipped    { color: var(--accent); }
+.status-delivered  { color: var(--success); }
+.status-disputed   { color: var(--danger); }
+.status-cancelled  { color: var(--text-muted); }
+.status-refunded   { color: var(--text-muted); }
+
+/* Key-value sheet — the compact answer to "a paragraph of facts". Two columns,
+   keys muted, values in whatever voice the value deserves (add `.ds-mono` or
+   `.t-num` on a dd for ids and money). A `<dl class="kv">` reads to a screen
+   reader as the term/definition pairs it actually is, which a div soup of
+   flexbox rows does not. */
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: var(--sp-4);
+  row-gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  margin: 0;
+}
+.kv dt {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.kv dd {
+  margin: 0;
+  color: var(--text);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* Hairline between logical groups inside one sheet. */
+.kv-rule {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--border);
+  margin: var(--sp-2) 0;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--sp-6) 0;
+}
+
+/* Page header row */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+.page-header .page-title { margin-bottom: 0; }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: var(--sp-16) var(--sp-6);
+  color: var(--text-muted);
+}
+.empty-state h3 {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-2);
+  letter-spacing: -0.01em;
+}
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(var(--tint-rgb), 0.1);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--success); }
+  50%       { opacity: 0.5; box-shadow: 0 0 14px var(--success); }
+}
+
+.loading-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+

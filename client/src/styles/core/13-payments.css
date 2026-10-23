@@ -1,0 +1,46 @@
+/* ===============================
+   PAYMENTS
+   =============================== */
+.payments-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  margin-bottom: var(--sp-5);
+}
+.payments-row {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.payment-badge {
+  padding: var(--sp-3) var(--sp-6) !important;
+  text-align: center;
+  min-width: 90px;
+}
+.payment-label {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-top: var(--sp-1);
+}
+
+/* Coin glyphs keep their brand hue, but a brand hue picked for a dark ground is
+   not automatically legible on a light one: on the light card these measured
+   2.14:1 (Bitcoin), 2.74:1 (Monero) and 1.77:1 (Litecoin) — grey-on-white in
+   Litecoin's case. The light values below are the same hues darkened until each
+   clears 4.5:1, so the coin is still recognisable at a glance. */
+.coin-glyph {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.coin-glyph.is-btc { color: #f7931a; }
+.coin-glyph.is-xmr { color: #ff6600; }
+.coin-glyph.is-ltc { color: #bfbbbb; }
+:root[data-theme="light"] .coin-glyph.is-btc { color: #a35a00; }
+:root[data-theme="light"] .coin-glyph.is-xmr { color: #b34700; }
+:root[data-theme="light"] .coin-glyph.is-ltc { color: #6b6767; }
+

@@ -1,0 +1,408 @@
+/* ===============================
+   REFERRAL PANEL
+   =============================== */
+/* Five tiles, not four: pending is its own figure and must never be folded
+   into earnings. At the old 160px floor the fifth orphaned onto a second row
+   inside the page's 900px column, which read as a layout accident rather than
+   as a deliberate extra fact. */
+.ref-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(142px, 100%), 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+.ref-summary-card {
+  padding: var(--sp-4) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.ref-summary-card:hover {
+  border-color: var(--primary-border);
+  box-shadow: 0 0 22px var(--card-glow);
+}
+.ref-summary-card.is-primary {
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+}
+.ref-summary-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.ref-summary-value {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-feature-settings: "tnum";
+  margin-top: var(--sp-1);
+  line-height: 1.1;
+}
+.ref-summary-note { font-size: var(--fs-xs); color: var(--text-muted); margin-top: var(--sp-05); }
+
+/* Tabs */
+.ref-tabs {
+  display: flex;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-5);
+}
+.ref-tab {
+  position: relative;
+  padding: var(--sp-25) var(--sp-4);
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--transition), border-color var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+}
+.ref-tab:hover { color: var(--text); }
+.ref-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.ref-tab-count {
+  font-size: var(--fs-2xs);
+  padding: 0.05rem var(--sp-15);
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.10);
+  color: var(--text-secondary);
+  font-feature-settings: "tnum";
+}
+.ref-tab.active .ref-tab-count { background: var(--btn-bg); color: var(--primary); }
+
+/* Sub-user card */
+.subuser-card {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  padding: var(--sp-4) var(--sp-5);
+  transition: border-color var(--transition);
+  /* Same grid-item minimum as .invite-card below — a long unbroken username
+     or stat would otherwise floor the track past a phone viewport. */
+  min-width: 0;
+}
+.subuser-card:hover { border-color: var(--border-hover); }
+.subuser-card.inactive { opacity: 0.65; }
+.subuser-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.subuser-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.subuser-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(96px, 100%), 1fr));
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0;
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.subuser-stat-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+.subuser-stat-value {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-feature-settings: "tnum";
+  margin-top: 0.05rem;
+}
+
+/* The markup control — the reason this page exists. */
+.markup-editor {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+}
+.markup-field { flex: 0 0 auto; }
+.markup-field label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-1);
+}
+.markup-input-wrap { position: relative; display: inline-flex; align-items: center; }
+.markup-input-wrap .glass-input {
+  width: 108px;
+  margin: 0;
+  padding-right: var(--sp-8);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-feature-settings: "tnum";
+}
+.markup-suffix {
+  position: absolute;
+  right: 0.7rem;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  pointer-events: none;
+}
+/* A flat markup reads as money, so the unit leads rather than trails. The input
+   gets the matching pad on the other side. */
+.markup-prefix {
+  position: absolute;
+  left: 0.7rem;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  pointer-events: none;
+}
+.markup-input-wrap:has(.markup-prefix) .glass-input {
+  padding-left: var(--sp-6);
+  padding-right: var(--sp-3);
+}
+
+/* Percent-or-amount switch. Two states, so a segmented pair rather than a
+   dropdown: the choice changes what the number beside it means, and that is
+   worth showing both options of at all times. */
+.markup-kind {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.markup-kind-btn {
+  min-width: 34px;
+  padding: var(--sp-15) var(--sp-2);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.markup-kind-btn:hover { color: var(--text); background: var(--surface-hover); }
+.markup-kind-btn.active {
+  background: var(--btn-bg);
+  color: var(--primary);
+}
+.markup-kind-btn + .markup-kind-btn { border-left: 1px solid var(--border); }
+
+/* The create-link forms put the value and its unit on one row. */
+.markup-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+}
+.markup-input-row .glass-input { margin: 0; min-width: 0; flex: 1 1 auto; }
+/* Quick presets — most operators pick a round number. */
+.markup-presets { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+.markup-preset {
+  padding: var(--sp-1) var(--sp-25);
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  font-feature-settings: "tnum";
+  transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition), transform var(--transition), opacity var(--transition);
+}
+.markup-preset:hover { border-color: var(--border-hover); color: var(--text); }
+.markup-preset.active {
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+/* Live example of what the markup does to a real price. */
+.markup-preview {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: var(--sp-2);
+  line-height: 1.6;
+}
+.markup-preview strong { color: var(--text); font-feature-settings: "tnum"; }
+
+/* Invite link card */
+.invite-card {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  padding: var(--sp-4) var(--sp-5);
+  /* The cards sit in a 1fr grid, and a grid item's automatic minimum is its
+     min-content — which here includes the nowrap invite URL at full length.
+     The URL code's own min-width:0 never enters the TRACK sizing pass, so on
+     a phone the track floored at ~540px and the whole page scrolled sideways.
+     Zeroing the item minimum keeps the track at the viewport and lets the URL
+     ellipsize the way it was designed to. */
+  min-width: 0;
+}
+.invite-card.is-dead { opacity: 0.6; }
+.invite-url {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding: var(--sp-2) var(--sp-25);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-hover);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.invite-url code {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.invite-meta {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-top: var(--sp-25);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.invite-meta span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+
+/* ── The tag ──────────────────────────────────────────────────────────────
+   The half of the link its owner chose, and the half somebody types back in
+   when a link cleaner eats the query string.
+
+   It is drawn as a line of text that turns into a field, not as a field that
+   is always open. A card holding a live input for a value most links never
+   set is a card where the one thing you actually do here — copy the URL — has
+   to compete with a form. DESIGN §4: reveal on demand, and the trigger says
+   what it will become rather than being a bare pencil. */
+.invite-tag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+  padding: var(--sp-05) var(--sp-1);
+  margin-left: calc(var(--sp-1) * -1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+.invite-tag-btn strong {
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .invite-tag-btn:hover { color: var(--text); background: rgba(var(--tint-rgb), 0.05); }
+}
+.invite-tag-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.invite-tag-edit {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+  margin-top: var(--sp-2);
+}
+/* The field takes the room and the two buttons keep their own size, so a long
+   tag never squeezes Save down to an unhittable sliver on a phone. */
+.invite-tag-edit .ref-tag-field { flex: 1; min-width: 140px; }
+
+/* Usage bar for a capped link. */
+.invite-uses-bar {
+  height: 5px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.10);
+  overflow: hidden;
+  margin-top: var(--sp-2);
+}
+.invite-uses-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width 0.4s var(--ease-panel);
+}
+.invite-uses-fill.full { background: var(--warning); }
+
+/* ── The store-credit ledger ───────────────────────────────────────────────
+   Date · type · from · note · amount, wearing `.member-orders` for the cell
+   skin (26-membership.css) and `.admin-rtable` for the phone shape
+   (38-responsive-admin-tables.css). What is specific to this one is that it
+   sits flush inside a padding-less `.glass-card`, so its outer columns have to
+   carry the card's own gutter.
+
+   That gutter used to be an inline `paddingLeft: '1rem'` on the first cell and
+   a `paddingRight` on the last, next to an inline `minWidth: 480` on the table
+   — and an inline style outranks a media query. The width floor is why
+   38-responsive-admin-tables.css needs `min-width: 0 !important` at all, and
+   the padding could not be outranked even by that file: on a phone the desktop
+   gutter survived into the row-card and shoved every value away from the edge
+   the card had just aligned it against. In CSS the 720px rules below simply
+   turn it off. */
+.credit-ledger-wrap { overflow-x: auto; }
+.credit-ledger th:first-child,
+.credit-ledger td:first-child { padding-left: var(--sp-4); }
+.credit-ledger th:last-child,
+.credit-ledger td:last-child { padding-right: var(--sp-4); }
+/* A ledger note runs to a sentence; it is context for the amount, not the
+   record, so it is dimmed and set a step down rather than given room. The
+   element selector is carried so this outranks `.member-orders td`, which sets
+   a size of its own — a class alone would lose to it and the rule would look
+   like it did nothing. */
+.credit-ledger td.credit-ledger-note {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+@media (max-width: 720px) {
+  /* The row-card supplies its own padding, and the desktop gutter would sit
+     inside it as a second, uneven one. */
+  .credit-ledger td:first-child { padding-left: 0; }
+  .credit-ledger td:last-child { padding-right: 0; }
+}
+
+@media (max-width: 600px) {
+  .ref-summary { grid-template-columns: repeat(2, 1fr); gap: var(--sp-25); }
+  .ref-summary-value { font-size: var(--fs-xl); }
+  .subuser-head { flex-direction: column; }
+  .markup-editor { width: 100%; }
+}
+

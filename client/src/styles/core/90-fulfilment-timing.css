@@ -1,0 +1,118 @@
+/* ── Fulfilment timing on the Analytics page ────────────────────────────────
+ *
+ * How long paid → shipped and shipped → delivered take, per carrier, from
+ * services/fulfilmentStats — the same numbers the buyer is shown, so the
+ * operator sees exactly what their customers are being promised.
+ *
+ * One row per carrier; each leg is a range bar: the track runs to the slowest
+ * carrier's p90 so rows compare, the filled span runs 0 → p90, and a tick
+ * marks the median. Numerals in mono so the columns line up (DESIGN §6). A
+ * suppressed bucket draws no bar and says why, because a bar from four data
+ * points is a claim nobody can stand behind. */
+
+.ftime-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.ftime-table th {
+  text-align: left;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 0 var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+.ftime-table td {
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.ftime-table tr:last-child td { border-bottom: none; }
+.ftime-table tr.is-all td { font-weight: 600; }
+.ftime-carrier { white-space: nowrap; }
+.ftime-n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ftime-leg {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 160px;
+}
+.ftime-bar {
+  position: relative;
+  height: 8px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+}
+.ftime-span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--p90, 0%);
+  border-radius: inherit;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--leg-tone, var(--primary)) 85%, transparent),
+    color-mix(in srgb, var(--leg-tone, var(--primary)) 35%, transparent));
+  transition: width var(--dur-3) var(--ease-settle);
+}
+.ftime-median {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: var(--p50, 0%);
+  width: 2px;
+  background: var(--text);
+  transform: translateX(-1px);
+}
+.ftime-figures {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ftime-figures b { color: var(--text); font-weight: 600; }
+.ftime-thin {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.ftime-key {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.ftime-key span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.ftime-key i {
+  display: inline-block;
+  width: 14px;
+  height: 6px;
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--primary) 60%, transparent);
+}
+.ftime-key i.is-median { width: 2px; height: 10px; border-radius: 0; background: var(--text); }
+
+@media (max-width: 720px) {
+  .ftime-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ftime-table tr { display: grid; grid-template-columns: 1fr; gap: var(--sp-1); padding: var(--sp-2) 0; border-bottom: 1px solid var(--border); }
+  .ftime-table td { border: none; padding: 0; }
+  .ftime-table td::before { content: attr(data-label); display: block; font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  .ftime-table td.ftime-carrier::before { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ftime-span { transition: none; }
+}

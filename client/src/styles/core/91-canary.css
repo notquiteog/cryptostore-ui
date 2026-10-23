@@ -1,0 +1,279 @@
+/* ── The warrant canary: admin page and public page ─────────────────────────
+ *
+ * The one thing the admin page must not let anyone miss is the state and the
+ * budget. The state block is the loudest thing on the screen and changes
+ * tone by its class; the budget is a row of tokens that the timer visibly
+ * spends. Everything else is a form. Tokens only; every tone carries a word
+ * as well as a colour (DESIGN §3), and the tokens carry their count in text. */
+
+/* ── State ── */
+
+.can-state {
+  padding: var(--sp-5) var(--sp-6);
+  border-left: 3px solid var(--text-muted);
+  margin-bottom: var(--sp-4);
+}
+.can-state.is-ok   { border-left-color: var(--success); }
+.can-state.is-warn { border-left-color: var(--warning); }
+.can-state.is-bad  { border-left-color: var(--danger); box-shadow: var(--glow-sm), var(--rim-inset); }
+.can-state.is-quiet { border-left-color: var(--text-muted); }
+
+.can-state-label {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.can-state.is-ok .can-state-label { color: var(--success); }
+.can-state.is-warn .can-state-label { color: var(--warning); }
+.can-state.is-bad .can-state-label { color: var(--danger); }
+.can-state.is-quiet .can-state-label { color: var(--text-muted); }
+
+.can-state-text {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+
+.can-state-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--sp-1) var(--sp-4);
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-sm);
+}
+.can-state-facts > div { display: contents; }
+/* A cover-screen phone (280px) leaves ~80px for the value column, which is
+   narrower than one chain chip. One column, term above value. */
+@media (max-width: 340px) {
+  .can-state-facts { grid-template-columns: minmax(0, 1fr); }
+}
+.can-state-facts dt { color: var(--text-muted); }
+.can-state-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--text); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.can-state-facts dd em { font-style: normal; color: var(--text-muted); }
+
+.can-chain {
+  display: inline-block;
+  margin-right: var(--sp-2);
+  padding: 0 var(--sp-2);
+  border-radius: var(--pill);
+  border: 1px solid rgba(var(--success-rgb), 0.4);
+  color: var(--success);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+.can-chain.is-down { border-color: rgba(var(--danger-rgb), 0.4); color: var(--danger); }
+
+.can-blocker {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--danger-rgb), 0.45);
+  background: rgba(var(--danger-rgb), 0.07);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.can-blocker svg { flex-shrink: 0; color: var(--danger); margin-top: 2px; }
+.can-tick {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ── Cards ── */
+
+.can-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+.can-card { padding: var(--sp-5); margin-bottom: var(--sp-4); }
+.can-grid .can-card { margin-bottom: 0; }
+.can-card h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+}
+.can-lede { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text-secondary); text-wrap: pretty; }
+
+/* ── The budget as tokens ──
+   One per renewal. Live tokens are lit; a token about to be removed by an
+   unsaved edit dims first, so lowering the number reads as spending. */
+.can-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin: var(--sp-3) 0;
+}
+.can-token {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: rgba(var(--tint-rgb), 0.04);
+  transition: background var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-spring);
+  animation: rise-in 0.3s var(--ease-settle) both;
+  animation-delay: calc(var(--i, 0) * 20ms);
+}
+.can-token.is-live {
+  background: color-mix(in srgb, var(--warning) 70%, transparent);
+  border-color: var(--warning);
+  box-shadow: var(--glow-sm);
+}
+.can-token.is-spending { border-color: var(--warning); border-style: dashed; }
+
+.can-budget-row,
+.can-field,
+.can-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  font-size: var(--fs-sm);
+}
+.can-field { margin-bottom: var(--sp-3); }
+.can-num { width: 6rem; font-family: var(--font-mono); }
+.can-budget-hint { color: var(--text-muted); font-size: var(--fs-xs); }
+.can-presets { display: inline-flex; gap: var(--sp-1); }
+.can-preset {
+  border: 1px solid var(--glass-border);
+  background: none;
+  color: var(--text-secondary);
+  border-radius: var(--pill);
+  padding: 2px 10px;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+.can-preset.is-on { border-color: var(--primary); color: var(--primary); }
+
+.can-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  cursor: pointer;
+}
+.can-switch input { margin-top: 3px; }
+.can-warn { display: flex; align-items: flex-start; gap: var(--sp-2); margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--warning); }
+.can-warn a { color: inherit; }
+
+.can-statement {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  resize: vertical;
+}
+.can-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-3); }
+
+.can-probe { list-style: none; margin: var(--sp-3) 0 0; padding: 0; font-size: var(--fs-xs); }
+.can-probe li { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; color: var(--text-secondary); }
+.can-probe li svg { color: var(--success); flex-shrink: 0; }
+.can-probe li.is-down svg { color: var(--danger); }
+.can-probe code { font-family: var(--font-mono); font-size: var(--fs-2xs); overflow-wrap: anywhere; }
+
+/* ── History: dense line items ── */
+
+.can-history { list-style: none; margin: 0; padding: 0; }
+.can-history li {
+  display: grid;
+  grid-template-columns: 11rem 6rem minmax(0, 1fr) 5rem;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+.can-history li:last-child { border-bottom: none; }
+.can-h-when { font-family: var(--font-mono); color: var(--text); }
+.can-h-by { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); }
+.can-h-budget { text-align: right; font-family: var(--font-mono); color: var(--text-secondary); }
+@media (max-width: 640px) {
+  .can-history li { grid-template-columns: 1fr 1fr; }
+  .can-h-chains { grid-column: 1 / -1; }
+}
+
+/* ── Public page ── */
+
+.canary-page { max-width: var(--shell-prose); }
+.canary-page .page-title { display: flex; align-items: center; gap: var(--sp-2); }
+.canary-note { color: var(--text-secondary); }
+.canary-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  margin: var(--sp-3) 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.canary-banner svg { flex-shrink: 0; margin-top: 2px; }
+.canary-banner.is-ok { border-color: rgba(var(--success-rgb), 0.45); }
+.canary-banner.is-ok svg, .canary-banner.is-ok strong { color: var(--success); }
+.canary-banner.is-warn { border-color: rgba(var(--warning-rgb), 0.5); }
+.canary-banner.is-warn svg, .canary-banner.is-warn strong { color: var(--warning); }
+.canary-banner.is-bad { border-color: rgba(var(--danger-rgb), 0.5); background: rgba(var(--danger-rgb), 0.06); }
+.canary-banner.is-bad svg, .canary-banner.is-bad strong { color: var(--danger); }
+.canary-chains { font-size: var(--fs-xs); color: var(--text-muted); }
+.canary-chains span { font-family: var(--font-mono); color: var(--text-secondary); margin-right: var(--sp-2); }
+.canary-block-head {
+  display: flex;
+  /* The copy/download actions drop under the label on a cover-screen phone. */
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.canary-block-actions { display: inline-flex; gap: var(--sp-2); }
+.canary-block {
+  margin: 0;
+  padding: var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--well);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  user-select: all;
+}
+.canary-verify { margin-top: var(--sp-5); font-size: var(--fs-sm); color: var(--text-secondary); }
+.canary-verify h2 { font-size: var(--fs-md); margin: 0 0 var(--sp-2); color: var(--text); }
+.canary-verify ol { padding-left: var(--sp-5); }
+.canary-verify li { margin-bottom: var(--sp-1); }
+.canary-verify code { font-family: var(--font-mono); font-size: var(--fs-2xs); overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) {
+  .can-token { animation: none; transition: none; }
+}
+/* Number, unit and the four preset buttons on one line are ~380px; on a 320px
+   phone the presets wrap under the field instead of leaving the card. */
+.can-inline, .can-presets { flex-wrap: wrap; }

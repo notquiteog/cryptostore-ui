@@ -1,0 +1,75 @@
+/* ── The retention window's preview, and the shelves-off state ──────────────
+ *
+ * Two small surfaces that share a file because they share an argument: both
+ * exist so that a switch which CHANGES or HIDES something says what, rather
+ * than leaving an operator to find out afterwards.
+ *
+ * `.aret` is the count under the Address privacy card's window — see
+ * `components/admin/AddressRetentionNote.jsx`. Quiet, because it informs a
+ * decision rather than being one: DESIGN §7's rule that every control must
+ * justify its pixels applies twice as hard to something that is not a control.
+ */
+
+.aret {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-25);
+  border-left: 2px solid rgba(var(--warning-rgb), 0.5);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: rgba(var(--warning-rgb), 0.06);
+}
+
+.aret-line,
+.aret-last {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.aret-line strong { color: var(--text); font-family: var(--font-mono); }
+.aret-line svg,
+.aret-last svg { flex-shrink: 0; margin-top: 0.2em; }
+
+.aret-last {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+}
+
+/* ── The shelves-off page ──
+ *
+ * `/admin/shelves` and `/admin/warehouse` on a store with the shelf system
+ * switched off. DESIGN §9: an empty state is navigation, not an apology — so
+ * it reads at prose measure, says what is missing and why, and ends in the
+ * same `.nextstops` strip every other page's outbound paths use. */
+.shelvesoff {
+  max-width: var(--shell-prose);
+  margin-top: var(--sp-4);
+}
+
+.shelvesoff-lede {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* The sentence answering "did I just delete my warehouse?". Toned as success
+   rather than as a note, because the answer is reassuring and an operator
+   scanning the page should be able to tell that before reading it. */
+.shelvesoff-safe {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-25);
+  border-left: 2px solid rgba(var(--success-rgb), 0.5);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: rgba(var(--success-rgb), 0.06);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* The strip sits at the foot of a short page here rather than after a long
+   one, so it does not need the top border the normal placement uses. */
+.shelvesoff .nextstops { border-top: 0; margin-top: var(--sp-4); }

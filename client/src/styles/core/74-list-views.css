@@ -1,0 +1,284 @@
+/* ===============================
+   LIST VIEWS — the cards/rows switch, and the compact line item
+   ===============================
+   DESIGN §6 says most of this app is a list of records, and that getting lists
+   right is most of getting the app right. It offers three answers: the
+   responsive table (38-responsive-admin-tables.css), two purpose-built views,
+   or a toggle between comfortable cards and compact lines — and where the
+   answer is a toggle, the choice has to persist.
+
+   What this file replaces:
+
+   - **Three hand-rolled toggles that disagreed.** `pages/Orders.jsx`,
+     `admin/Products.jsx` and `admin/Orders.jsx` each built the same control
+     with a different class family, a different word pair and a different
+     storage key — and the admin order queue forgot the choice on every
+     navigation because it never wrote one. `components/ViewToggle.jsx` and
+     `hooks/useViewMode.js` are the single version; this is its skin.
+
+   - **Card grids with no compact option at all.** A dozen admin queues shipped
+     as comfortable card grids at every width. `.lrows` below is the line-item
+     half those surfaces were missing: one record per line, aligned columns,
+     numerals in the mono face so a column of prices actually lines up.
+
+   The row is a CSS grid whose tracks each surface declares for its own record,
+   because the columns of an order are not the columns of a user. What lives
+   here is everything that is the same either way: the rhythm, the hairline,
+   the hover, the focus ring, the truncation, and the phone shape.
+   =============================== */
+
+/* ── The switch ───────────────────────────────────────────────────────────── */
+
+.view-toggle { flex-shrink: 0; }
+
+/* The word goes before the icon does. Below this the toolbar is competing for
+   room with a search field and a status filter, and two 14px glyphs with
+   `aria-pressed` say as much as two glyphs plus two words that have started
+   wrapping. */
+@media (max-width: 540px) {
+  .view-toggle-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .view-toggle .segmented-option { padding-inline: var(--sp-3); }
+}
+
+/* Touch gets a real target. `--control-h` is a 38px desktop size, and DESIGN §5
+   puts the floor at 44px on a coarse pointer — this is the switch an operator
+   hits on a phone before every list they open. */
+@media (pointer: coarse) {
+  .view-toggle .segmented-option { min-height: 44px; }
+}
+
+/* ── The line-item list ───────────────────────────────────────────────────── */
+
+/* Container queries, not viewport queries: DESIGN §5, and the same reasoning
+   66-order-line-actions.css records. A list that appears both full-width and
+   inside a 320px sidebar has to lay itself out against its own box — asked
+   about the viewport, the "wide" rules fire in the narrowest place the
+   component appears. */
+.lrows {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  /* No gap. Rows are separated by a hairline, not by air: at 400 records the
+     gap between them is the single biggest waste of vertical space on the
+     screen, and §7 asks for more rows per screen than feels comfortable in a
+     mockup. */
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: rgba(var(--tint-rgb), 0.02);
+}
+
+/* The column headings. A real heading row rather than the first record wearing
+   labels, so the mono numerals below it have something to align under. */
+.lrows-head {
+  display: grid;
+  grid-template-columns: var(--lrow-cols, 1fr);
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--well);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.lrow {
+  display: grid;
+  grid-template-columns: var(--lrow-cols, 1fr);
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  /* Only colour and shadow transition. A row that changes height or position
+     under the cursor turns a mis-click into a click on the wrong record —
+     DESIGN §4, and on a list of orders the wrong record is somebody's money. */
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.lrow:last-child { border-bottom: none; }
+
+/* Zebra by way of the tint, not a second colour: it has to survive an operator
+   flattening the store, and it must not become a stripe of brand colour. */
+.lrow:nth-child(even) { background: rgba(var(--tint-rgb), 0.02); }
+
+@media (hover: hover) {
+  .lrow:hover {
+    background: var(--surface-hover);
+    box-shadow: inset 3px 0 0 var(--lrow-tone, var(--primary));
+  }
+}
+/* Both, always — a hover-only rule makes the row keyboard-invisible. */
+.lrow:focus-within {
+  background: var(--surface-hover);
+  box-shadow: inset 3px 0 0 var(--lrow-tone, var(--primary));
+}
+
+/* A row that needs somebody to act keeps its marker with no pointer on it, and
+   says so with fill AND rule rather than either alone — both survive
+   `--glow-strength: 0`, which a glow would not. */
+.lrow.is-urgent {
+  background: color-mix(in srgb, var(--lrow-tone, var(--primary)) 7%, transparent);
+  box-shadow: inset 3px 0 0 var(--lrow-tone, var(--primary));
+}
+
+/* Mid-write: legible, and not accepting a second click. */
+.lrow.is-busy { opacity: 0.55; pointer-events: none; }
+
+/* ── Cells ────────────────────────────────────────────────────────────────── */
+
+/* `min-width: 0` on every cell, because a grid track's default `auto` minimum
+   is its content — one ninety-character product name and the row stops
+   truncating and starts pushing the whole list wider than its container. */
+.lrow > *,
+.lrows-head > * { min-width: 0; }
+
+.lrow-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Two facts stacked in one track, for the columns where the second one is only
+   context: a product name over its variant, a buyer over their handle. */
+.lrow-stack { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.lrow-stack small {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ledgers and numerals. §6: a column of prices that does not align is
+   unreadable at a glance, and `tabular-nums` is what stops a 1 being narrower
+   than a 7 inside the mono face. */
+.lrow-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.lrow-id {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Row actions ──────────────────────────────────────────────────────────── */
+
+/* Revealed on hover, and on focus-within so the keyboard can reach them.
+   Opacity and not `display`, with the space always reserved: appearing
+   controls that take up room reflow the row under the cursor. */
+.lrow-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  justify-content: flex-end;
+}
+@media (hover: hover) and (pointer: fine) {
+  .lrow-actions {
+    opacity: 0;
+    transition: opacity var(--dur-1) var(--ease-out);
+  }
+  .lrow:hover .lrow-actions,
+  .lrow:focus-within .lrow-actions { opacity: 1; }
+}
+/* Touch has no hover, so on a coarse pointer the controls are simply there.
+   Gated on the pointer and not on width: a laptop at 700px still has a mouse,
+   and a tablet at 1024px still does not. */
+@media (hover: none) {
+  .lrow-actions { opacity: 1; }
+}
+
+/* ── The phone shape ──────────────────────────────────────────────────────── */
+
+/* Below this the line item stops being a line: the columns collapse and each
+   record becomes a small card. This is a CONTAINER query, so a list rendered
+   into a narrow panel on a wide monitor gets the phone shape too — which is
+   the case a viewport query gets exactly backwards.
+
+   Note this is not "hide the columns that do not fit". §5 is explicit that the
+   mobile view is not the desktop view with columns removed, because hiding a
+   column silently deletes data the operator needed; every cell is still here,
+   re-flowed. */
+@container (max-width: 560px) {
+  .lrows-head { display: none; }
+
+  .lrow {
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-2);
+    padding: var(--sp-3);
+    align-items: start;
+  }
+  .lrow-text { white-space: normal; }
+  /* The identifier and the figure keep the top line together; everything else
+     wraps beneath at label size. */
+  .lrow-num { text-align: right; }
+  .lrow-wrap { grid-column: 1 / -1; }
+  .lrow-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    opacity: 1;
+    padding-top: var(--sp-1);
+  }
+  .lrow-actions .glass-btn { min-height: 44px; }
+}
+
+/* ── Empty and loading ────────────────────────────────────────────────────── */
+
+/* §9: an empty state is navigation, not an apology. The frame stays so the
+   list does not appear to have vanished; the caller fills `.lrows-empty` with
+   somewhere to go. */
+.lrows-empty {
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+.lrows-empty strong { display: block; color: var(--text); margin-bottom: var(--sp-1); }
+.lrows-empty .lrows-empty-links {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: var(--sp-3);
+}
+
+.lrow-skel {
+  height: 38px;
+  border-bottom: 1px solid var(--border);
+}
+.lrow-skel:last-child { border-bottom: none; }
+
+/* ── Arrival ──────────────────────────────────────────────────────────────── */
+
+/* Rows arrive as one block rather than staggering. A 40ms ladder is right for a
+   grid of a dozen cards and wrong for four hundred lines — the last row would
+   be waiting most of a minute, and §2 caps the ladder around the tenth child
+   precisely because of this. The list fades; the rows inside it do not each
+   have their own entrance. */
+.lrows { animation: lrows-in var(--dur-2) var(--ease-panel) both; }
+@keyframes lrows-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lrows { animation: none; opacity: 1; }
+  .lrow,
+  .lrow-actions { transition: none; }
+}

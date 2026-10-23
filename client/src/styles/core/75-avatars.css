@@ -1,0 +1,296 @@
+/* ===============================
+   AVATARS AND THE PROFILE CARD
+   ===============================
+   One face, drawn the same way everywhere a person is named: the chat line,
+   the dispute thread, the ticket, the review byline, the navbar. Sizing comes
+   from `--avatar-size`, set inline per call site, so this file never carries a
+   list of magic pixel sizes that drift from the components using them.
+
+   The fallback — an initial on a hue derived from the username — is the
+   COMMON case, not the error case, so it gets the same care as the image: an
+   operator can turn avatars off store-wide, and most accounts never upload
+   one. It has to look deliberate at 22px in a chat line and at 96px on the
+   profile page.
+
+   Colour comes from `--avatar-hue` (0-359, computed in Avatar.jsx) run through
+   the theme's own tint and surface tokens rather than a raw hsl() fill. That
+   is what keeps a wall of initials from fighting the operator's palette: the
+   hue only ever tilts a surface the theme already defined, so at
+   `--glow-strength: 0` on a flat monochrome preset they read as tinted chips
+   rather than a bag of skittles. */
+
+.avatar {
+  --avatar-size: 28px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border-radius: 50%;
+  overflow: hidden;
+  /* Never `--radius`: an avatar is round in this app at every size, and a
+     rounded square at --radius: 0 would make the operator's shape scalar turn
+     faces into boxes halfway through a chat log. */
+  background: color-mix(in srgb, hsl(var(--avatar-hue) 55% 50%) 22%, var(--surface));
+  border: 1px solid color-mix(in srgb, hsl(var(--avatar-hue) 55% 50%) 30%, var(--border));
+  user-select: none;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-initial {
+  font-family: var(--font-display);
+  font-weight: 700;
+  /* Proportional to the circle so one rule covers 22px and 96px. 0.44 is what
+     keeps a capital inside the round without touching it. */
+  font-size: calc(var(--avatar-size) * 0.44);
+  line-height: 1;
+  color: color-mix(in srgb, hsl(var(--avatar-hue) 60% 45%) 70%, var(--text));
+  /* Digits and letters sit on different baselines in most display faces; the
+     nudge is what stops an initial looking dropped inside the circle. */
+  transform: translateY(0.02em);
+}
+
+/* ── Trigger ───────────────────────────────────────────────────────────── */
+
+.avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.avatar-trigger {
+  display: inline-flex;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+  line-height: 0;
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+}
+
+/* DESIGN §3: glow means live, focused or dangerous. Pointing at a face is the
+   "about to interrogate this" state, so it lights rather than dims — and the
+   geometry does not move, because a row of avatars that grows on hover shifts
+   the line under the cursor. `scale` on the trigger only, never a border
+   width. */
+@media (hover: hover) {
+  .avatar-trigger:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.45), 0 0 12px var(--primary-glow);
+  }
+}
+.avatar-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary), 0 0 14px var(--primary-glow);
+}
+
+/* Touch: the trigger is the hit target and 28px is not one. The circle stays
+   its drawn size; the button grows around it. */
+@media (hover: none) {
+  .avatar-trigger {
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    margin: calc((var(--avatar-size, 28px) - 44px) / 2);
+  }
+}
+
+/* ── The card ──────────────────────────────────────────────────────────── */
+
+.avatar-card {
+  /* Fixed, in a portal at <body>, placed by Avatar.jsx's placeCard — see the
+     note above that component for why it cannot live inside the avatar any
+     more (clipped by, and blurring only within, the glass card around it).
+     Above modals: an avatar inside one has to open its card over it, and a
+     card is only ever opened from something already on screen. */
+  position: fixed;
+  z-index: calc(var(--z-modal) + 1);
+  width: 250px;
+  padding: var(--sp-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  /* Same lg-tier glass the navbar popovers wear (63-nav-popovers.css). This
+     card floats over arbitrary scrolling content — a chat log, a dispute
+     thread — so the page behind has to dissolve rather than compete, which is
+     what DESIGN §3 reserves the lg tier for. Tokens, not a hand-rolled blur:
+     `--glass-lg` is what an operator's blur scalar actually reaches. */
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  box-shadow: var(--rim-inset), var(--shadow-lg), 0 0 24px var(--card-glow);
+  /* §2: small object arriving — spring, which overshoots and rings once. */
+  animation: ucard-in var(--dur-2) var(--ease-spring) both;
+  transform-origin: top left;
+}
+
+/* Opening upward is chosen by placeCard when an avatar is too near the bottom
+   of the screen for the card to fit below it; this only turns the spring
+   around so the card grows from the edge nearest the avatar. Left-right
+   clamping is done there too, in pixels, so no right-edge modifier exists. */
+.avatar-card-up { transform-origin: bottom left; }
+
+@keyframes ucard-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* `both` fill means cancelling the animation without restoring the end
+     state leaves the card invisible — the exact trap DESIGN §2 names. */
+  .avatar-card { animation: none; opacity: 1; transform: none; }
+  .avatar-trigger { transition: none; }
+  .avatar-trigger:hover { transform: none; }
+}
+
+.ucard-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-3);
+}
+
+.ucard-id { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.ucard-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-md);
+  /* Usernames on this store are whatever people typed, and some of them are
+     long. Break rather than push the card wider than its own box. */
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+.ucard-badges { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+
+.ucard-role,
+.ucard-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px var(--sp-2);
+  border-radius: 999px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.ucard-role {
+  color: var(--role-tone);
+  background: color-mix(in srgb, var(--role-tone) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--role-tone) 32%, transparent);
+}
+.ucard-tier {
+  color: var(--tier-tone);
+  background: color-mix(in srgb, var(--tier-tone) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tier-tone) 32%, transparent);
+}
+
+.ucard-facts { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.ucard-fact {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.ucard-fact svg { flex-shrink: 0; margin-top: 1px; color: var(--text-muted); }
+
+.ucard-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* The absolute date behind the relative one. Dimmer than its own row, because
+   it is the answer to a question almost nobody is asking. */
+.ucard-exact { color: var(--text-muted); }
+
+.ucard-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  padding: var(--sp-2) 0;
+}
+
+.ucard-link {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-2xs);
+  color: var(--primary);
+  text-decoration: none;
+}
+.ucard-link:hover { text-decoration: underline; }
+
+/* ── The uploader, on the profile page ─────────────────────────────────── */
+
+.avatar-edit {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+/* The picture is the drop target, and it says so. `--ease-settle` rather than
+   spring: this one has weight, and a 96px circle that boings on every drag
+   enter is the flourish DESIGN §10 warns about — motion with no job. */
+.avatar-drop {
+  position: relative;
+  border-radius: 50%;
+  transition: box-shadow var(--dur-2) var(--ease-settle);
+}
+.avatar-drop-over {
+  box-shadow: 0 0 0 3px var(--primary), 0 0 26px var(--primary-glow);
+}
+
+/* The overlay is what makes a 96px circle read as a control rather than a
+   decoration. Hidden until hover on a fine pointer; permanently visible on a
+   coarse one, where there is no hover to reveal it with. */
+.avatar-drop-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .avatar-drop:hover .avatar-drop-hint,
+  .avatar-drop:focus-within .avatar-drop-hint { opacity: 1; }
+}
+@media (hover: none) {
+  .avatar-drop-hint { opacity: 1; background: rgba(0, 0, 0, 0.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-drop, .avatar-drop-hint { transition: none; }
+}
+
+.avatar-edit-actions { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.avatar-edit-note {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 46ch;
+}

@@ -1,0 +1,396 @@
+/* ===============================
+   STORE CREDIT LEDGER — the flow gauge
+   ===============================
+   Skin for `pages/admin/StoreCreditLedger.jsx`. Built on `.lrows` / `.lrow`
+   (74-list-views.css) rather than a new row family: that pair already owns the
+   hairline rhythm, the zebra, the paired hover/focus-within rule, the
+   truncation and the phone shape, and re-deriving any of them here is how two
+   lists in one console stop looking like one product.
+
+   What this file adds, and the failure each part exists to prevent:
+
+   · **The flow gauge.** Every row is money moving in one of two directions and
+     the direction is the most scannable fact about it — it was carried by a
+     `+`/`−` and a colour, two channels that both cost a fixation to read. The
+     amount is drawn from a centre axis instead: in grows right, out grows
+     left, every row scaled to the largest movement on the page. A column of
+     stubs with one bar at the edge is a $999 adjustment among $2 rewards,
+     visible before a figure is read.
+
+     It is width and position only — no glow — because DESIGN §3 requires the
+     state to survive `--glow-strength: 0`, and the entire meaning here is
+     which of two lengths is longer. The sign and the figure are printed in
+     every case; the gauge is a second channel for something already said.
+
+   · **The scale is named, never implied.** `.scl-gauge-head` prints the page
+     maximum the bars are drawn against. A bar with an unstated maximum invites
+     comparison with a bar on the previous page, which is not a comparison it
+     supports.
+
+   · **The phone shape is a container query.** A ledger dropped into a narrow
+     panel on a wide monitor gets the card shape too — the case a viewport
+     query gets exactly backwards (DESIGN §5). No column is dropped; every
+     field re-flows.
+   =============================== */
+
+.scl-page { --scl-axis: rgba(var(--text-rgb), 0.18); }
+
+/* ── The account-scope banner ─────────────────────────────────────────────── */
+
+/* `?user=` can arrive from a link on the Users table with nothing on this page
+   having set it, so a three-row ledger would otherwise read as a store that
+   has issued credit three times. */
+.scl-scope {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--primary-rgb), 0.07);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.scl-scope svg { color: var(--primary); flex-shrink: 0; }
+.scl-scope > span { flex: 1 1 auto; min-width: 0; }
+
+/* The type pills carry an icon. `.status-filter-pill` (17-orders.css) was
+   written for text-only pills and has no gap, so the glyph sat against the
+   first letter. Scoped here rather than changed there: every other caller of
+   that class is text, and widening the shared rule would open a gap in all of
+   them for a child they do not have. */
+.scl-page .status-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.scl-page .status-filter-pill svg { flex-shrink: 0; opacity: 0.8; }
+
+/* ── Columns ──────────────────────────────────────────────────────────────── */
+
+/* When · account · movement · amount · why · order. The note gets the widest
+   track after the gauge because it is the only field that explains why any of
+   the rest happened. */
+.scl-rows {
+  --lrow-cols:
+    76px
+    minmax(120px, 1.1fr)
+    176px
+    minmax(150px, 1.3fr)
+    minmax(140px, 1.9fr)
+    88px;
+  margin-bottom: var(--sp-4);
+}
+
+.scl-when { color: var(--text-muted); }
+.scl-who a { font-weight: 500; }
+.scl-noparty { color: var(--text-muted); }
+
+.scl-type .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  max-width: 100%;
+}
+.scl-type .badge svg { flex-shrink: 0; }
+/* The label is a flex item, so `max-width` on the pill alone capped the pill
+   and let the words run on past its edge into the next column — "SPENT AT
+   CHECKOUT" was 71px longer than its 148px track on every desktop. The track
+   is 176px now so the full label fits; this is the guard for a label that is
+   longer still, or a store whose display face runs wide. */
+.scl-type .badge > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* One of the two labels is live at a time; the swap happens in the container
+   query below rather than in JS, so it is the column's real width that decides
+   and not a guess about the window. */
+.scl-type-short { display: none; }
+
+.scl-note {
+  color: var(--text-secondary);
+  /* Two lines, then ellipsis. The note is prose and the only explanation the
+     row carries, so one line truncates most of them and full height would make
+     every row as tall as the longest note on the page. Hover discloses the
+     rest (DESIGN §4). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+
+.scl-order { text-align: right; }
+
+/* ── The flow gauge ───────────────────────────────────────────────────────── */
+
+.scl-amount {
+  display: grid;
+  grid-template-columns: minmax(48px, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/* No track fill. A filled-width track behind a part-width bar reads as a
+   progress meter that is mostly empty — "$50 of a possible $999" — which is
+   the opposite of what a bar either side of a zero line means. The axis alone
+   is the reference, and the bars float against it. */
+.scl-gauge {
+  position: relative;
+  height: 11px;
+  min-width: 0;
+}
+
+/* The zero line every bar is measured from. Drawn on every row including the
+   ones with nothing on them, so it reads as a continuous rule down the column
+   — which is what makes two adjacent rows comparable at a glance. */
+.scl-gauge-axis {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--scl-axis);
+}
+
+.scl-gauge-bar {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 1px;
+  background: var(--lrow-tone, var(--primary));
+  /* Grown from the axis rather than faded in: the bar's origin is the thing it
+     means. DESIGN §2 — animate the mechanism. */
+  animation: scl-gauge-grow var(--dur-2) var(--ease-settle) both;
+}
+
+/* Credit arriving grows right of the axis; credit leaving grows left. The
+   transform origin follows, so both directions grow *out of* the zero line
+   instead of one of them sliding into place from the wrong end. */
+.scl-amount.is-in .scl-gauge-bar {
+  left: 50%;
+  transform-origin: left center;
+}
+.scl-amount.is-out .scl-gauge-bar {
+  right: 50%;
+  transform-origin: right center;
+}
+
+@keyframes scl-gauge-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.scl-figure { font-size: var(--fs-sm); white-space: nowrap; }
+.scl-amount.is-in .scl-figure { color: var(--success); }
+.scl-amount.is-out .scl-figure { color: var(--danger); }
+/* A movement of nothing — the row a fully clamped deduction writes so that the
+   attempt is not invisible. It is neither direction, so it takes neither
+   colour: tinting it green would report money arriving. */
+.scl-amount.is-still .scl-figure { color: var(--text-muted); }
+
+/* The heading carries the scale. Small and muted — it is a footnote to the
+   column, not a second column heading. */
+.scl-gauge-head em {
+  display: block;
+  margin-top: 1px;
+  font-style: normal;
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text-muted);
+}
+
+/* ── Intermediate width ───────────────────────────────────────────────────── */
+
+/* Before the card shape, the movement label drops to its short form and the
+   note gives up its space. Both are container queries: this list has to lay
+   itself out against its own box (DESIGN §5). */
+/* Declared on the head and the rows, not on `.scl-rows`: `.scl-rows` IS the
+   container (74-list-views.css gives every `.lrows` `container-type`), and an
+   element cannot match a query about its own size — so a `--lrow-cols` set on
+   it in here never applied, and the desktop tracks (722px of minimums) ran off
+   the right of every 1024px and 768px screen while the card query below
+   appeared to work only because its `.scl-row` rules are on the children.
+   39-flash-sales.css and 58-admin-users.css record the same rule.
+   The minimums sum to 624px with gaps and padding, which is what the card
+   breakpoint below has to clear. */
+@container (max-width: 1040px) {
+  .scl-rows > .lrows-head,
+  .scl-rows > .lrow {
+    --lrow-cols:
+      64px
+      minmax(96px, 1fr)
+      100px
+      minmax(116px, 1.2fr)
+      minmax(96px, 1.4fr)
+      68px;
+  }
+  .scl-type-full { display: none; }
+  .scl-type-short { display: inline; }
+}
+
+/* ── The card shape ───────────────────────────────────────────────────────── */
+
+/* Below this a ledger line becomes a ledger card. §5 is explicit that this is
+   not the desktop view with columns hidden — every field is still here, in the
+   order a phone reader wants them: the money and the direction first, then who
+   and why, then the order it hangs off. */
+@container (max-width: 640px) {
+  .scl-rows > .lrows-head,
+  .scl-rows > .lrow { --lrow-cols: minmax(0, 1fr) auto; }
+
+  .scl-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+    align-items: start;
+  }
+
+  /* Amount leads, top-right, at reading size. It is the one field somebody
+     opens a ledger on a phone to check. */
+  .scl-amount {
+    grid-column: 2;
+    grid-row: 1;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: end;
+    gap: var(--sp-1);
+  }
+  .scl-gauge { width: 84px; justify-self: end; }
+  .scl-figure { font-size: var(--fs-base); }
+
+  .scl-who { grid-column: 1; grid-row: 1; }
+  .scl-type { grid-column: 1; grid-row: 2; }
+  .scl-type-full { display: inline; }
+  .scl-type-short { display: none; }
+
+  .scl-when {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: right;
+    align-self: center;
+  }
+
+  .scl-note {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+
+  .scl-order {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    text-align: left;
+  }
+  /* Nothing to link to, so nothing to draw. The desktop table keeps its em
+     dash because the column is still there; a card has no column to hold
+     open. */
+  .scl-order.is-empty { display: none; }
+  /* An order reference alone on a line reads as a stray code, so the card
+     labels it the way the table's heading did. */
+  .scl-order::before {
+    content: 'Order ';
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: var(--fs-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+/* End state restored, not just the animation dropped: an `animation: … both`
+   cancelled without this leaves every bar at `scaleX(0)` and the gauge column
+   renders empty. */
+@media (prefers-reduced-motion: reduce) {
+  .scl-gauge-bar {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
+
+/* ── The voucher desk ───────────────────────────────────────────────────────
+   Issue form, the just-issued tickets (shown once), and the list. The ticket
+   itself is the coupon design from 33-coupon-vouchers.css with a gift tone. */
+.vdesk { margin-bottom: var(--sp-4); padding: var(--sp-4) var(--sp-5); }
+.vdesk-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.vdesk-head h3 { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-md); }
+.vdesk-totals { font-size: var(--fs-xs); color: var(--text-muted); }
+.vdesk-totals b { color: var(--text); font-family: var(--font-mono); }
+.vdesk-lede { margin: var(--sp-2) 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text-secondary); text-wrap: pretty; }
+.vdesk-lede code { font-family: var(--font-mono); font-size: var(--fs-2xs); }
+.vdesk-form { display: grid; grid-template-columns: 8rem 6rem 10rem minmax(10rem, 1fr) auto; gap: var(--sp-2); align-items: end; }
+.vdesk-form label { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.vdesk-form .glass-input { height: var(--control-h-sm); padding: 0 var(--sp-2); font-size: var(--fs-sm); }
+.vdesk-form .glass-btn { height: var(--control-h-sm); }
+/* A container query on the card: the five tracks need ~656px, and a viewport
+   query at 720px let a 912px tablet (card 544px wide beside the sidebar) keep
+   the wide template and run the form out of the card. */
+.vdesk { container-type: inline-size; }
+@container (max-width: 720px) { .vdesk-form { grid-template-columns: 1fr 1fr; } .vdesk-note { grid-column: 1 / -1; } }
+
+.vdesk-fresh {
+  margin: var(--sp-4) 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--success-rgb), 0.45);
+  background: rgba(var(--success-rgb), 0.06);
+  box-shadow: var(--glow-sm);
+}
+.vdesk-fresh-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-sm); }
+.vdesk-fresh-actions { display: inline-flex; gap: var(--sp-2); }
+.vdesk-tickets { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: var(--sp-3); margin-top: var(--sp-3); }
+.vdesk-ticket { display: flex; flex-direction: column; gap: var(--sp-2); }
+.vdesk-copy { align-self: flex-start; }
+.coupon-gift { --cpn-tone: var(--success); }
+
+.vdesk-list { list-style: none; margin: var(--sp-3) 0 0; padding: 0; }
+.vdesk-row {
+  display: grid;
+  grid-template-columns: 5rem 6rem 6rem minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+.vdesk-row:last-child { border-bottom: none; }
+.vdesk-hint { font-family: var(--font-mono); font-weight: 600; color: var(--text); }
+.vdesk-value { font-family: var(--font-mono); color: var(--text); }
+.vdesk-state { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: 0.06em; }
+.vdesk-state.is-open { color: var(--success); }
+.vdesk-state.is-redeemed { color: var(--text-secondary); }
+.vdesk-state.is-expired, .vdesk-state.is-void { color: var(--text-muted); }
+.vdesk-row.is-void, .vdesk-row.is-expired { opacity: 0.6; }
+.vdesk-when { color: var(--text-muted); }
+.vdesk-when a { color: var(--primary); }
+.vdesk-note-text { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vdesk-empty { margin: var(--sp-3) 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
+@media (max-width: 720px) {
+  .vdesk-row { grid-template-columns: 1fr 1fr; }
+  .vdesk-when, .vdesk-note-text { grid-column: 1 / -1; }
+}
+
+/* Printing the just-issued tickets: only they go to paper. */
+@media print {
+  body:has(.vdesk.is-printing) .admin-sidebar,
+  body:has(.vdesk.is-printing) .admin-topbar,
+  body:has(.vdesk.is-printing) .admin-drawer { display: none !important; }
+  body:has(.vdesk.is-printing) .admin-main { margin-left: 0; padding: 0; }
+  body:has(.vdesk.is-printing) .scl-page > *:not(.vdesk) { display: none !important; }
+  .vdesk.is-printing > *:not(.vdesk-fresh) { display: none !important; }
+  .vdesk.is-printing .vdesk-fresh { border: none; background: none; box-shadow: none; }
+  .vdesk.is-printing .vdesk-fresh-head, .vdesk.is-printing .vdesk-copy { display: none !important; }
+  .vdesk.is-printing .vdesk-tickets { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+  .vdesk.is-printing .coupon { break-inside: avoid; }
+}

@@ -1,0 +1,296 @@
+/*
+ * The companion preview card and the roster picker.
+ *
+ * Separate from `100-ai-buddy.css` because that file is the navbar affordance
+ * and its panel — a thing buyers see on every page — while this is the two
+ * places where somebody CHOOSES one: the admin panel and the account page.
+ * They share the sprite and nothing else, and keeping them apart is what stops
+ * a tweak to the picker's grid quietly moving the navbar button.
+ *
+ * ── Why the card is a stage rather than a thumbnail ─────────────────────────
+ *
+ * `docs/DESIGN.md` §10: a flourish must do a job. The companion's job is to be
+ * the AI system's status light, which only works if the person choosing one
+ * can tell its states apart on their own palette. So the card gives the animal
+ * somewhere to stand — a plinth, a contact shadow, room to bounce — and puts
+ * the statuses on chips underneath as both the legend and the control.
+ *
+ * Everything here is a token. The plinth is `--surface`, the shadow is an
+ * alpha of `--scrim-rgb` (which flips polarity between modes, so the same rule
+ * reads as a shadow in dark and a shadow in light rather than a grey smear),
+ * and the sprite's own colours come from the theme through
+ * `BuddySprite`'s palette map. §11's extremes hold: at `--glow-strength: 0`
+ * and roundness 0 this is a square panel with a square animal on it, which is
+ * exactly what it should be.
+ */
+
+/* ── The card ────────────────────────────────────────────────────────────── */
+
+.cmp-card {
+  display: grid;
+  /* Container query, not a viewport one (§5): this card renders inside the
+     admin panel's wide column AND inside the account page's narrow rail, and a
+     viewport query would put the wide layout in the narrow place. */
+  container-type: inline-size;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* Auto-fit responds to the actual card width. The old container query
+ * targeted its own container and could never produce the intended columns. */
+
+.cmp-stage {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 7.5rem;
+  padding: var(--sp-4) var(--sp-3) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  /* A wash of the brand rather than a flat panel, so the animal reads as
+     standing IN the shop's colour rather than on a grey card. Composed from
+     the channel triple, per §11. */
+  background:
+    radial-gradient(ellipse at 50% 95%, rgba(var(--primary-rgb), 0.16), transparent 70%),
+    var(--bg);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.cmp-stage:hover,
+.cmp-stage:focus-visible {
+  border-color: var(--primary-border);
+}
+
+.cmp-stage:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.cmp-stage .buddy-sprite {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/*
+ * The contact shadow.
+ *
+ * It is what stops the animal looking like a sticker. Deliberately NOT
+ * animated in step with the sprite: the frames move on a `steps()` tick and a
+ * smoothly-easing shadow under a hard-stepping animal reads as two different
+ * animations, which is worse than a still one.
+ */
+.cmp-ground {
+  position: absolute;
+  bottom: calc(var(--sp-3) - 2px);
+  left: 50%;
+  width: 4.5rem;
+  height: 0.6rem;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(var(--scrim-rgb), 0.35), transparent 70%);
+}
+
+.cmp-stage-none,
+.cmp-tile-plain {
+  align-items: center;
+}
+
+.cmp-plain,
+.cmp-tile-plain {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sp-15) var(--sp-3);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.cmp-body { min-width: 0; }
+
+.cmp-name {
+  margin: 0;
+  font: var(--font-display);
+  font-size: var(--fs-lg);
+  color: var(--text);
+}
+
+.cmp-species {
+  margin: var(--sp-05) 0 0;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.cmp-note {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* ── The status chips: legend and control at once ────────────────────────── */
+
+.cmp-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+  margin-top: var(--sp-3);
+}
+
+.cmp-chip {
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.cmp-chip:hover { background: var(--surface-hover); border-color: var(--border-hover); }
+.cmp-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+.cmp-chip.is-on {
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.14);
+  color: var(--text);
+}
+
+/* "Say hello" is an action, not a status. It is marked apart so the four
+   statuses beside it stay readable AS a set of four. */
+.cmp-chip-do {
+  margin-left: auto;
+  border-style: dashed;
+}
+
+.cmp-legend {
+  margin: var(--sp-2) 0 0;
+  min-height: 1.2em;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.cmp-foot {
+  margin: var(--sp-3) 0 0;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.cmp-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── The roster ──────────────────────────────────────────────────────────── */
+
+.cmp-grid {
+  display: grid;
+  /* 5rem, not 6: on a 320px phone inside the account rail, a 6rem minimum
+     produces one column and a very tall list. Three across is the point at
+     which a roster reads as a roster. */
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.cmp-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+
+/* §4: hover REVEALS. What it reveals is the animal starting to move, which is
+   the thing actually being chosen — the tile also lifts its rim so the
+   disclosure is legible without motion. */
+.cmp-tile:hover,
+.cmp-tile:focus-visible {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.cmp-tile:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.cmp-tile.is-selected {
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.12);
+  color: var(--text);
+}
+
+.cmp-tile-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3rem;
+}
+
+.cmp-tile-label {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.02em;
+}
+
+/* ── Admin: the companion section ────────────────────────────────────────── */
+
+.ai-companion-lay {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+/* The picker and the preview sit side by side once there is room for both to
+   be useful at once — the whole point is watching the card change as you click
+   through the grid, and a layout that puts one below the fold breaks that. */
+@media (min-width: 60rem) {
+  .ai-companion-lay { grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr); }
+}
+
+.ai-companion h3 {
+  margin-top: 0;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+   * The card's own transitions go; the sprite is handled by 100-ai-buddy.css,
+   * which is also where the reasoning for leaving the THINKING loop running
+   * lives. Callers already decline to enter the decorative states at all
+   * (`motionAllowed`), so there is nothing here to stop — this block exists so
+   * that a hover on a tile does not still animate its border.
+   */
+  .cmp-stage,
+  .cmp-tile,
+  .cmp-chip {
+    transition: none;
+  }
+}

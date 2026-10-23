@@ -1,0 +1,612 @@
+/* ===============================
+   ORDER LIST — the buyer's own orders
+
+   The page furniture, the two views and the progress track. `17-orders.css`
+   still owns the stat tiles and the status-filter pills, both of which are
+   shared with admin surfaces and are not this page's to redefine.
+
+   What this replaced, and why:
+
+   - **Four equal stat cards** across the top — Total / Active / Completed /
+     Total Spent — 130px of screen giving four facts identical weight, one of
+     which read "Completed 0". The counts that matter now sit on the filter
+     pills, where they also do something.
+   - **A 280px card that said the status three times** (header badge, a second
+     badge inside the track, a sentence in the footer) and never said what was
+     in the order. It printed "1 item(s)".
+   - **Two infinite animations** — a pulsing accent stripe and a pinging status
+     dot. DESIGN §2: arrive, respond to the pointer, then hold still.
+   - **A fourth hand-rolled cards/list switch** — `.ordx-view` /
+     `.ordx-view-btn` / `.is-on`, a fifty-line re-implementation of the house
+     segmented control that named the same choice "List" where the admin
+     catalog named it "Compact". It is `components/ViewToggle.jsx` now, skinned
+     by 74-list-views.css; this file keeps only the two lines about where the
+     switch sits inside `.ordx-head`, which is genuinely this page's business.
+
+   The two views themselves stay exactly as they were. `.ordx-cards` and
+   `.ordx-rows` below are purpose-built for an order — the five-step track, the
+   payment mark, the contents — and the shared `.lrows` line item does not know
+   about any of them. What was shared was never the row; it was the switch and
+   the memory of which one you picked. Note the memory moved with it: the
+   choice lives under `cs.view.orders.v1` rather than `cs.ordview.v1`, so a
+   buyer who had picked the list re-picks it once.
+   =============================== */
+
+/* Stat tiles: an icon, a colour that belongs to the metric, and a top edge that
+   lights up on hover. */
+.orders-stat-card {
+  position: relative;
+  overflow: hidden;
+  animation: orders-stat-in 0.4s var(--ease-panel) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes orders-stat-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.orders-stat-card::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--tone, var(--primary)), transparent);
+  opacity: 0.5;
+  transition: opacity var(--transition);
+}
+.orders-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md), 0 0 26px color-mix(in srgb, var(--tone, var(--primary)) 22%, transparent);
+  border-color: color-mix(in srgb, var(--tone, var(--primary)) 40%, transparent);
+}
+.orders-stat-card:hover::after { opacity: 1; }
+.orders-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--tone, var(--primary));
+  background: color-mix(in srgb, var(--tone, var(--primary)) 12%, transparent);
+  margin-bottom: var(--sp-15);
+}
+
+
+/* ── Page head ──────────────────────────────────────────────────────────── */
+
+.ordx-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+.ordx-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0;
+  color: var(--text);
+}
+.ordx-sub {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.ordx-sub b { color: var(--text-secondary); font-weight: 600; }
+
+/* ── Cards / rows toggle ────────────────────────────────────────────────── */
+
+/* Nothing here on a wide screen, deliberately. The switch is
+   `.segmented.view-toggle` from components/ViewToggle.jsx, and 74-list-views.css
+   owns every pixel of it: the hover, the focus ring, the words it hides on a
+   narrow toolbar, the 44px coarse-pointer target, and the `flex-shrink: 0`
+   that keeps `.ordx-head`'s space-between from squeezing it. `.ordx-head` is
+   already `align-items: flex-end`, so the switch sits on the subtitle's
+   baseline without being told to. The one thing this page still has to say
+   about it is what happens when the head stacks — see the 560px block at the
+   foot of this file. */
+
+/* ── The one thing that is the buyer's move ─────────────────────────────────
+
+   The only glowing element on the page. Glow means live, focused or dangerous
+   (DESIGN §3), and an order whose payment window is running out is the single
+   thing here that is neither finished nor the store's problem. The warning
+   border and the word carry it at --glow-strength: 0. */
+
+.ordx-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border: 1px solid rgba(var(--warning-rgb), 0.45);
+  border-radius: var(--radius);
+  background: rgba(var(--warning-rgb), 0.09);
+  box-shadow: 0 0 20px rgba(var(--warning-rgb), 0.18);
+  color: var(--text);
+  text-decoration: none;
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+.ordx-alert:hover {
+  background: rgba(var(--warning-rgb), 0.14);
+  border-color: rgba(var(--warning-rgb), 0.7);
+}
+.ordx-alert:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.ordx-alert > svg { color: var(--warning); flex-shrink: 0; }
+.ordx-alert-text { flex: 1; min-width: 0; font-size: var(--fs-base); }
+.ordx-alert-text b { font-family: var(--font-mono); font-weight: 700; }
+.ordx-alert-go {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+/* ── Filters ────────────────────────────────────────────────────────────── */
+
+.ordx-filters { margin-bottom: var(--sp-4); }
+/* The count rides inside the pill instead of only appearing on "All", so a
+   glance at the row says how the twenty orders divide before anything is
+   pressed. */
+.ordx-pill-n {
+  margin-left: var(--sp-2);
+  padding: 0 5px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+.status-filter-pill.active .ordx-pill-n { background: rgba(var(--tint-rgb), 0.16); }
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+
+.ordx-cards {
+  display: grid;
+  /* Two up on a desktop. A single 1136px-wide column held four fields in a
+     2×2 block using less than half its width, so a buyer with twenty orders
+     scrolled five screens past mostly empty card. */
+  grid-template-columns: repeat(auto-fill, minmax(min(410px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+
+.ordx-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  box-shadow: var(--rim-inset), var(--shadow-sm);
+  overflow: hidden;
+  animation: order-card-in 0.4s var(--ease-panel) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+  transition: border-color var(--transition), box-shadow var(--transition), transform var(--dur-2) var(--ease-out);
+}
+@keyframes order-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The status-coloured edge. Static: it used to pulse forever on any order
+   waiting for the buyer, which is a loop in a list someone reads for a minute
+   at a time. The banner above the list is where urgency is stated now — once,
+   with somewhere to press. */
+.ordx-card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--row-accent, var(--primary));
+  opacity: 0.7;
+  pointer-events: none;
+  transition: opacity var(--transition), box-shadow var(--transition);
+}
+@media (hover: hover) {
+  .ordx-card:hover,
+  .ordx-card:focus-within {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--row-accent, var(--primary)) 45%, transparent);
+    box-shadow: var(--shadow-md), 0 0 24px color-mix(in srgb, var(--row-accent, var(--primary)) 22%, transparent);
+  }
+  .ordx-card:hover::after { opacity: 1; box-shadow: 0 0 12px var(--row-accent, var(--primary)); }
+}
+
+.ordx-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.ordx-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  text-decoration: none;
+}
+.ordx-ref svg { color: var(--text-muted); }
+.ordx-ref:hover { color: var(--primary); }
+/* The reference is the card's link and it covers the whole tile — so the card
+   has ONE link rather than a `<Link>` wrapped around everything with two
+   buttons nested inside it, which is invalid markup and is why the reorder
+   button needed `preventDefault` to stop a click from also navigating. */
+.ordx-ref::after { content: ''; position: absolute; inset: 0; }
+.ordx-ref:focus-visible { outline: none; }
+.ordx-ref:focus-visible::after { outline: var(--focus-ring); outline-offset: -2px; border-radius: var(--radius); }
+
+.ordx-when {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.ordx-badge { margin-left: auto; flex-shrink: 0; }
+/* Terminal orders have no track, so their state sits alone on the top row and
+   the body pulls up to meet it. */
+.ordx-card:not(:has(.ordx-track)) .ordx-card-body { margin-top: var(--sp-1); }
+/* An in-flight order's track carries the state, so the top row's trailing
+   space belongs to nothing and the timestamp can have it. */
+.ordx-card:has(.ordx-track) .ordx-when { margin-right: auto; }
+
+/* ── The progress track ─────────────────────────────────────────────────── */
+
+.ordx-track {
+  display: flex;
+  align-items: center;
+  /* The label may drop under the dots on a cover-screen phone rather than run
+     out of the card. */
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+}
+.ordx-track-dots { display: flex; align-items: center; flex-shrink: 0; }
+.ordx-track-seg { display: inline-flex; align-items: center; }
+.ordx-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-hover);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.ordx-dot.is-done { background: var(--success); }
+.ordx-dot.is-now {
+  background: var(--row-accent, var(--primary));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--row-accent, var(--primary)) 22%, transparent),
+              0 0 10px var(--row-accent, var(--primary));
+}
+.ordx-rail {
+  width: 22px;
+  height: 2px;
+  background: var(--border-hover);
+}
+.ordx-rail.is-done { background: var(--success); }
+/* The words, not just the dots. Five coloured circles with a `title` attribute
+   said nothing to a screen reader, nothing on touch — where there is no hover
+   to reveal a tooltip — and nothing at all at --glow-strength: 0, where the
+   lit dot was most of what distinguished "paid" from "shipped". */
+.ordx-track-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-secondary);
+}
+
+/* ── Card body ──────────────────────────────────────────────────────────── */
+
+.ordx-card-body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+/* What is actually in the order — the field the old card did not have room
+   for because it was spending four rows on labelled metadata. */
+.ordx-items {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.ordx-items li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ordx-items b {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text);
+  margin-right: 2px;
+}
+.ordx-item-variant {
+  color: var(--text-muted);
+  /* An em-dash separator that is punctuation, not content: it disappears with
+     the variant name rather than leaving a dangling dash. */
+}
+.ordx-item-variant::before { content: ' — '; }
+.ordx-items-rest { color: var(--text-muted); font-style: italic; }
+.ordx-items.is-empty { color: var(--text-muted); }
+
+.ordx-card-figures {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+}
+.ordx-total {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+.ordx-pay {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Card actions ───────────────────────────────────────────────────────── */
+
+.ordx-card-acts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  position: relative;
+  z-index: 1;
+}
+.ordx-open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.ordx-open:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface-hover); }
+
+/* Revealed on a fine pointer, always present on a coarse one. The row reserves
+   the height either way — a card that grew on hover would make the grid jump
+   under the cursor. Neither control is the only path to what it does: the
+   reference at the top of the card opens the same order, and "buy it again"
+   is on the order page too. */
+@media (hover: hover) {
+  .ordx-card-acts {
+    opacity: 0;
+    transition: opacity var(--transition);
+  }
+  .ordx-card:hover .ordx-card-acts,
+  .ordx-card:focus-within .ordx-card-acts { opacity: 1; }
+}
+
+/* ── The compact list ───────────────────────────────────────────────────── */
+
+.ordx-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--border);
+  container-type: inline-size;
+}
+
+.ordx-rows-head,
+.ordx-row {
+  display: grid;
+  /* Only CONTENTS is elastic. Giving the reference and date columns a `fr`
+     share too spread them across a third of the table and left the product
+     names — the field a person is actually reading down — floating in the
+     middle with a hand's width of gap on either side. */
+  grid-template-columns:
+    minmax(150px, auto)
+    auto
+    minmax(0, 1fr)
+    minmax(120px, auto)
+    minmax(90px, auto)
+    auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+}
+.ordx-rows-head { background: var(--well); }
+.ordx-h {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.ordx-h.is-num { text-align: right; }
+
+.ordx-row {
+  position: relative;
+  background: var(--surface);
+  transition: background var(--transition);
+}
+.ordx-row::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--row-accent, var(--primary));
+  opacity: 0.7;
+  pointer-events: none;
+}
+.ordx-row:hover,
+.ordx-row:focus-within { background: var(--surface-hover); }
+
+.ordx-row-ref { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ordx-row-link {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+.ordx-row-link:hover { color: var(--primary); }
+.ordx-row-link::after { content: ''; position: absolute; inset: 0; }
+.ordx-row-link:focus-visible { outline: none; }
+.ordx-row-link:focus-visible::after { outline: var(--focus-ring); outline-offset: -2px; }
+
+.ordx-row-date {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.ordx-row-ago { font-size: var(--fs-2xs); color: var(--text-muted); }
+.ordx-row-items { min-width: 0; }
+.ordx-row-items .ordx-items { font-size: var(--fs-xs); }
+.ordx-row-status { min-width: 0; }
+.ordx-row-total {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+}
+.ordx-row-acts { position: relative; z-index: 1; justify-self: end; }
+@media (hover: hover) {
+  .ordx-row-acts { opacity: 0; transition: opacity var(--transition); }
+  .ordx-row:hover .ordx-row-acts,
+  .ordx-row:focus-within .ordx-row-acts { opacity: 1; }
+}
+
+/* One record, three lines, on a narrow container — not the wide row with
+   columns hidden. Everything survives except the relative timestamp, which is
+   the one field the absolute date already covers. */
+@container (max-width: 780px) {
+  .ordx-rows-head {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .ordx-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'ref    total'
+      'items  items'
+      'status acts';
+    gap: var(--sp-2) var(--sp-3);
+    padding: var(--sp-3);
+    align-items: start;
+  }
+  .ordx-row-ref { grid-area: ref; }
+  .ordx-row-date { display: none; }
+  .ordx-row-items { grid-area: items; }
+  .ordx-row-status { grid-area: status; align-self: center; }
+  .ordx-row-total { grid-area: total; }
+  .ordx-row-acts { grid-area: acts; }
+  /* The date the wide row printed in its own column moves under the
+     reference, so dropping the column does not drop the field. */
+  .ordx-row-ref::after {
+    content: attr(data-when);
+    font-size: var(--fs-2xs);
+    color: var(--text-muted);
+  }
+}
+
+/* ── Loading, empty ─────────────────────────────────────────────────────── */
+
+.ordx-skels { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ordx-skel {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.ordx-empty-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+.ordx-empty-acts .glass-btn { margin-top: 0; }
+.empty-state.ordx-empty { padding: var(--sp-6) var(--sp-5); }
+.empty-state.ordx-empty > svg { margin-bottom: var(--sp-3); }
+.empty-state.ordx-empty h3 { margin: 0; }
+
+@media (max-width: 560px) {
+  .ordx-head { flex-direction: column; align-items: stretch; }
+  /* The head stacks and stretches its children, which would pull a two-option
+     switch across the whole width of the phone and make it read as a pair of
+     tabs rather than one control. It keeps its content width and sits under
+     the subtitle on the left. */
+  .ordx-head .view-toggle { align-self: flex-start; }
+  .ordx-alert { flex-wrap: wrap; }
+  .ordx-alert-go { margin-left: auto; }
+  .ordx-cards { grid-template-columns: 1fr; }
+  /* ≥44px target on a coarse pointer. The switch gets the same floor from
+     74-list-views.css, gated on the pointer rather than on width — a laptop at
+     560px still has a mouse. */
+  .ordx-open { height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orders-stat-card,
+  .ordx-card { animation: none; opacity: 1; transform: none !important; }
+}

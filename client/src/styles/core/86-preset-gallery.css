@@ -1,0 +1,166 @@
+/* ===============================
+   THE PRESET GALLERY'S WAY IN
+   ===============================
+   Fifty looks in one auto-fill grid is three screens of swatch cards in an
+   order nobody can hold in their head. These are the two controls that make
+   that browsable — a family chip row and a search — plus the group headings
+   they collapse into when neither is active. The cards themselves are still
+   `.preset-card` in 60-theme-editor.css; nothing here restyles them.
+
+   Everything below composes from tokens, including the alphas: `--tint-rgb`
+   flips polarity between modes, so the same 0.03 lifts a dark surface and cuts
+   into a light one. A literal rgba here would be a hard-coded colour wearing a
+   variable's clothes. */
+
+.pg { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+/* The filter row. Chips wrap and the search takes the remainder, so a narrow
+   admin column stacks them rather than shrinking the input to a slot too small
+   to read what you typed. */
+.pg-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-1);
+}
+
+.pg-chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+
+.pg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-1) var(--sp-25);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1.2;
+  color: var(--text-secondary);
+  background: rgba(var(--tint-rgb), 0.03);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--dur-2) var(--ease), color var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease);
+}
+.pg-chip:hover { background: rgba(var(--tint-rgb), 0.07); color: var(--text); }
+.pg-chip.is-on {
+  color: var(--text);
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.14);
+}
+
+/* The count is the reason the chips are worth their pixels: it says how big a
+   family is before you commit a click to it. Read off the UNFILTERED roster —
+   see the note in PresetGallery.jsx about why it must not follow the search. */
+.pg-chip-count {
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  padding: 0 var(--sp-1);
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.07);
+}
+.pg-chip.is-on .pg-chip-count { color: var(--primary); background: rgba(var(--primary-rgb), 0.18); }
+
+.pg-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: var(--sp-1) var(--sp-25);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.03);
+  color: var(--text-muted);
+}
+.pg-search:focus-within { border-color: var(--primary); color: var(--text-secondary); }
+.pg-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: var(--sp-05) 0;
+}
+.pg-search input:focus { outline: none; }
+/* The browser's own clear affordance is a grey X that ignores the theme and
+   only exists in some engines. One control, drawn here, in both. */
+.pg-search input::-webkit-search-cancel-button { display: none; }
+.pg-search-clear {
+  display: inline-flex;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--sp-05);
+  border-radius: 50%;
+}
+.pg-search-clear:hover { color: var(--text); background: rgba(var(--tint-rgb), 0.08); }
+
+.pg-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+.pg-group + .pg-group { margin-top: var(--sp-4); }
+
+/* A rule that runs to the end of the row, with the hint riding it. The hint is
+   the family's whole justification — a heading reading "Machine" over eight
+   cards says less than the cards do. */
+.pg-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+.pg-group-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.pg-group-hint {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+  /* The hint is the first thing to go when the column narrows: the heading and
+     the count are the information, the sentence is the courtesy. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-empty {
+  margin: 0;
+  padding: var(--sp-5) 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+.pg-empty strong { color: var(--text); }
+
+.pg-linkish {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  /* The hint sentence cannot survive a phone column beside a heading and a
+     count, and a truncated fragment is worse than none. */
+  .pg-group-hint { display: none; }
+  .pg-search { flex-basis: 100%; }
+}

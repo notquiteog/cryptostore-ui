@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" id="dynamic-theme-color" content="#111113" />
+  <!-- Carries the id so ThemeContext updates THIS tag rather than appending a
+       second one. Two color-scheme metas resolve first-in-tree-order, so the
+       dynamic one would lose and native controls would stay stuck on dark. -->
+  <meta name="color-scheme" id="dynamic-color-scheme" content="dark" />
+  <title>CryptoStore</title>
+  <!-- The shipped defaults. A store that has uploaded a PWA icon overrides the
+       first two at runtime (ThemeContext's applyFavicon) and replaces the
+       manifest wholesale with a blob built from its own settings — but every
+       one of these has to be a real, correct file on its own, because they are
+       what a fresh install serves, what a visitor with JS disabled gets, and
+       what the browser reads before any of our script has run.
+
+       ORDER IS LOAD-BEARING: the .ico comes first and the SVG — the one
+       carrying `id="dynamic-favicon"` — comes last. A browser picks the last
+       icon link whose type it understands, so anything modern takes the SVG and
+       anything that cannot read one falls back to the .ico above it. Putting
+       the .ico last instead would mean a store that uploaded its own icon still
+       showed the shipped default, because the runtime override rewrites the
+       tagged link and the untagged .ico would keep winning after it.
+
+       The .ico is worth shipping even so: /favicon.ico is requested whether or
+       not a document links it, and before these files existed that request fell
+       through to the SPA fallback and was answered with this very HTML
+       document, as text/html under `nosniff`. Every cold load paid for a 6 KB
+       response that could never be an icon, and the tab stayed blank. -->
+  <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="icon" id="dynamic-favicon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" id="dynamic-apple-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" id="dynamic-manifest" href="/manifest.json">
+  <!-- Only the DEFAULT trio is preloaded. Preloading a face the store has
+       deselected downloads dead bytes on every cold visit; alternates load
+       lazily the moment a store's settings select them. -->
+  <link rel="preload" href="/fonts/hanken-grotesk-variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/archivo-variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/ibm-plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
+  <script>
+    /* Paint the store's real palette on the FIRST frame.
+     *
+     * The settings fetch lives in a React effect, so without this every cold
+     * load rendered the built-in palette and then snapped to the store's — a
+     * full dark-to-light inversion for any light-mode store, on every visit.
+     *
+     * This replays the palette ThemeContext computed last time rather than
+     * recomputing it, so there is no second copy of the derivation to drift. */
+    (function () {
+      try {
+        /* The visitor's own mode choice (cs.mode.v1) outranks the store's,
+           unless the cached palette says the store has locked visitor
+           switching off — the cache carries that flag precisely so a stale
+           preference cannot flash a mode the operator has forbidden. */
+        var pref = null;
+        try {
+          var p = localStorage.getItem('cs.mode.v1');
+          if (p === 'dark' || p === 'light' || p === 'auto') pref = p;
+        } catch (e) {}
+        var osMode = function () {
+          return window.matchMedia
+            && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        };
+        var c = null;
+        var raw = localStorage.getItem('cs.theme.v2');
+        if (raw) {
+          c = JSON.parse(raw);
+          if (!c || c.v !== 2 || !c.vars) c = null;
+        }
+        if (c && c.allow === false) pref = null;
+        /* `c.mode` is the INTENT the palette was computed under — possibly
+           'auto'. It used to hold the already-resolved mode, which made the
+           "has the OS flipped since this was written?" check below compare a
+           value against itself and never fire, so an `auto` store replayed
+           whichever mode yesterday's visit resolved to. */
+        var intent = pref || (c && c.mode) || null;
+        if (!c) {
+          /* No cached palette: the stylesheet floor renders. All it needs is
+             the right mode flag, or a light-choosing visitor gets a full
+             dark-to-light inversion on every cold load. */
+          var want = intent === 'auto' ? osMode() : intent;
+          if (want === 'light') document.documentElement.dataset.theme = 'light';
+          return;
+        }
+        var target = intent === 'auto' ? osMode() : (intent || c.dataTheme);
+        if (target !== c.dataTheme) {
+          /* The cached vars belong to the other mode. Painting them would be a
+             worse flash than the floor, which ships both palettes. */
+          document.documentElement.dataset.theme = target;
+          return;
+        }
+        /* Second bail-out, on the same principle as the mode check above: the
+           accessibility conditions the palette was SOLVED under.
+
+           These vars land as inline styles, which outrank every selector — so
+           replaying a palette cached without prefers-contrast defeated the
+           `@media (prefers-contrast: more)` floor in 03-accessibility-overrides.css
+           completely. A visitor who turned High Contrast on since their last
+           visit got full glass, live glow, live grain and the solved muted
+           ramp for every frame until the settings fetch resolved, which on a
+           Tor-fronted store is seconds. It failed in both directions: turning
+           the setting off replayed a stale high-contrast paint just as long.
+
+           Mismatch means the floor is the better answer, so paint nothing and
+           let the stylesheet have it. Must mirror `envFlags()` in
+           context/ThemeContext.jsx — the two are read against each other. */
+        var mq = function (q) { return !!(window.matchMedia && window.matchMedia(q).matches); };
+        var backdrop = typeof CSS !== 'undefined' && CSS.supports
+          && (CSS.supports('backdrop-filter', 'blur(1px)')
+            || CSS.supports('-webkit-backdrop-filter', 'blur(1px)'));
+        var nowFlags = {
+          c: mq('(prefers-contrast: more)'),
+          t: mq('(prefers-reduced-transparency: reduce)') || !backdrop,
+        };
+        var was = c.flags || { c: false, t: false };
+        if (!!was.c !== nowFlags.c || !!was.t !== nowFlags.t) {
+          document.documentElement.dataset.theme = target;
+          return;
+        }
+        var root = document.documentElement;
+        for (var k in c.vars) {
+          if (Object.prototype.hasOwnProperty.call(c.vars, k)) root.style.setProperty(k, c.vars[k]);
+        }
+        root.dataset.theme = c.dataTheme;
+        var cs = document.getElementById('dynamic-color-scheme');
+        if (cs) cs.content = c.dataTheme;
+        var tc = document.getElementById('dynamic-theme-color');
+        if (tc && c.bg) tc.content = c.bg;
+      } catch (e) { /* corrupt cache, private mode — the floor still renders */ }
+    })();
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

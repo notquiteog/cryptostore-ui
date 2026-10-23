@@ -1,0 +1,302 @@
+/* ── Swap offers and line refunds on the order page ────────────────────────
+ *
+ * Both surfaces render for staff and for the buyer from the same components,
+ * so these styles have to read correctly in an admin panel and on a customer's
+ * order page. They lean entirely on the theme tokens rather than on any fixed
+ * colour: the store's palette is operator-owned and the same markup has to work
+ * under an opaque Material surface and a heavily-refracted glass one.
+ */
+
+/* The items card sits in a ~300px sidebar on the order page and full width on
+   wider layouts, so these panels have to lay themselves out against the box
+   they are in rather than against the viewport. A viewport media query gets
+   this exactly backwards on a desktop: the window is 1400px and the card is
+   300px, so the "wide" rules fire in the narrowest place they appear. */
+.oitems { container-type: inline-size; }
+
+.oswaps {
+  display: grid;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.oswap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+
+/* An open offer is waiting on somebody, so it carries the warning edge; an
+   answered one is history and steps back to the ordinary card treatment. */
+.oswap.is-open {
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  background: color-mix(in srgb, var(--warning) 7%, transparent);
+}
+.oswap.is-closed { opacity: 0.72; }
+
+.oswap-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-25);
+}
+.oswap-icon { display: inline-flex; color: var(--warning); }
+.oswap.is-closed .oswap-icon { color: var(--text-muted); }
+.oswap-title {
+  font-weight: 650;
+  font-size: var(--fs-base);
+  text-transform: capitalize;
+}
+.oswap-expiry {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* Stacked by default — from, arrow, to, reading downward — because that is
+   correct in the narrow case and degrades to merely tall in the wide one. The
+   container query below opens it out side by side once there is room. */
+.oswap-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--sp-2);
+}
+.oswap-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: calc(var(--radius) * 0.7);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.oswap-side strong { font-size: var(--fs-base); overflow-wrap: anywhere; }
+.oswap-side.is-from { opacity: 0.78; }
+.oswap-side.is-to { border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
+.oswap-label {
+  font-size: var(--fs-3xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.oswap-variant { font-size: var(--fs-xs); color: var(--text-secondary); overflow-wrap: anywhere; }
+.oswap-arrow {
+  justify-self: center;
+  align-self: center;
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--primary);
+  transform: rotate(90deg);
+}
+
+@container (min-width: 420px) {
+  .oswap-body {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: var(--sp-3);
+  }
+  .oswap-arrow { transform: none; }
+}
+
+.oswap-money {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: var(--sp-25) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.oswap-note {
+  margin: var(--sp-15) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.oswap-by { margin: var(--sp-15) 0 0; font-size: var(--fs-xs); color: var(--text-muted); }
+
+.oswap-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--sp-3);
+}
+.oswap-withdraw {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+/* ── Composers ─────────────────────────────────────────────────────────── */
+
+/* The icon is a flex item; the sentence is exactly one more. Everything inside
+   the sentence has to stay in normal flow, or an inline <strong> becomes a
+   sibling of the words around it and the paragraph is laid out as columns. */
+.oswap-compose-lead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-15);
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.oswap-compose-lead > span { min-width: 0; }
+.oswap-lead-icon { flex-shrink: 0; margin-top: var(--sp-1); color: var(--primary); }
+
+/* The picker is a scrolling catalogue inside an already-scrolling page, so it
+   gets its own bounded box — without one it grows to 300 groups and the Offer
+   button ends up somewhere below the fold. */
+.oswap-picker {
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.7);
+  margin-bottom: var(--sp-3);
+}
+
+.oswap-picked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-25) var(--sp-3);
+  margin-bottom: var(--sp-3);
+  border-radius: calc(var(--radius) * 0.7);
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+.oswap-picked > div { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; }
+
+.oswap-compose-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 0 var(--sp-4);
+}
+.oswap-hint { font-size: var(--fs-2xs); color: var(--text-muted); }
+
+.orefund-lines {
+  display: grid;
+  gap: var(--sp-15);
+  margin-bottom: var(--sp-3);
+}
+.orefund-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: calc(var(--radius) * 0.7);
+  border: 1px solid var(--border);
+}
+.orefund-line-text { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; }
+.orefund-line-text strong { font-size: var(--fs-base); overflow-wrap: anywhere; }
+.orefund-qty { width: 5.5rem; flex-shrink: 0; text-align: right; }
+
+.orefund-estimate {
+  margin-right: auto;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.orefund-estimate strong { color: var(--success); }
+
+.oitems-staff-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+/* A refunded line is struck through in the count, not hidden: the buyer paid
+   for it once and the record of that has to stay legible. */
+.oitem-refunded {
+  color: var(--warning);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  /* The swap body needs nothing here — it keys off its own container. */
+  .orefund-line { align-items: flex-start; }
+  .orefund-qty { width: 4.5rem; }
+}
+
+/* ── The swap dialog ───────────────────────────────────────────────────────
+ *
+ * A native <dialog>, so the browser owns focus trapping, Escape and the top
+ * layer. What it does NOT give for free is a themed surface: the UA default is
+ * an opaque white box with a black border, which under a dark palette is a
+ * flashbang. Everything below is that reset, in tokens.
+ */
+.oswap-dialog {
+  width: min(680px, calc(100vw - 2rem));
+  max-height: min(86vh, 900px);
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  overflow: auto;
+  /* A dialog in the top layer is outside the page's stacking context, so the
+     backdrop-filter here samples the page rather than the card it came from. */
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+/* `--glass-scrim`, not the `blur(3px)` this used to carry. A literal here is
+   the same defect 93-store-search.css had: the operator's blur slider cannot
+   reach it, so a store that set glass to zero — or a visitor whose device asked
+   for reduced transparency, which zeroes every blur token in computeVars.js —
+   still got three pixels of frost over the page behind this dialog, on the one
+   path where no setting could turn it off. The scrim tier is derived from
+   `--glass-blur` precisely so it lands at 0 with the rest (01-tokens.css).
+   `-webkit-` FIRST, standard LAST (client/test/backdropFilter.test.mjs). */
+.oswap-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: var(--glass-scrim);
+  backdrop-filter: var(--glass-scrim);
+}
+.oswap-dialog .oitem-compose {
+  margin: 0;
+  border: 0;
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+}
+
+.oswap-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+.oswap-dialog-head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-md);
+}
+
+/* Inside the dialog there is room, so the picker gets a real height rather
+   than the cramped one it needs when squeezed into a card. */
+.oswap-dialog .oswap-picker { max-height: 46vh; }
+
+@media (max-width: 560px) {
+  .oswap-dialog {
+    width: 100vw;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+    border: 0;
+  }
+}

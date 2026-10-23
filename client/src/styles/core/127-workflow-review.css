@@ -1,0 +1,16 @@
+/* Review states share the store's type, material and controls. Theme specimens
+   deliberately simulate narrow containers; this is not a page-width override. */
+.thm-publications { margin-block: var(--sp-4); padding: var(--sp-4); }
+.thm-publications summary { cursor: pointer; font-weight: 600; }
+.thm-workflow { border-top: 1px solid var(--border); padding-block: var(--sp-4); min-width: 0; }
+.thm-workflow h3 { font-size: var(--fs-lg); }
+.thm-workflow .od-pay-amount { overflow-wrap: anywhere; font-size: var(--fs-2xl); }
+.thm-specimen[data-preview-size="phone"] { max-width: 320px; width: 100%; }
+.thm-specimen[data-preview-size="tablet"] { max-width: 768px; width: 100%; }
+.thm-comparison-tools { flex-wrap: wrap; }
+.thm-comparison-tools label { min-width: 0; }
+.payment-amount { min-width: 0; }
+.payment-amount .od-pay-ask-row { flex-wrap: wrap; }
+.payment-amount .od-copy-btn { opacity: 1; }
+.od-parcel-status { flex: 1 1 100%; min-width: 0; display: grid; gap: var(--sp-2); margin-top: var(--sp-1); }
+.od-parcel-status > .glass-btn { justify-self: start; }

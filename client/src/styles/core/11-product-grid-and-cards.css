@@ -1,0 +1,769 @@
+/* ===============================
+   PRODUCT GRID & CARDS
+
+   The catalog's two result views and the skeletons that stand in for them
+   while a page loads. Page furniture — the head, the sticky bar, the filter
+   panel, the chips and the pager — is next door in 14-products-page.css.
+
+   Two real views rather than one responsive table (DESIGN §6): the grid is
+   image-led browsing and the list is name-led lookup, and a phone wants a
+   genuinely different shape of each — not the same table with columns hidden,
+   which silently deletes the price.
+
+   Everything here lays itself out against the CARD, not the viewport. A
+   catalog tile is ~210px wide inside a 1600px window, so a viewport query
+   fires the "wide" rules in the narrowest place the component ever appears.
+   =============================== */
+
+.pcard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(212px, 100%), 1fr));
+  gap: var(--sp-4);
+}
+
+/* ── The card ───────────────────────────────────────────────────────────── */
+
+.pcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm), var(--rim-inset);
+  /* Its own container, so the body's type and gaps answer to the tile's width.
+     The same card is 212px in the catalog grid and wider at two columns on a
+     phone; a viewport query gets that backwards in both directions. */
+  container-type: inline-size;
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .pcard:hover,
+  .pcard:focus-within {
+    transform: translateY(-4px);
+    border-color: var(--primary-border);
+    /* md tier plus the ring: the plume is the elevation, the ring is the "this
+       one is live". At --glow-strength: 0 the card-glow term collapses and the
+       border and shadow still separate a hovered tile from a resting one. */
+    box-shadow: var(--shadow-md), 0 0 0 1px var(--primary-border), 0 0 26px var(--card-glow);
+  }
+}
+
+.pcard.is-oos { opacity: 0.86; }
+
+.pcard-media {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(135deg, var(--surface-hover), var(--well));
+  background-size: cover;
+  background-position: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.pcard-noimg { color: var(--text-muted); opacity: 0.55; }
+
+.pcard-oos {
+  position: absolute;
+  top: var(--sp-2);
+  right: var(--sp-2);
+  /* `--bg` on `--danger` inherits the palette's own solved ratio rather than
+     asserting white on a retired hex, which is what this badge used to do. */
+  background: var(--danger);
+  color: var(--bg);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  padding: 2px var(--sp-2);
+  border-radius: var(--pill);
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  /* No backdrop filter: the fill is opaque, so a blur has nothing to show and
+     only costs a compositing pass. */
+}
+
+/* ── The price ladder, revealed on hover ────────────────────────────────────
+
+   A group with six variants prints one headline price, and the question the
+   buyer actually has — what do the other five cost — needed a page load to
+   answer. The panel is positioned over the image and only its opacity and
+   offset move, so nothing reflows and the grid cannot jump under the cursor.
+
+   `pointer-events: none` matters: the panel sits on top of the stretched card
+   link, and without it the middle of every multi-variant card would stop being
+   clickable exactly when the buyer decided to click it. */
+
+.pcard-ladder {
+  position: absolute;
+  inset: auto var(--sp-2) var(--sp-2) var(--sp-2);
+  z-index: 1;
+  padding: var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-md);
+  backdrop-filter: var(--glass-md);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity var(--dur-2) var(--ease-panel),
+    transform var(--dur-2) var(--ease-panel);
+}
+
+/* Coarse pointers never reveal it, so it is not painted there at all. The
+   price range printed beside the headline figure carries the same fact in one
+   line, and the full ladder is on the product page — the information is never
+   only here (DESIGN §4). */
+@media (hover: none) {
+  .pcard-ladder { display: none; }
+}
+@media (hover: hover) {
+  .pcard:hover .pcard-ladder,
+  .pcard:focus-within .pcard-ladder {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pcard-ladder-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+  padding-bottom: var(--sp-1);
+  margin-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.pcard-rung {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.pcard-rung-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pcard-rung-price {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.pcard-rung.is-out { color: var(--text-muted); }
+.pcard-rung.is-out .pcard-rung-name { text-decoration: line-through; }
+.pcard-rung.is-out .pcard-rung-price { color: var(--text-muted); font-weight: 500; }
+.pcard-rung.is-more { color: var(--text-muted); font-style: italic; }
+
+/* ── Card body ──────────────────────────────────────────────────────────── */
+
+.pcard-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  min-width: 0;
+}
+
+.pcard-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+}
+/* The brand never gives way — see the note on the markup: three products in
+   this catalog are called "Battery" and only the maker separates them. */
+.pcard-brand {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  /* `flex-shrink: 0` alone let a long maker name run past the card and get
+     cut by the card's corner clip, with no ellipsis, on two-up phone tiles.
+     The cap keeps "never gives way to the category" while still ending inside
+     the card. */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pcard-cat {
+  color: var(--text-muted);
+  opacity: 0.8;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A default catalog tile is ~212px, so the category is usually the casualty.
+   That is the intended order of sacrifice, not an accident of the breakpoint. */
+@container (max-width: 250px) {
+  .pcard-cat { display: none; }
+}
+/* Nothing to separate once the category is gone, so the group has no brand
+   and the line prints the category on its own. */
+.pcard-meta:has(.pcard-brand) .pcard-cat::before {
+  content: '·';
+  margin-right: var(--sp-2);
+  opacity: 0.5;
+}
+
+.pcard-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+  margin: 0;
+  /* Two lines, and the box is that tall whether the name fills it or not, so
+     the price rows across a grid stay on one baseline. The old single-line
+     ellipsis cut the half of a name that distinguishes it from its neighbours. */
+  min-height: calc(2 * 1.3em);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pcard-link {
+  color: var(--text);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.pcard-link:hover { color: var(--primary); }
+/* The whole tile is the target, but only this anchor exists — so the card has
+   one link, no nested interactive elements, and a screen reader reads a name
+   rather than "link, link, link". */
+.pcard-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.pcard-link:focus-visible { outline: none; }
+.pcard-link:focus-visible::after {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius);
+}
+
+.pcard-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: var(--sp-2);
+  margin-top: auto;
+  padding-top: var(--sp-2);
+}
+
+.pcard-price {
+  display: flex;
+  align-items: baseline;
+  /* Never wraps. A wrapped price makes the footer of one card taller than its
+     neighbours', and because the footer is `margin-top: auto` inside an
+     equal-height grid row, that lifts its first line off the baseline every
+     other card in the row is sitting on. */
+  flex-wrap: nowrap;
+  overflow: hidden;
+  gap: 0 var(--sp-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--text);
+  min-width: 0;
+}
+.pcard-price .is-sale { color: var(--danger); }
+.pcard-was {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+/* "$40 – $140" instead of "From $40": the top of the ladder is the number a
+   buyer needs to know before clicking, and it is the one the old card hid. */
+.pcard-upto {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* Butts against the headline figure with no gap, so "$24.99–26.99" reads as
+     one span rather than as two prices that happen to be adjacent. */
+  margin-left: -2px;
+}
+
+.pcard-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--success);
+  white-space: nowrap;
+}
+.pcard-stock.is-out { color: var(--danger); }
+.pcard-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+.pcard-stock.is-out .pcard-dot {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
+}
+/* The dot is decoration; the word is the state. Below ~180px the word is what
+   survives, never the other way round — a lone coloured dot is meaningless at
+   --glow-strength: 0 and invisible to a screen reader. */
+@container (max-width: 180px) {
+  .pcard-dot { display: none; }
+}
+
+/* Two-up on a small phone puts the card at ~164px. One step down the type
+   scale, one step in on the padding — a step, not a hand-picked rem value, so
+   "make it smaller" cannot drift into nine nearly-equal sizes. */
+@container (max-width: 178px) {
+  .pcard-body { padding: var(--sp-2); }
+  .pcard-name { font-size: var(--fs-sm); }
+  .pcard-price { font-size: var(--fs-base); }
+  /* The size is already the bottom of the scale, so the tracking gives back
+     the width instead. Inventing a tenth font size below --fs-2xs is how a
+     type scale turns into nine nearly-equal rem values. */
+  .pcard-stock { letter-spacing: 0.03em; }
+
+  /* Two-up on a 390px phone puts the card at ~175px, and "$24.99–26.99" plus
+     "IN STOCK" does not fit on one line there — the stock word ran under the
+     card's right edge. Stacked, both facts survive at full size. Costs one
+     line of card height, which is the cheaper trade: a price range and an
+     availability are the two things this footer exists to say. */
+  .pcard-foot {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+}
+
+/* The heart is a sibling of the stretched link, lifted above it so a save is
+   a save and not a navigation. `.fc-heart` (42-home-featured-carousel.css)
+   carries the plate and the light-mode ink; only the stacking is restated. */
+.pcard .fc-heart {
+  z-index: 2;
+  transition: opacity var(--transition), color var(--transition), transform var(--transition), background var(--transition);
+}
+
+/* Revealed, not permanent. Twenty-four tiles each wearing a filled circle in
+   the same corner is a wall of chrome sitting on top of the photographs the
+   grid exists to show. An already-saved heart stays lit, because that one is
+   information rather than an offer — and a coarse pointer keeps all of them,
+   since there is no hover there to reveal anything with. */
+@media (hover: hover) {
+  .pcard .fc-heart { opacity: 0; }
+  .pcard:hover .fc-heart,
+  .pcard:focus-within .fc-heart,
+  .pcard .fc-heart:focus-visible,
+  .pcard .fc-heart.on { opacity: 1; }
+}
+
+/* ── The compact list ────────────────────────────────────────────────────────
+
+   Aligned columns on a wide container, a two-line card on a narrow one — two
+   genuinely different shapes for the same record, which is what DESIGN §6 asks
+   for once the phone view wants a thumbnail rather than a stack of labelled
+   fields.
+
+   The column headings are clipped, never removed, below the breakpoint: a
+   `display: none` heading takes the column name out of the accessibility tree
+   along with the pixels, and then the cards announce seven anonymous values.
+   Same reason `.admin-rtable` clips its `<thead>`.
+
+   The name column is capped rather than left as a bare `1fr`. At 1440px an
+   uncapped name track was ~900px of air between a 200px product name and the
+   price, which is the opposite of the density this list exists for. */
+
+.crow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--border);
+  container-type: inline-size;
+}
+
+.crow-head,
+.crow {
+  display: grid;
+  /* product · brand · category · variants · price · stock · heart.
+     The last track is `auto` rather than a fixed width so a signed-out
+     visitor, who gets no heart, does not read a column of nothing down the
+     right edge of the whole list. */
+  grid-template-columns:
+    minmax(200px, 2.2fr)
+    minmax(0, 1fr)
+    minmax(0, 0.8fr)
+    76px
+    124px
+    96px
+    auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.crow-head {
+  background: var(--well);
+  padding-top: var(--sp-2);
+  padding-bottom: var(--sp-2);
+}
+.crow-h {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.crow-h.is-num { text-align: right; }
+/* The price column is right-aligned and the stock column left-aligned, so
+   without this their two headings end up 12px apart and read as one phrase —
+   "FROM STOCK". The padding moves the price column's whole stack, heading and
+   figures together, so the column still lines up with itself. */
+.crow-h:nth-child(5),
+.crow-price { padding-right: var(--sp-3); }
+
+.crow {
+  position: relative;
+  background: var(--surface);
+  transition: background var(--transition);
+}
+.crow:hover,
+.crow:focus-within { background: var(--surface-hover); }
+.crow.is-oos .crow-thumb,
+.crow.is-oos .crow-price { opacity: 0.6; }
+
+.crow-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.crow-thumb {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--well);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.crow-main { min-width: 0; display: block; }
+.crow-link {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--transition);
+}
+.crow-link:hover { color: var(--primary); }
+.crow-link::after { content: ''; position: absolute; inset: 0; }
+.crow-link:focus-visible { outline: none; }
+.crow-link:focus-visible::after { outline: var(--focus-ring); outline-offset: -2px; }
+
+/* Only ever visible once the columns are gone. See the note on the markup:
+   without it, a narrow list loses the maker, and this catalog holds two
+   products called "Cured Resin Cart" that differ by nothing else. */
+.crow-sub {
+  display: none;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.crow-sub > span { flex-shrink: 0; }
+.crow-sub > span + span::before {
+  content: '·';
+  margin-right: var(--sp-2);
+  opacity: 0.6;
+}
+.crow-variants { color: var(--text-secondary); }
+.crow-sub .cat-drop-badge { flex-shrink: 0; }
+.crow-sub > span + .cat-drop-badge::before { content: none; }
+
+.crow-brand,
+.crow-cat {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crow-cat { color: var(--text-muted); }
+
+.crow-vars {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* Two real columns on a wide row so the figures line up down the whole list;
+   one stacked cell on a narrow one. `display: contents` is what lets the same
+   markup be both without the wrapper ever painting anything itself. */
+.crow-figures { display: contents; }
+
+.crow-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--sp-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.crow-price .is-sale { color: var(--danger); }
+.crow-was {
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.crow-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--success);
+  white-space: nowrap;
+}
+.crow-stock.is-out { color: var(--danger); }
+.crow-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+.crow-stock.is-out .crow-dot { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+.crow-heart {
+  position: relative;
+  z-index: 2;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition), opacity var(--transition);
+}
+.crow-heart:hover { background: var(--surface-active); color: var(--text); }
+.crow-heart.on { color: var(--danger); }
+
+/* Revealed on a fine pointer, permanent on a coarse one. Gated on the pointer
+   and not on width, because a laptop at 700px still has a mouse — and the row
+   reserves the space either way, so the reveal cannot make the list jitter. */
+@media (hover: hover) {
+  .crow-heart { opacity: 0; }
+  .crow:hover .crow-heart,
+  .crow:focus-within .crow-heart,
+  .crow-heart:focus-visible,
+  .crow-heart.on { opacity: 1; }
+}
+
+/* Seven columns stop fitting before the container gets truly narrow. The
+   middle three fold back into the sub-line rather than disappearing. */
+@container (max-width: 940px) {
+  .crow-head,
+  .crow {
+    grid-template-columns: minmax(0, 1fr) 124px 96px auto;
+  }
+  .crow-head .crow-h:nth-child(2),
+  .crow-head .crow-h:nth-child(3),
+  .crow-head .crow-h:nth-child(4),
+  .crow-brand,
+  .crow-cat,
+  .crow-vars { display: none; }
+  .crow-sub { display: flex; }
+}
+
+/* One record, two lines. Not the desktop row with columns hidden: the price
+   and the stock state both survive, because on a phone they are the two facts
+   the row exists to carry. */
+@container (max-width: 560px) {
+  .crow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'name    heart'
+      'figures figures';
+    gap: var(--sp-2) var(--sp-3);
+    padding: var(--sp-3);
+    align-items: start;
+  }
+  .crow-name { grid-area: name; align-items: flex-start; }
+  .crow-thumb { width: 38px; height: 38px; }
+  .crow-link { white-space: normal; }
+  .crow-heart {
+    grid-area: heart;
+    /* ≥44px on a coarse pointer — a 30px desktop control is a mis-tap on a
+       list where the row beneath it is a different product. */
+    width: 44px;
+    height: 44px;
+    margin: -3px -6px 0 0;
+  }
+  .crow-figures {
+    grid-area: figures;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    /* Indented to the thumbnail's right edge so the price sits under the name
+       it belongs to rather than under the picture. */
+    padding-left: calc(38px + var(--sp-3));
+  }
+  .crow-price { justify-content: flex-start; }
+
+  /* Clipped, not removed — the cards still owe a screen reader real column
+     names. */
+  .crow-head {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* ── Skeletons ──────────────────────────────────────────────────────────────
+
+   These hold the shape of the result they replace. A centred spinner
+   collapsed the page to nothing and then dropped twenty-four cards into it,
+   so every filter change was a full reflow with a jump to match.
+
+   The shimmer is a loader and is deliberately absent from the reduced-motion
+   opt-out in 40-motion-and-glow-layer.css: a frozen skeleton reads as a hung
+   page, which is the one thing a loading state must never do. */
+
+.pcard-skel,
+.crow-skel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.pcard-skel { display: flex; flex-direction: column; }
+.pcard-skel .skel-block { aspect-ratio: 1 / 1; width: 100%; }
+.pcard-skel .skel-lines { padding: var(--sp-3); display: grid; gap: var(--sp-2); }
+
+.crow-skel {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 0;
+  border-width: 0 0 1px;
+}
+.crow-skel:last-child { border-bottom-width: 0; }
+.crow-skel .skel-block { width: 34px; height: 34px; border-radius: var(--radius-sm); }
+.crow-skel .skel-lines { display: grid; gap: var(--sp-1); }
+
+.skel-line { height: 9px; border-radius: var(--pill); display: block; }
+.skel-line.is-short { width: 45%; }
+
+.skel-block,
+.skel-line {
+  /* Composed from the tint channel rather than a grey literal: --tint-rgb
+     flips polarity between modes, so the same alpha is a lift on graphite and
+     an edge on paper. A fixed #2a2a2a skeleton is a black bar on a light
+     store. */
+  background: rgba(var(--tint-rgb), 0.07);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(var(--tint-rgb), 0.09) 50%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  animation: skel-sweep 1.4s var(--ease-panel) infinite;
+}
+@keyframes skel-sweep {
+  from { background-position: 120% 0; }
+  to   { background-position: -120% 0; }
+}

@@ -1,0 +1,15 @@
+/* Durable media work: one compact row per file, with reachable cancellation on
+   phones. Names wrap rather than pushing the only action outside the panel. */
+.media-jobs { display: grid; gap: var(--sp-3); min-width: 0; }
+.media-jobs-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); }
+.media-jobs-heading > span { color: var(--text-muted); font-size: var(--fs-xs); }
+.media-job { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.media-job-content { flex: 1; min-width: 0; display: grid; gap: var(--sp-2); }
+.media-job-name { overflow-wrap: anywhere; font-size: var(--fs-sm); color: var(--text); }
+.media-job-result { overflow-wrap: anywhere; font-size: var(--fs-xs); color: var(--text-muted); }
+.media-job.is-failed .media-job-result { color: var(--danger); }
+.media-job.is-completed .media-job-result { color: var(--success); }
+.media-job > button { flex-shrink: 0; }
+.mslots .media-job .work-progress { padding: 0; }
+.media-jobs-error { color: var(--warning); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+@media (pointer: coarse) { .media-job > button { min-height: 44px; min-width: 44px; } }

@@ -1,0 +1,444 @@
+/* ===============================
+   HOME — FEATURED CAROUSEL
+   =============================== */
+.fc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+.fc-viewport {
+  overflow: hidden;
+  /* `overflow: hidden` has to stay — it is what hides the off-track slides the
+     track's translateX pushes aside — but the clip box was barely taller than
+     the cards, so it sliced every card's shadow along one straight line running
+     the full width of the carousel. That reads as a hard-edged band lying on the
+     page behind the row rather than as shadow belonging to the cards. The
+     padding gives the shadow room to fade out; the matching negative margins
+     give the space straight back, so nothing below moves.
+
+     ── Measure the blur, not just the offset ──────────────────────────────
+     The first version of this fix budgeted 3.5rem below, from reading the hover
+     shadow as "~47px". That is the OFFSET. A box-shadow also extends about half
+     its blur radius past that, and `--shadow-lg`'s outer layer is
+     `0 44px 96px` — so it reaches 44 + 48 = 92px below the card, not 47, and
+     the clip still cut it 30px short. Sampling a hovered card's shadow down its
+     own centre column showed the tell exactly at the clip: one row stepping
+     +3.5 luminance and then dead-flat page colour, where a shadow that had been
+     allowed to finish fades smoothly to nothing.
+
+     What the budget below has to cover, with the card lifted 6px on hover:
+       down  `0 44px 96px`  → 44 + 48 = 92px past the raised card
+       up    `0 0 34px` (the hover glow, no offset) → 17px, + the 6px lift = 23px
+     Hence 6rem under and 1.75rem over, both with a little headroom. If either
+     shadow token is ever retuned, this is the sum to redo.
+
+     Vertical only, and that is a real limitation rather than an oversight: the
+     clip box is the PADDING box, so horizontal padding here would widen the
+     clip and let the outgoing slide show beside the row — the one thing the
+     clip exists to prevent. The outer cards' shadows are therefore still cut
+     against the page gutter. Shadow and slide occupy the same pixels there;
+     nothing can let one through and hold the other back.
+
+     The negative margins are the added padding MINUS the 8px/4px this box
+     already contributed, so the carousel occupies exactly the space it did
+     before and nothing on the page moves. */
+  padding: var(--sp-6) 0 var(--sp-16);
+  margin: calc(var(--sp-5) * -1) 0 calc(var(--sp-16) * -1);
+  touch-action: pan-y;
+}
+.fc-track {
+  display: flex;
+  transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+.fc-track.dragging { transition: none; }
+/* The gutter, and the reason it is this wide.
+ *
+ * This padding is the ONLY space that can sit between a card and the clip edge,
+ * and that is a structural fact rather than a preference: `overflow` clips at
+ * the PADDING box, so any gutter put on `.fc-viewport` widens the clip itself
+ * and lets the outgoing slide show beside the row. A gutter put on the track
+ * translates with the track, so it slides away the moment `current` moves off
+ * zero. Only the slide's own padding travels with its card and stays between
+ * that card and the edge.
+ *
+ * At 0.5rem the outermost card had 8px before the cut, while its resting shadow
+ * (`--shadow-md`, `0 12px 34px`) reaches 17px sideways and the hover shadow
+ * reaches 48px. Sampling straight across the clip caught the tell: page ground
+ * at 232.4, then 209.7 one pixel later — the shadow switching on at almost full
+ * strength instead of fading in.
+ *
+ * 1.75rem is 28px, which clears the resting shadow and the hover glow outright
+ * and takes most of the hover shadow's tail. It is a deliberate stop short of
+ * the full 48px: the gutter is shared, so an end gap of 28px is also a 56px
+ * channel between neighbouring cards, and 48px would put 96px of empty page
+ * between two products — which is a different design, and a worse one on a
+ * shelf that is meant to read as dense.
+ */
+.fc-slide {
+  flex: 0 0 auto;
+  padding: 0 var(--sp-6);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* --- the card --- */
+.fc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0 !important;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.3s var(--ease-panel), box-shadow 0.3s var(--ease-panel), border-color 0.3s var(--ease-panel);
+}
+.fc-card::before { display: none; }
+.fc-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--primary-border), 0 0 34px var(--card-glow);
+}
+
+.fc-media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--surface), var(--surface-hover));
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.fc-media-img {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.6s var(--ease-panel);
+}
+.fc-card:hover .fc-media-img { transform: scale(1.07); }
+.fc-media-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-4xl);
+  opacity: 0.22;
+}
+/* Separates the badges and the price foot from a busy product photo.
+   `--tint-rgb` is the surface-tint triple, so this darkens in dark mode and
+   lightens in light mode. Fixed black dragged the light-mode badge ground down
+   to a mid grey, which is the "black on grey" half of the reported bug. */
+.fc-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(var(--scrim-rgb), 0.34) 0%,
+    transparent 32%,
+    transparent 62%,
+    rgba(var(--scrim-rgb), 0.30) 100%
+  );
+  pointer-events: none;
+}
+
+.fc-badges {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+}
+.fc-badge {
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--pill);
+  /* sm tier so the admin's glass slider reaches the one chip a visitor can
+     actually watch frost over a product photo. */
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  line-height: 1.5;
+}
+/* Ink is `--bg`, never a hardcoded near-black.
+   Every status/brand colour is solved to clear 4.5:1 *against `--bg`*, and
+   contrast is symmetric, so painting `--bg` on one of them inherits that exact
+   ratio in both modes. The old literals froze these at dark-mode assumptions:
+   `#04060d` on the light primary (a dark teal, #0c7281) measured 3.0:1 — the
+   black-on-dark bubble reported on the featured cards. */
+.fc-badge-new     { background: var(--primary); color: var(--bg); }
+.fc-badge-best    { background: var(--warning); color: var(--bg); }
+.fc-badge-variants{ background: var(--overlay-bg); color: var(--text); text-transform: none; letter-spacing: 0; }
+
+/* Sale badge gets a slow sheen so a discount reads as live, not painted on. */
+.fc-badge-sale {
+  position: relative;
+  overflow: hidden;
+  background: var(--danger);
+  color: var(--bg);
+}
+/* The sale badge had a sheen sweeping across it on a 2.6s loop, forever. Three
+   things were wrong with it and the reduced-motion block had already found the
+   third: it looped (DESIGN §2), it animated `left` rather than a transform so
+   it stuttered on a phone (§2 again), and the opt-out did not merely stop it
+   but `display: none`d it — which is the tell that it carried no information
+   at all. A badge that says SALE in the danger tone is already the message. */
+
+.fc-heart {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.75);
+  transition: color var(--transition), transform var(--transition), background var(--transition);
+}
+.fc-heart:hover { transform: scale(1.12); background: rgba(0, 0, 0, 0.68); }
+.fc-heart.on { color: var(--danger); }
+
+.fc-oos {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 6, 13, 0.55);
+  /* Deliberately faint — the product must stay recognisable under the
+     out-of-stock veil. 15% of the sm tier lands at the old 1.5px on default
+     settings but still follows the slider all the way to zero. */
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur-sm) * 0.15));
+  backdrop-filter: blur(calc(var(--glass-blur-sm) * 0.15));
+}
+.fc-oos span {
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--pill);
+  padding: var(--sp-1) var(--sp-3);
+}
+
+.fc-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  flex: 1;
+  min-width: 0;
+}
+.fc-cat {
+  font-size: var(--fs-3xs);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.fc-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.fc-desc {
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fc-rating {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.fc-rating-score {
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.fc-tags { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.fc-tag {
+  font-size: var(--fs-3xs);
+  padding: var(--sp-05) var(--sp-15);
+  border-radius: var(--pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fc-foot {
+  margin-top: auto;
+  padding-top: var(--sp-25);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.fc-price-block { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; }
+.fc-price-row { display: flex; align-items: baseline; gap: var(--sp-15); flex-wrap: wrap; }
+.fc-price-from { font-size: var(--fs-3xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.fc-price {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+.fc-price.on-sale { color: var(--danger); }
+.fc-price-was {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-decoration: line-through;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-stock {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  color: var(--success);
+}
+.fc-stock.low  { color: var(--warning); }
+.fc-stock.oos  { color: var(--text-muted); }
+.fc-stock-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 7px currentColor;
+  flex-shrink: 0;
+}
+.fc-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: var(--sp-15) var(--sp-3);
+  border-radius: var(--pill);
+  background: var(--btn-bg);
+  border: 1px solid var(--primary-border);
+  color: var(--primary);
+  transition: background var(--transition), transform var(--transition);
+  white-space: nowrap;
+}
+.fc-card:hover .fc-cta { background: var(--btn-hover); }
+
+/* --- controls --- */
+.fc-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--nav-bg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text);
+  padding: 0;
+  transition: background var(--transition), border-color var(--transition), opacity var(--transition);
+}
+.fc-nav:hover:not(:disabled) { background: var(--surface-active); border-color: var(--primary-border); }
+.fc-nav:disabled { opacity: 0.3; cursor: default; }
+.fc-nav-prev { left: -6px; }
+.fc-nav-next { right: -6px; }
+
+.fc-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--sp-15);
+  padding: var(--sp-4) 0 0;
+}
+.fc-dot {
+  height: 6px;
+  width: 6px;
+  padding: 0;
+  border: none;
+  border-radius: var(--pill);
+  background: var(--border-hover);
+  cursor: pointer;
+  transition: width 0.35s var(--ease-panel), background 0.35s var(--ease-panel);
+}
+.fc-dot.on { width: 26px; background: var(--primary); }
+
+@media (max-width: 640px) {
+  .fc-nav { display: none; }
+  /* One card fills the screen here, so the gutter is spent from a 375px budget
+     rather than from 1136px. 1rem still clears the resting shadow's 17px, which
+     is the only one that matters: a phone has no hover, so the 48px version of
+     this shadow is never drawn. */
+  .fc-slide { padding: 0 var(--sp-4); }
+}
+
+:root[data-theme="light"] .fc-media { background: linear-gradient(135deg, #e8ecf5, #dfe4ef); }
+/* `.fc-badge-new` and `.fc-badge-variants` no longer need light twins: both now
+   derive plate and ink from mode-aware tokens. The old `color: #04121a` here
+   swapped one near-black for another on a dark-teal plate, which is why the
+   "fix" that was already in the file never fixed anything. */
+:root[data-theme="light"] .fc-oos { background: rgba(245, 247, 252, 0.6); }
+:root[data-theme="light"] .fc-oos span { color: var(--text); border-color: rgba(12, 18, 34, 0.4); }
+:root[data-theme="light"] .fc-heart { background: rgba(255, 255, 255, 0.75); color: rgba(12, 18, 34, 0.6); }
+:root[data-theme="light"] .fc-heart:hover { background: rgba(255, 255, 255, 0.92); }
+/* `:root[data-theme="light"] .fc-heart` is (0,3,0) and beats the (0,2,0)
+   `.fc-heart.on` rule whatever the source order, so a wishlisted item's heart
+   rendered the same grey as an unsaved one — the red state was unreachable in
+   light mode. Restate it at matching specificity. */
+:root[data-theme="light"] .fc-heart.on { color: var(--danger); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-track { transition: none; }
+  .fc-media-img,
+  .fc-card:hover .fc-media-img { transition: none; transform: none; }
+  /* The sale badge's sheen is gone for everyone — nothing to cancel. */
+}
+

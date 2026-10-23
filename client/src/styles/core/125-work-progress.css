@@ -1,0 +1,63 @@
+/* Shared work progress: readable in narrow variant panels and full-page waits.
+   Every paint follows the operator's palette; the active track still reads
+   with glass, glow and roundness disabled. Percentages describe measured work. */
+.work-progress {
+  display: grid;
+  gap: var(--sp-2);
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  color: var(--text);
+}
+.work-progress-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.work-progress-heading > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.work-progress-value { flex-shrink: 0; color: var(--text-secondary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.work-progress-track {
+  position: relative;
+  overflow: hidden;
+  height: var(--sp-15);
+  border-radius: var(--radius-sm);
+  background: var(--surface-active);
+  box-shadow: inset 0 0 0 1px var(--border-hover);
+}
+.work-progress-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary);
+  transform-origin: left;
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.work-progress-track.is-indeterminate .work-progress-fill {
+  width: 35%;
+  animation: work-progress-travel 1.8s var(--ease-panel) infinite;
+}
+.work-progress-detail { min-width: 0; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; overflow-wrap: anywhere; }
+.loading-page > .work-progress { max-width: 42ch; margin-inline: auto; }
+.mslots .work-progress { padding: var(--sp-4); }
+.mslots-drop.is-busy { border-style: solid; border-color: var(--border-hover); }
+.nodes-progress { margin-block: var(--sp-3) var(--sp-5); }
+@keyframes work-progress-travel {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(386%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .work-progress-fill { transition: none; }
+  /* Keep a gentle activity signal without travelling across the panel. */
+  .work-progress-track.is-indeterminate .work-progress-fill {
+    width: 100%;
+    animation: work-progress-pulse 2s linear infinite;
+  }
+}
+@keyframes work-progress-pulse { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+@media (forced-colors: active) {
+  .work-progress-track { border: 1px solid CanvasText; }
+  .work-progress-fill { background: Highlight; forced-color-adjust: none; }
+}

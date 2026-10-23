@@ -1,0 +1,336 @@
+/* ===============================
+   NAV POPOVERS — shared engine skin
+   ===============================
+   One base for every panel that hangs off the navbar (cart, orders, support,
+   membership, mode menu). lg-tier glass: these float over arbitrary scrolling
+   content, and the page behind must dissolve rather than compete. The panel
+   is static while open — only inner lists scroll — so the backdrop filter
+   never rides an animating element. */
+
+.nav-pop-wrap {
+  position: relative;
+  display: flex;
+}
+.nav-pop-trigger { display: flex; }
+
+.nav-pop {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -8px;
+  width: min(var(--pop-w, 340px), calc(100vw - 2rem));
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--rim-inset), var(--shadow-lg);
+  padding: var(--sp-4);
+  z-index: var(--z-drawer);
+  /* Closed: parked slightly up and transparent. transform+opacity only. */
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  transform-origin: top right;
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    opacity var(--dur-2) var(--ease-settle),
+    transform var(--dur-2) var(--ease-settle),
+    visibility 0s linear var(--dur-2);
+}
+.nav-pop-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  visibility: visible;
+  transition:
+    opacity var(--dur-2) var(--ease-settle),
+    transform var(--dur-2) var(--ease-settle);
+}
+
+/* Shared head */
+.nav-pop-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.nav-pop-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-md);
+}
+.nav-pop-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.nav-pop-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  padding: var(--sp-4) var(--sp-2);
+}
+/* The count a truncated panel would otherwise hide. A list capped at five
+   with nothing saying so reads as the whole list — DESIGN §5's rule about
+   never cropping data silently, applied to a vertical cap rather than a
+   horizontal one. */
+.nav-pop-more {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-align: right;
+}
+.nav-pop-foot {
+  border-top: 1px solid var(--glass-border);
+  padding-top: var(--sp-3);
+  margin-top: var(--sp-2);
+  display: flex;
+  gap: var(--sp-2);
+}
+.nav-pop-foot .glass-btn { flex: 1; }
+
+/* Generic row list (orders, tickets) */
+.nav-pop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(46vh, 380px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.nav-pop-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  min-height: 44px;
+}
+.nav-pop-row:last-child { border-bottom: none; }
+.nav-pop-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-pop-row-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-pop-row:hover .nav-pop-row-title { color: var(--primary); }
+.nav-pop-row-sub {
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-pop-row-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.nav-pop-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+}
+
+/* Thumb shared by list panels that show product imagery. */
+.nav-pop-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.nav-pop-thumb-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--well);
+}
+
+/* Compact stat grid (referrals). Same recipe as the home pulse deck, scaled
+   to panel width. */
+.nav-pop-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  margin: 0;
+}
+.nav-pop-stat {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.nav-pop-stat dt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.nav-pop-stat dd {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+/* ── Wishlist ── */
+.wishlist-quick-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--pill);
+  background: var(--btn-bg);
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  padding: var(--sp-1) var(--sp-2);
+  cursor: pointer;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.wishlist-quick-add:hover {
+  background: var(--btn-hover);
+  box-shadow: 0 0 12px var(--card-glow);
+}
+
+/* ── Profile ── */
+.profile-pop { --pop-w: 280px; }
+.profile-pop-head {
+  display: flex;
+  /* `center`, not `baseline` — the head grew an avatar and a circle has no
+     text baseline to sit on. */
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+/* The name and the join date stack beside the picture rather than sitting at
+   opposite ends of the row: with a 32px circle taking the left, pushing them
+   apart left a gap in the middle and nothing in it. */
+.profile-pop-id {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.profile-pop-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-lg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-pop-credit {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid rgba(var(--success-rgb), 0.3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--success-rgb), 0.08);
+  color: var(--success);
+  font-size: var(--fs-sm);
+  margin-bottom: var(--sp-2);
+}
+.profile-pop-credit strong { margin-left: auto; font-size: var(--fs-md); }
+.profile-pop-2fa {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.profile-pop-2fa.is-off { color: var(--warning); }
+.profile-pop-2fa svg { flex-shrink: 0; margin-top: 1px; }
+
+/* ── Mode menu ── */
+.mode-menu { --pop-w: 200px; padding: var(--sp-2); }
+.mode-menu-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mode-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  min-height: 40px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  text-align: left;
+}
+.mode-menu-btn:hover { background: var(--surface-hover); }
+.mode-menu-btn.is-active {
+  background: var(--btn-bg);
+  color: var(--primary);
+  font-weight: 600;
+}
+.mode-menu-btn .mode-menu-check { margin-left: auto; }
+.mode-menu-note {
+  margin: var(--sp-2) var(--sp-3) var(--sp-1);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Membership panel ── */
+.member-pop { --pop-w: 300px; }
+.member-pop-tier {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-lg);
+}
+.member-pop-bar {
+  height: 6px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+  margin: var(--sp-3) 0 var(--sp-2);
+}
+.member-pop-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--member-color, var(--primary));
+  transition: width var(--dur-3) var(--ease-settle);
+}
+.member-pop-next {
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}

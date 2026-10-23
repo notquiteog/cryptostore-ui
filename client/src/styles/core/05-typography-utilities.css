@@ -1,0 +1,41 @@
+/* ===============================
+   TYPOGRAPHY UTILITIES
+   =============================== */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+/* The ledger voice: anything a buyer or operator compares down a column —
+   prices, totals, order ids, hashes, timestamps. `tabular-nums` is the whole
+   point: proportional digits give "$9.11" and "$8.44" different widths, and a
+   column of money that shimmies by a pixel per row cannot be scanned. */
+.ds-mono,
+.t-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+/* Ids and keys where 0 vs O costs someone a mistyped support search: JetBrains
+   Mono carries a dotted zero behind the `zero` feature. */
+.t-hash {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'zero' 1;
+}
+/* Every table is a grid of comparisons; opt the digits in wholesale rather
+   than per cell. Text cells are untouched — the feature only reshapes digits. */
+table { font-variant-numeric: tabular-nums; }
+
+.ds-micro {
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+

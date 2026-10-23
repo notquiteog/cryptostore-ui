@@ -1,0 +1,210 @@
+/* ===============================
+   THE THEME PAGE'S TABS
+   ===============================
+   The settings page got a rail; this one gets tabs, and the difference is not
+   a preference — the two pages are used differently.
+
+   Settings is a REFERENCE: an operator arrives looking for one control they
+   half-remember, often from the admin search, and the surrounding sections are
+   context that helps them recognise it. A rail suits that.
+
+   Theme is a WORKBENCH. Nobody sets a colour, a font and a corner radius in
+   one motion; they work the palette until it is right, look at the store, then
+   move to glass. Thirteen stacked cards made that loop cost a scroll every
+   time, and a text index down the side of a page about colour is chrome
+   competing with the work. One section at a time, full width for the swatches.
+
+   Only the active section is rendered — see ThemeTabs.jsx for why that matters
+   beyond tidiness (the effects tabs mount WebGL2 previews). */
+
+.thm { display: flex; flex-direction: column; }
+
+/* ── The head: which mode am I editing, and the way out ────────────────── */
+
+/* This page does not use `PageHeader`.
+   Every other admin screen opens with a title and a live subtitle; this one
+   opened with the word "Theme" beneath a sidebar item reading Theme, over a
+   sentence describing the page to somebody already standing on it. What went
+   in its place is the control that was previously reachable from three of the
+   thirteen tabs — see the comment on `modeSwitch` in pages/admin/Theme.jsx.
+
+   One row: the mode switch leads, Reset is pushed to the far edge by the
+   `margin-left: auto` below rather than by a spacer element, so the row
+   collapses cleanly when it wraps. */
+.thm-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-4);
+  /* Matches `.admin-page-head`, which this replaces, so the theme page still
+     enters like every other admin screen (§2: content arrives). */
+  animation: fade-in 0.34s var(--ease-panel) both;
+}
+
+.thm-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* "Editing" — the word that stops the switch reading as the store's mode.
+   Two dark/light controls exist on this page and they do different things:
+   this previews a palette, the one on the Colour mode tab is what visitors
+   get. Unlabelled, the header switch looks like the storefront setting, which
+   is the misreading that makes someone change their store to look at a colour.
+   `aria-hidden` because the group beside it already carries "Edit colours
+   for" as its accessible name; announcing both would say it twice. */
+.thm-mode-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* Ordered AFTER the switch in the DOM so the tab order is switch → reset, but
+   painted before it: the badge is a warning about the state the switch is in,
+   and reading "previewing light" before the control it describes is backwards. */
+.thm-previewing {
+  order: -1;
+  font-size: var(--fs-2xs);
+}
+
+.thm-head-reset { margin-left: auto; }
+
+/* Phone: the row becomes two. The switch keeps the first line to itself — it
+   is the control being reached for — and Reset takes the second at full width,
+   which is what `.admin-page-head` does with its own action button and the
+   reason a destructive control does not end up as a thumb-sized target beside
+   the thing you actually came to press.
+
+   A VIEWPORT query, where DESIGN §5 asks for a container query, and the
+   exception is worth stating rather than looking like the mistake §5 names.
+   That rule exists because a component in a 300px sidebar inside a 1400px
+   window gets the wide rules from a viewport query. Nothing narrows this row
+   but the admin sidebar, and 15-admin-layout.css removes that below 900px — so
+   across the entire range this query governs, viewport and content box are the
+   same measurement. The row also carries `flex-wrap`, so it degrades correctly
+   at any width with the query never firing at all; what is below only upgrades
+   an already-correct wrap into full-width targets. */
+@media (max-width: 560px) {
+  .thm-head { gap: var(--sp-2); }
+  .thm-mode-switch { width: 100%; }
+  .thm-mode-switch .segmented { flex: 1; }
+  .thm-mode-switch .segmented-option { flex: 1; justify-content: center; }
+  .thm-head-reset { width: 100%; justify-content: center; margin-left: 0; }
+}
+
+/* §5's 44px floor, gated on the pointer rather than the width — a laptop at
+   700px still has a mouse. `.segmented-option` is a 34px control designed for
+   a toolbar; it was acceptable while this switch was a card action reached
+   occasionally, and is not now that it is the control the page is steered
+   with. Same treatment `.thm-tab` gets below, and for the same reason. */
+@media (hover: none) {
+  .thm-mode-switch .segmented-option { min-height: 44px; }
+  .thm-head-reset { min-height: 44px; }
+}
+
+/* ── The strip ─────────────────────────────────────────────────────────── */
+
+.thm-tabs {
+  display: flex;
+  gap: var(--sp-1);
+  /* Scrolls rather than wraps. Thirteen tabs wrapped to three rows is a block
+     of navigation taller than some of the panels below it, and the row order
+     stops meaning anything once it reflows. */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  /* The strip stays put while a long panel scrolls under it: the tabs are how
+     you leave, and having to scroll back up to change section is the cost this
+     whole layout exists to remove. */
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--bg);
+}
+
+.thm-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+  min-height: var(--control-h);
+  padding: 0 var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out),
+              border-color var(--dur-1) var(--ease-out);
+}
+.thm-tab:hover { color: var(--text); background: rgba(var(--tint-rgb), 0.05); }
+
+/* Selection lights the shape, never thickens it (§3): the border is already
+   there at 1px and transparent, so the strip does not shuffle sideways as the
+   selection moves — which on a horizontally scrolling row would drag the tab
+   you were aiming at out from under the pointer. */
+.thm-tab.is-on {
+  color: var(--primary);
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.12);
+}
+
+@media (hover: none) { .thm-tab { min-height: 44px; } }
+
+/* The dot: this tab is holding unsaved changes.
+   Tabs hide things, and the save bar can count changes but cannot say where
+   they are. Without this, switching away from an edit would lose it from view
+   entirely — trading a scroll for "something is unsaved and I cannot find it".
+   Warning-coloured to match the save bar's own count, so the two read as one
+   statement rather than two unrelated marks. */
+.thm-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--warning);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--warning) 60%, transparent);
+}
+
+/* ── The panel ─────────────────────────────────────────────────────────── */
+
+/* §2: content arrives, it does not blink into existence. `--ease-panel` is the
+   token for exactly this — a panel fading in — and the travel is small because
+   a heading that slides is harder to read than one that appears. */
+.thm-panel { animation: thm-panel-in var(--dur-2) var(--ease-panel) both; }
+
+@keyframes thm-panel-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The card inside a panel carries no bottom margin: it is the only one there,
+   and the gap would just push the save bar down the page. */
+.thm-panel .aset-card { margin-bottom: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* `both` fill means cancelling without restoring the end state leaves the
+     panel invisible — the trap §2 names, and here it would empty the page. */
+  .thm-panel { animation: none; opacity: 1; transform: none; }
+  /* Same treatment for the head. `.admin-page-head`, which this replaced, was
+     covered by the list in 40-motion-and-glow-layer.css; `.thm-head` is not in
+     that list and inherits nothing from it, so the opt-out has to be restated
+     here — §2 asks for it in the same file as the animation anyway. */
+  .thm-head { animation: none; opacity: 1; }
+  .thm-tab { transition: none; }
+}

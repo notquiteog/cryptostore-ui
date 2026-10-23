@@ -1,0 +1,164 @@
+/* ===============================
+   NODE SYNC (admin)
+   =============================== */
+.node-sync {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  background: rgba(var(--tint-rgb), 0.02);
+}
+.node-sync-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.node-sync-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.node-sync-pct {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+.sync-bar {
+  height: 8px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.08);
+  overflow: hidden;
+}
+.sync-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.5s var(--ease-panel), background 0.3s ease;
+  background: linear-gradient(90deg, var(--secondary), var(--primary));
+  box-shadow: 0 0 12px var(--card-glow);
+  /* The sheen below is positioned against this element, and clipped by it.
+     Previously the fill established neither, so the sheen was laid out as an
+     ordinary block and clipped by the *track* instead — it slid straight out of
+     the filled span and went travelling across the empty remainder of the bar,
+     which is the flicker this looked like at 30% sync. */
+  position: relative;
+  overflow: hidden;
+}
+.sync-bar-fill.is-synced {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--success) 65%, transparent), var(--success));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--success) 35%, transparent);
+}
+/* A node still catching up gets a moving sheen, so "syncing" is legible at a
+   glance without reading the number. */
+.sync-bar-fill.is-syncing::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: sync-sheen 1.6s linear infinite;
+  will-change: transform;
+}
+@keyframes sync-sheen {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/* An indeterminate bar for a chain whose target height is not known yet.
+   `--seg` is the segment's share of the track; the end keyframe is one track
+   width expressed in segment widths (100 / 35 ≈ 2.86), which is what carries it
+   from just off the left edge to just off the right. */
+.sync-bar-indeterminate {
+  --seg: 35;
+  width: calc(var(--seg) * 1%);
+  /* Three separate problems lived here:
+       - it animated `margin-left`, which relayouts the bar every frame;
+       - it eased (`--ease-panel`) on a loop, so the segment slowed to a stop at
+         each cycle boundary and snapped — read as a stutter, not a scan;
+       - the inherited `transition: width` fought the keyframe whenever the bar
+         flipped between determinate and indeterminate.
+     Transform composites, `linear` loops seamlessly, and the transition is
+     dropped for the duration. */
+  transition: none;
+  animation: sync-indeterminate 1.4s linear infinite;
+  will-change: transform;
+}
+@keyframes sync-indeterminate {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(286%); }
+}
+/* The travelling segment already reads as motion; the sheen on top of it was a
+   second animation on the same element fighting for the same pixels. */
+.sync-bar-fill.sync-bar-indeterminate::after { display: none; }
+
+.node-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(72px, 100%), 1fr));
+  gap: var(--sp-2) var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.node-stat-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+.node-stat-value {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Banner for a dependency shared by every node (the Tor proxy). */
+.node-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--danger) 38%, transparent);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  margin-bottom: var(--sp-4);
+}
+.node-alert-ok {
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  background: color-mix(in srgb, var(--success) 7%, transparent);
+}
+.node-alert-title {
+  font-weight: 600;
+  font-size: var(--fs-base);
+  margin-bottom: var(--sp-05);
+}
+.node-alert-body {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.node-alert code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 0.05rem var(--sp-1);
+  border-radius: 4px;
+  background: rgba(var(--tint-rgb), 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-bar-fill.is-syncing::after,
+  .sync-bar-indeterminate { animation: none; }
+}
+

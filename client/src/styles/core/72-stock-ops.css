@@ -1,0 +1,484 @@
+/* ── Stock operations: count, receive, returns ──────────────────────────────
+ * A form on the left, the log it writes to on the right. The pairing is the
+ * point: somebody counting a shelf wants to see the queue their count joins,
+ * and somebody booking goods in wants to see what they booked in ten minutes
+ * ago before they book it twice. */
+
+.stk-tabs { margin-bottom: var(--sp-3); }
+
+.stk-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: start;
+}
+
+/* An approval queue with nothing in it stops claiming the page. Sized to its
+   own content rather than to a fraction of the screen, so the form somebody
+   came here to use is what the width is spent on — and the queue takes the
+   space straight back the moment a count is filed. */
+.stk-grid:has(> .stk-list.is-quiet) {
+  grid-template-columns: minmax(0, 22rem) minmax(0, 26rem);
+  justify-content: start;
+}
+
+@media (max-width: 900px) {
+  .stk-grid { grid-template-columns: 1fr; }
+}
+
+.stk-wide { grid-column: 1 / -1; }
+
+.stk-form,
+.stk-list {
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.stk-form h3,
+.stk-list h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: 0;
+  font-size: var(--fs-md);
+}
+
+.stk-lede {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.stk-badge {
+  margin-left: auto;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: 999px;
+  background: rgba(var(--primary-rgb), 0.15);
+  color: var(--primary);
+}
+
+.stk-badge.is-warn {
+  background: rgba(var(--warning-rgb), 0.15);
+  color: var(--warning);
+}
+
+/* ── Fields ── */
+
+.stk-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+}
+
+.stk-field > span { color: var(--text-muted); }
+.stk-field em { font-style: normal; opacity: 0.75; }
+
+/*
+ * A line UNDER a field, for the one input whose consequence is not obvious
+ * from its label. "Cost per unit" reads like a field the buyer might see; the
+ * hint is where the form says it is not, and what the number is actually for.
+ * Quieter than the label above it so the field still reads as one thing.
+ */
+.stk-field > small {
+  color: var(--text-muted);
+  font-size: var(--fs-2xs, 0.72rem);
+  line-height: 1.4;
+  opacity: 0.85;
+}
+
+.stk-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+
+/* The number the whole screen exists to capture, sized like it matters. */
+.stk-count-input {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ── The count difference, stated before it is committed ── */
+
+.stk-delta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: 0;
+  padding: var(--sp-2) var(--sp-25);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.stk-delta.is-match { color: var(--success); background: rgba(var(--success-rgb), 0.1); }
+.stk-delta.is-short { color: var(--danger); background: rgba(var(--danger-rgb), 0.1); }
+.stk-delta.is-over { color: var(--warning); background: rgba(var(--warning-rgb), 0.1); }
+
+.stk-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-15);
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--warning);
+  line-height: 1.45;
+}
+
+/* ── Variant picker ── */
+
+.stk-search { position: relative; }
+
+.stk-results {
+  list-style: none;
+  margin: var(--sp-1) 0 0;
+  padding: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg) 92%, var(--text) 8%);
+}
+
+.stk-results button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--sp-15);
+  align-items: baseline;
+  width: 100%;
+  padding: var(--sp-15) var(--sp-2);
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
+.stk-results button:hover { background: var(--surface-hover); }
+
+.stk-res-group { grid-column: 1; color: var(--text-muted); font-size: var(--fs-2xs); }
+.stk-res-variant { grid-column: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stk-res-bin { font-family: var(--font-mono, monospace); font-size: var(--fs-2xs); color: var(--primary); }
+.stk-res-qty { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.stk-picked {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-25);
+  border: 1px solid rgba(var(--primary-rgb), 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--primary-rgb), 0.06);
+}
+
+.stk-picked-name { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.stk-picked-name strong { font-size: var(--fs-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stk-picked-name em { font-style: normal; font-size: var(--fs-xs); color: var(--text-muted); }
+
+.stk-picked-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.stk-picked-clear {
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  padding: var(--sp-1);
+}
+
+.stk-picked-clear:hover { color: var(--danger); }
+
+/* ── Logs ── */
+
+.stk-none { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+
+.stk-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+  max-height: 34rem;
+  overflow-y: auto;
+}
+
+.stk-rows li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-25);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+.stk-rows li.is-open { border-color: var(--primary); }
+
+.stk-row-main { display: flex; flex-direction: column; gap: var(--sp-05); min-width: 0; flex: 1; }
+
+.stk-row-name { display: flex; flex-direction: column; min-width: 0; }
+.stk-row-name strong { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stk-row-name em { font-style: normal; font-size: var(--fs-xs); color: var(--text-muted); }
+
+.stk-row-meta {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+.stk-row-meta code { font-family: var(--font-mono, monospace); color: var(--primary); }
+.stk-unfiled { color: var(--warning); }
+
+.stk-row-note {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: var(--sp-05);
+}
+
+.stk-row-delta {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stk-row-delta.is-short { color: var(--danger); }
+.stk-row-delta.is-over { color: var(--success); }
+
+.stk-row-actions { display: inline-flex; gap: var(--sp-1); flex-shrink: 0; }
+
+/* ── Returns: the line-by-line book-in ── */
+
+.stk-retlines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.stk-retlines li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6rem 8rem 10rem;
+  gap: var(--sp-2);
+  align-items: end;
+  padding: var(--sp-25);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+@media (max-width: 820px) {
+  .stk-retlines li { grid-template-columns: 1fr 1fr; }
+}
+
+.stk-ret-name { display: flex; flex-direction: column; min-width: 0; }
+.stk-ret-name strong { font-size: var(--fs-sm); }
+.stk-ret-name em { font-style: normal; font-size: var(--fs-xs); color: var(--text-muted); }
+.stk-ret-exp { font-size: var(--fs-2xs); color: var(--text-muted); margin-top: var(--sp-05); }
+
+.stk-ret-qty input { text-align: center; font-variant-numeric: tabular-nums; }
+.stk-ret-bin input { font-family: var(--font-mono, monospace); text-transform: uppercase; }
+.stk-ret-bin input:disabled { opacity: 0.45; }
+
+.stk-ret-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+  margin-top: var(--sp-2);
+}
+
+/* ── Dispatch manifest ──────────────────────────────────────────────────────
+ * A sheet first and a screen second: it is meant to be printed and carried,
+ * so the print rules are as considered as the screen ones. */
+
+.mf-window { margin-bottom: var(--sp-3); }
+
+.mf-cartons {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.mf-carton-chip {
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: var(--sp-05) var(--sp-2);
+  color: var(--text);
+}
+
+.mf-carton-chip em { font-style: normal; color: var(--text-muted); }
+
+.mf-carrier { padding: var(--sp-3); margin-bottom: var(--sp-3); }
+
+.mf-carrier-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+
+.mf-carrier-head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: 0;
+  font-size: var(--fs-md);
+}
+
+.mf-carrier-meta { font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* Wide content scrolls in its own box; the page never scrolls sideways. */
+.mf-table-wrap { overflow-x: auto; }
+
+.mf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  /* Fixed, so every carrier's table has the same columns.
+
+     A manifest is ONE document read down the page — the courier checks the
+     tracking column of all of it, not of each section in turn. With automatic
+     layout each carrier group sized its own columns from its own contents, so
+     "TRACKING" sat at 578px in the first table and 524px in the second, and
+     the weight column moved by a hundred pixels between them. */
+  table-layout: fixed;
+}
+
+/* Order · Box · Tracking · Carton · Weight · Shipped · (courier tick, print
+   only). Tracking takes the slack because a tracking number is the longest
+   value on the sheet and the one that must never be truncated. */
+.mf-table th:nth-child(1), .mf-table td:nth-child(1) { width: 110px; }
+.mf-table th:nth-child(2), .mf-table td:nth-child(2) { width: 56px; }
+.mf-table th:nth-child(4), .mf-table td:nth-child(4) { width: 132px; }
+.mf-table th:nth-child(5), .mf-table td:nth-child(5) { width: 84px; }
+.mf-table th:nth-child(6), .mf-table td:nth-child(6) { width: 152px; }
+
+/* A carton name or a packer's username that outruns its column truncates
+   rather than forcing the table wider than the sheet. The tracking column,
+   which must stay whole, is deliberately not in this list. */
+.mf-table td:nth-child(4),
+.mf-table td:nth-child(6) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mf-table th {
+  text-align: left;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.mf-table td {
+  padding: var(--sp-15) var(--sp-2);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.mf-table code { font-family: var(--font-mono, monospace); color: var(--primary); }
+.mf-num { text-align: right; font-variant-numeric: tabular-nums; }
+.mf-track { font-family: var(--font-mono, monospace); font-size: var(--fs-xs); }
+.mf-none { color: var(--text-muted); }
+.mf-untracked { color: var(--warning); font-size: var(--fs-xs); }
+.mf-when em { font-style: normal; color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* The courier's signature column: invisible on screen, a box on paper. */
+.mf-tick { display: none; }
+
+.mf-print-head { display: none; }
+
+@media print {
+  .admin-sidebar, .admin-topbar,
+  .mf-page .admin-page-header > *:not(h1):not(.admin-page-sub),
+  .mf-window, .mf-page .admin-stat-cards { display: none !important; }
+
+  .mf-print-head {
+    display: block;
+    font-size: 11pt;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid #000;
+    color: #000;
+  }
+
+  .mf-page { color: #000; }
+  .mf-carrier { border: none; background: #fff; padding: 0 0 1rem; break-inside: avoid; }
+  .mf-carrier-head h3, .mf-carrier-meta { color: #000; }
+  .mf-table th, .mf-table td { border-color: #999; color: #000; }
+  .mf-table code, .mf-untracked { color: #000; }
+
+  .mf-tick { display: table-cell; width: 2.2rem; }
+  .mf-tick-box {
+    display: block;
+    width: 0.9rem;
+    height: 0.9rem;
+    border: 1px solid #000;
+  }
+}
+
+/* ── The reorder columns on the low-stock report ─────────────────────────────
+ *
+ * `pages/admin/Dashboard.jsx`. The report used to print "4 left" and stop,
+ * which tells an operator there is a problem and not what to do about it. The
+ * two columns added beside it answer that: how long the shelf lasts at the rate
+ * this option actually sells, and how many units reach the cover the operator
+ * asked for.
+ *
+ * Both are numerals in a column that is read DOWN, so both are mono and
+ * tabular — a column of quantities that does not align is a column nobody
+ * scans. The three states of the Order cell are deliberately not three colours:
+ * a quantity is the only one worth weight, "covered" and "—" are both
+ * absences and are muted, which is the hierarchy (§7) rather than a palette.
+ */
+
+.lowstock-basis {
+  margin: 0 0 var(--sp-3);
+}
+
+.lowstock-cover,
+.lowstock-order {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The one figure on the row that is an instruction rather than an observation,
+   so it is the one that takes the brand colour and the weight. */
+.lowstock-order strong {
+  color: var(--primary);
+  font-weight: 700;
+}

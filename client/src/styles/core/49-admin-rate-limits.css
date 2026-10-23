@@ -1,0 +1,839 @@
+/* ===============================
+   ADMIN — RATE LIMITS
+   ===============================
+   Prefixed `rl-` throughout so nothing here can collide with a page-level
+   class, and every colour, size, step and curve comes from a token so the page
+   reads correctly in both modes, survives `--glow-strength: 0`, and follows a
+   store re-theme rather than pinning itself to the default indigo.
+
+   The screen draws thirty-six limiters across seven groups. That number is the
+   whole design problem, and it is why this file is shaped the way it is:
+
+   - **Two real views, not one squeezed.** DESIGN §6. The *audit* view is
+     `.rl-rows`, the house line item from 74-list-views.css with tracks
+     declared for a limiter; the *detail* view is `.rl-cards`, where the
+     paragraph explaining what a surface costs is always open. The field that
+     differs between them is the hint, which is §6's own test for building both
+     rather than hiding a column.
+   - **The budget bar carries the comparison.** `.rl-bar` puts every limiter on
+     one logarithmic scale, because "600 per 15 min" and "120 per 5 min" cannot
+     be ranked by eye and thirty-six of them certainly cannot.
+   - **The page is longer than the header.** It commits through the shared
+     `components/admin/SaveBar.jsx` (`.aset-savebar`, 79-admin-settings.css),
+     because editing a value in the last group used to mean scrolling past
+     every decision you had just made to reach the Save button. The only thing
+     this file still owns of that bar is the Review button inside it.
+
+   Container queries, not viewport queries, wherever a component reshapes:
+   the admin content column is not the window, and a viewport query fires the
+   wide rules in the narrowest place the component appears. */
+
+.rl-page { padding-bottom: var(--sp-6); }
+
+/* ── Notices ──────────────────────────────────────────────────────────────
+   One note, not a stack of them. The generic "changes take effect
+   immediately" banner that used to sit here said nothing the save bar does
+   not say at the moment it matters, and two info plates above the fold pushed
+   the first real control off a phone screen. */
+.rl-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--secondary-rgb), 0.08);
+  border: 1px solid rgba(var(--secondary-rgb), 0.22);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.rl-note svg { flex-shrink: 0; margin-top: 2px; color: var(--secondary); }
+.rl-note-warn {
+  background: rgba(var(--warning-rgb), 0.09);
+  border-color: rgba(var(--warning-rgb), 0.26);
+}
+.rl-note-warn svg { color: var(--warning); }
+
+/* ── Toolbar ──────────────────────────────────────────────────────────────
+   `.admin-toolbar.is-sticky` already owns the sticky raised-surface
+   treatment; this only teaches the two ends how to share a narrow row. */
+.rl-toolbar-end {
+  gap: var(--sp-2);
+  flex: 0 1 auto;
+  justify-content: flex-end;
+}
+.rl-toolbar .admin-search { flex: 0 1 260px; }
+
+/* The filter pills are the house `.status-filter-pill`; only the tone is ours,
+   carried as a custom property in the same way `.lrow` carries `--lrow-tone`.
+   A switched-off limiter is the thing an operator opens this page to audit, so
+   its count does not sit in the same indigo as everything else — colour is a
+   second channel on top of the word, never the only one.
+
+   The 0.10 fill is deliberate and matches `.rl-state` below: at 0.14 the
+   tinted plate lifts the ground far enough to drop small bold type under AA. */
+.rl-pill { --rl-tone: var(--primary); --rl-tone-rgb: var(--primary-rgb); }
+.rl-pill.is-danger { --rl-tone: var(--danger); --rl-tone-rgb: var(--danger-rgb); }
+.rl-pill.is-warning { --rl-tone: var(--warning); --rl-tone-rgb: var(--warning-rgb); }
+
+.status-filter-pill.rl-pill.active {
+  background: rgba(var(--rl-tone-rgb), 0.10);
+  border-color: rgba(var(--rl-tone-rgb), 0.45);
+  color: var(--rl-tone);
+  box-shadow: 0 0 14px rgba(var(--rl-tone-rgb), 0.20);
+}
+/* 40-motion-and-glow-layer.css drop-shadows every active pill in the brand
+   colour. On a danger or warning pill that paints an indigo halo around red
+   type, so the halo is re-tinted rather than left to contradict the fill. */
+.status-filter-pill.rl-pill.is-danger.active,
+.status-filter-pill.rl-pill.is-warning.active {
+  filter: drop-shadow(0 0 6px rgba(var(--rl-tone-rgb), 0.35));
+}
+
+/* ── Group ────────────────────────────────────────────────────────────────
+   A group is a heading over a list, not a card around one. The limiter list
+   already draws its own frame, and wrapping it in glass would be a card
+   inside a card claiming that "Authentication" is a discrete object when the
+   objects are the nine limiters inside it — DESIGN §1. */
+.rl-group {
+  margin-bottom: var(--sp-6);
+  /* Staggered arrival. --rl-i is set per section from the JSX, so the groups
+     cascade rather than all snapping at once; §2 caps the ladder so the last
+     one is not waiting most of a second. */
+  animation: rl-rise var(--dur-3) var(--ease-panel) both;
+  animation-delay: calc(min(var(--rl-i, 0), 8) * 50ms);
+}
+@keyframes rl-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.rl-group-head { margin-bottom: var(--sp-3); }
+.rl-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 650;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+/* How many limiters are under this heading — and, while a filter is on, how
+   many of them survived it. */
+.rl-group-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(var(--tint-rgb), 0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  padding: 1px var(--sp-2);
+}
+.rl-group-hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.55;
+  max-width: 78ch;
+}
+
+/* ── The budget bar ───────────────────────────────────────────────────────
+   DESIGN §10: a flourish has to do a job. This one answers the question the
+   page could not answer at all before it — which of these limits is loose —
+   by putting every limiter's ceiling on one shared logarithmic scale.
+
+   Length AND colour AND the text beside it all say the same thing, because a
+   bar alone is exactly the kind of meaning that vanishes at
+   `--glow-strength: 0` or for anyone who cannot separate the two tones. The
+   hairline track is drawn with a border so the empty part of the bar is still
+   a visible object under a flat, opaque preset. */
+.rl-bar {
+  position: relative;
+  height: 6px;
+  min-width: 40px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.08);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.rl-bar-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--rl-fill, 0));
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary-glow);
+  /* Transform only. The bar moves while the operator types, and animating a
+     width here would relayout the row on every keystroke. */
+  transition: transform var(--dur-3) var(--ease-settle), background var(--transition);
+}
+
+/* Off is not a measurement, so it is not drawn as one. A full bar alone would
+   be indistinguishable from a limiter that happens to sit at the top of the
+   scale; the hatch says "this is not a value, it is the absence of one", and
+   the danger tone puts the loudest thing on the page against the surface that
+   currently has no protection at all. */
+.rl-bar.is-off { border-color: rgba(var(--danger-rgb), 0.4); }
+.rl-bar.is-off .rl-bar-fill {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(var(--danger-rgb), 0.55) 0 4px,
+    rgba(var(--danger-rgb), 0.18) 4px 8px
+  );
+  box-shadow: none;
+}
+
+/* A number outside its range makes the length a lie; say so rather than
+   drawing a confident bar from a value that will be rejected on save. */
+.rl-bar.is-invalid { border-color: var(--danger); }
+.rl-bar.is-invalid .rl-bar-fill { opacity: 0.3; }
+
+/* ── Audit view: one limiter per line ─────────────────────────────────────
+   Tracks for a limiter, declared here because 74-list-views.css deliberately
+   owns everything that is the same for every line item and nothing that is
+   specific to one record. Six columns: what it is, what it costs, the two
+   numbers, what it counts, and whether it is on. */
+.rl-rows {
+  /* The state track is stated, not `auto`, for the reason RecipientPool.jsx
+     records: every `.lrow` is its own grid and so is `.lrows-head`, so an
+     `auto` track resolves separately in each of them and the headings end up
+     shifted left of the values they name. 110px is the pill plus the gap plus
+     the switch. */
+  --lrow-cols:
+    minmax(0, 2.2fr)
+    /* 112px floor: a per-minute figure with five digits plus its bar is 107px,
+       and at 96px the figure ran into the next cell on a 768px tablet. */
+    minmax(112px, 1.3fr)
+    92px
+    104px
+    minmax(0, 1.2fr)
+    110px;
+}
+
+/* Each record is a row plus its (usually closed) hint, so the row is no longer
+   a direct child of `.lrows` and the shared zebra and last-child rules cannot
+   reach it. Re-stated here rather than restructured: the wrapper is what lets
+   a disclosed paragraph sit inside the list's frame instead of below it.
+
+   `:nth-child(odd)` and not `(even)`: the heading row is the first child, so
+   the wrappers start on even and this puts the stripe on the second record,
+   which is where the shared rule would have put it. */
+.rl-rowwrap:nth-child(odd) .rl-row { background: rgba(var(--tint-rgb), 0.02); }
+.rl-rowwrap:last-child .rl-row,
+.rl-rowwrap:last-child .rl-rowhint { border-bottom: none; }
+/* …unless the last record's hint is open, in which case the row needs its
+   hairline back or the paragraph runs into the line above it. */
+.rl-rowwrap:last-child .rl-row:has(+ .rl-rowhint:not([hidden])) {
+  border-bottom: 1px solid var(--border);
+}
+
+/* A switched-off limiter stays fully readable. It is a state an operator has
+   to audit at a glance, not a disabled control to fade out of the way — the
+   left rule and the tinted ground both survive glow at zero. */
+.rl-row.is-off {
+  --lrow-tone: var(--danger);
+  background: rgba(var(--danger-rgb), 0.05);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+.rl-rowwrap:nth-child(odd) .rl-row.is-off { background: rgba(var(--danger-rgb), 0.05); }
+/* The tint above wins over `.lrow:hover` on cascade order, so an off row would
+   otherwise be the one row on the page that does not answer the pointer. */
+.rl-rowwrap .rl-row.is-off:focus-within { background: rgba(var(--danger-rgb), 0.10); }
+@media (hover: hover) {
+  .rl-rowwrap .rl-row.is-off:hover { background: rgba(var(--danger-rgb), 0.10); }
+}
+
+/* Edited but not yet saved. Same mechanism as `.lrow.is-urgent`: fill and rule
+   together, so the marker does not depend on a glow the operator may have
+   turned off. */
+.rl-row.is-dirty { box-shadow: inset 3px 0 0 var(--primary); }
+.rl-row.is-off.is-dirty { box-shadow: inset 3px 0 0 var(--danger); }
+
+.rl-row-id { gap: 2px; }
+/* The settings key under the label. Mono, because it is an identifier to be
+   matched against a log line character by character, not prose. */
+.rl-row-key { font-family: var(--font-mono); }
+
+/* The name is the disclosure control. A separate ⓘ button would be a second
+   target for the same intent and one more thing in a row that already holds
+   four controls — DESIGN §7, every control justifies its pixels. */
+.rl-disclose {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.rl-disclose:hover { color: var(--primary); }
+.rl-disclose:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.rl-disclose-chev {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform var(--dur-2) var(--ease-out), color var(--transition);
+}
+.rl-disclose[aria-expanded='true'] .rl-disclose-chev {
+  transform: rotate(180deg);
+  color: var(--primary);
+}
+/* Touch has no hover and a 13px chevron is not a target. DESIGN §5 floor. */
+@media (pointer: coarse) {
+  .rl-disclose { min-height: 44px; }
+}
+
+.rl-row-budget {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.rl-row-budget .rl-bar { flex: 1 1 auto; }
+.rl-row-rate {
+  flex: 0 0 auto;
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+}
+.rl-row.is-off .rl-row-rate { color: var(--danger); }
+
+.rl-row-state {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+}
+.rl-col-state { text-align: right; }
+
+/* ── The disclosed hint ───────────────────────────────────────────────────
+   The paragraph the audit view trades away for density, back on request and
+   inside the list's frame so the row it belongs to is unmistakable. */
+.rl-rowhint {
+  display: block;
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-6);
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  box-shadow: inset 3px 0 0 rgba(var(--primary-rgb), 0.35);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.55;
+  animation: rl-hint-in var(--dur-2) var(--ease-out) both;
+}
+/* `hidden` must still win over the display above, or the closed hint stays on
+   screen and the disclosure does nothing. */
+.rl-rowhint[hidden] { display: none; }
+.rl-rowhint p { margin: 0 0 var(--sp-2); max-width: 88ch; }
+.rl-rowhint p:last-of-type { margin-bottom: var(--sp-2); }
+.rl-rowhint-identity { color: var(--text-muted); }
+.rl-rowhint-identity strong { color: var(--text-secondary); }
+@keyframes rl-hint-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Detail view: the reading card ────────────────────────────────────────
+   One record per card, hint open. This is the view somebody uses while
+   deciding what a number should be, so nothing here is behind a click. */
+.rl-cards { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.rl-limit {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(var(--tint-rgb), 0.03);
+  transition: border-color var(--transition), box-shadow var(--transition),
+              background var(--transition);
+}
+@media (hover: hover) {
+  .rl-limit:hover {
+    border-color: var(--primary-border);
+    box-shadow: var(--glow-sm);
+  }
+}
+.rl-limit:focus-within {
+  border-color: var(--primary-border);
+  box-shadow: var(--glow-sm);
+}
+.rl-limit.is-off {
+  background: rgba(var(--danger-rgb), 0.05);
+  border-color: rgba(var(--danger-rgb), 0.28);
+}
+.rl-limit.is-dirty { border-left: 3px solid var(--primary); }
+.rl-limit.is-off.is-dirty { border-left-color: var(--danger); }
+
+.rl-limit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+.rl-limit-id { min-width: 0; flex: 1 1 22ch; }
+.rl-limit-title {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rl-limit-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+/* On or off. Word, colour and rule together — three channels, because this is
+   the one state on the page an audit turns on. */
+.rl-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  border-radius: var(--pill);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* 0.10 rather than 0.14: at 0.14 the tinted plate lifted the ground far
+     enough to drop this small bold uppercase text to 4.32:1, just under AA. */
+  background: rgba(var(--danger-rgb), 0.10);
+  color: var(--danger);
+  border: 1px solid rgba(var(--danger-rgb), 0.3);
+}
+.rl-state.on {
+  background: rgba(var(--success-rgb), 0.10);
+  color: var(--success);
+  border-color: rgba(var(--success-rgb), 0.3);
+}
+
+.rl-limit-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: var(--sp-3);
+  align-items: start;
+}
+
+/* ── Fields ───────────────────────────────────────────────────────────── */
+.rl-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.rl-field-label {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.rl-field-input { position: relative; display: flex; align-items: center; }
+.rl-field-input .glass-input { margin: 0; width: 100%; }
+
+/* Only a field that actually carries a suffix pays for the room. The old rule
+   reserved 4.2rem on every input on the page, which in the audit view's 92px
+   column left a two-digit number with nowhere to sit. */
+.rl-field-input:has(.rl-field-suffix) .glass-input { padding-right: var(--sp-12); }
+.rl-field-suffix {
+  position: absolute;
+  right: var(--sp-2);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.rl-field-hint {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.glass-input.rl-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px rgba(var(--danger-rgb), 0.18);
+}
+.rl-field-error { font-size: var(--fs-2xs); color: var(--danger); }
+
+/* The audit view's inputs: no visible label (the column heading is the label),
+   the compact control height, and mono numerals so a column of ceilings reads
+   as a column. `position: relative` is for the out-of-range message, which is
+   lifted out of the flow below — a field that grows when a digit is rejected
+   would push every row beneath it down mid-keystroke. */
+.rl-field-bare { gap: 0; position: relative; }
+/* The heading row is the label at full width; this is the same word for when
+   the container is too narrow to keep that row. Never both at once. */
+.rl-field-mini { display: none; }
+.rl-field-bare .glass-input {
+  min-height: var(--control-h-sm);
+  padding: var(--sp-1) var(--sp-2);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+}
+.rl-field-bare .rl-field-input:has(.rl-field-suffix) .glass-input { padding-right: var(--sp-10); }
+.rl-field-bare .rl-field-error {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 2;
+  margin-top: 2px;
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid rgba(var(--danger-rgb), 0.4);
+  white-space: nowrap;
+}
+/* …except on the last record, where it flips above the field. `.lrows` clips
+   to `overflow: hidden` so its rounded corners actually round, which cut the
+   bottom half off the message — an out-of-range warning that is legible in
+   thirty-five rows and truncated in the thirty-sixth is worse than one that is
+   always in the same place. */
+.rl-rowwrap:last-child .rl-field-bare .rl-field-error {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 2px;
+}
+@media (pointer: coarse) {
+  .rl-field-bare .glass-input { min-height: 44px; }
+}
+
+/* ── Identity picker ──────────────────────────────────────────────────────
+   Which signal a limit counts against. In the detail view it spans the full
+   row beneath the numbers rather than sitting beside them, because its hint is
+   a whole sentence about Tor exits and shared NAT and needs the width to be
+   read rather than skimmed — and because the choice governs the two numbers
+   above it, so reading downward is the right order. */
+.rl-field-wide { grid-column: 1 / -1; }
+
+.rl-identity-select {
+  /* .glass-input is width:100% by design; here it sits in a constrained
+     column and should not stretch the whole card. */
+  width: auto;
+  min-width: min(22ch, 100%);
+  max-width: 100%;
+}
+.rl-field-bare .rl-identity-select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-h-sm);
+  padding: var(--sp-1) var(--sp-5) var(--sp-1) var(--sp-2);
+  font-size: var(--fs-xs);
+}
+@media (pointer: coarse) {
+  .rl-field-bare .rl-identity-select { min-height: 44px; }
+}
+
+/* Address-keyed is the choice that behaves worst on the store this project is
+   built for: on a Tor-fronted or NAT-heavy deployment it is one shared bucket
+   for every visitor. It is a legitimate setting — the global backstop uses it
+   deliberately — so it is marked, not blocked, and marked in both views so an
+   audit does not depend on which one is open. */
+.rl-identity-select.is-address {
+  border-color: rgba(var(--warning-rgb), 0.5);
+  color: var(--warning);
+}
+
+.rl-identity-hint {
+  max-width: 88ch;
+  /* The hint changes as the operator moves through the options, so it gets a
+     softer plate than the surrounding fields to read as commentary on the
+     current choice rather than as another label. */
+  padding: var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--text-rgb), 0.04);
+  border-left: 2px solid rgba(var(--primary-rgb), 0.35);
+}
+.rl-limit.is-off .rl-identity-hint { opacity: 0.6; }
+
+/* The live "10 per 15 min" readout — the sentence the operator is reasoning
+   about, rather than two numbers they have to combine in their head — with the
+   bar underneath putting it against every other limiter on the page. */
+.rl-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--primary-rgb), 0.07);
+  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  min-width: 0;
+}
+.rl-summary-label {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.rl-summary-value {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 650;
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+.rl-summary-rate {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.rl-limit.is-off .rl-summary {
+  background: rgba(var(--danger-rgb), 0.06);
+  border-color: rgba(var(--danger-rgb), 0.2);
+}
+.rl-limit.is-off .rl-summary-value { color: var(--danger); }
+
+/* ── Unpaid-order block ───────────────────────────────────────────────────
+   The one card on the page, and the elevation is the meaning: these three are
+   not middleware. They are enforced inside the checkout transaction and by the
+   background sweep, they have no window and no identity strategy, and they do
+   not appear on the shared budget scale — so they do not read as a limiter
+   group that happens to be first. */
+.rl-unpaid {
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-6);
+  border-color: rgba(var(--primary-rgb), 0.28);
+  /* The glow is composed from `--card-glow`, a COLOUR, not from `--glow-md`, a
+     whole shadow. `03-accessibility-overrides.css` sets `--glow-md: none` when
+     an operator flattens the store or a reader asks for reduced transparency,
+     and `none` inside a comma list makes the entire declaration invalid — so
+     writing `var(--rim-inset), var(--glow-md)` silently takes the glass rim
+     down with the glow, and the card loses the lit top-left edge that makes it
+     read as a sheet. A transparent colour just stops painting. */
+  box-shadow: var(--rim-inset), 0 0 22px var(--card-glow);
+  animation: rl-rise var(--dur-3) var(--ease-panel) both;
+}
+
+.rl-unpaid-fields { display: flex; flex-direction: column; gap: var(--sp-4); }
+.rl-unpaid-field { max-width: 34ch; }
+.rl-unpaid-field .rl-field-hint { max-width: 72ch; }
+
+/* The proof-of-work section holds two different decisions — the ladder, made
+   once, and the per-door judgements — so they are two blocks rather than one
+   run of numbers. A rule rather than a card: these are still one section, and
+   giving each half its own surface would say they were separate settings
+   pages. §4's "purposeful density" — the separation is the smallest mark that
+   does the job. */
+.rl-pow-block + .rl-pow-block {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--border);
+}
+.rl-pow-block-title {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.rl-bool-row { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.rl-bool-text { min-width: 0; }
+.rl-bool-label {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* A sentence that ends in the place the operator has to go next, rather than
+   naming a setting on another page and leaving them to find it. */
+.rl-crosslink {
+  /* Deliberately not a flex row. Flex makes every text node between the icon
+     and the link its own item, so the sentence's closing full stop detached
+     from the link and wrapped onto a line of its own. This is a sentence; it
+     is laid out as inline text, with the icon inline inside it. */
+  display: block;
+  margin: var(--sp-4) 0 0;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.rl-crosslink svg {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-right: var(--sp-1);
+  color: var(--text-muted);
+}
+.rl-crosslink a { color: var(--primary); font-weight: 600; }
+
+/* ── Where next ───────────────────────────────────────────────────────────
+   DESIGN §9: a page whose only outbound path is Back is not finished. Four
+   compact rows, not four feature cards — the icon sits beside the label rather
+   than above it precisely so this does not become the row of identical tiles
+   §1 opens by warning about. */
+.rl-next {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: var(--sp-2);
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+.rl-next-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  min-height: var(--control-h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.02);
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: border-color var(--transition), background var(--transition),
+              color var(--transition);
+}
+.rl-next-link svg { flex-shrink: 0; color: var(--text-muted); transition: color var(--transition); }
+.rl-next-link span { display: flex; flex-direction: column; min-width: 0; font-size: var(--fs-2xs); }
+.rl-next-link strong { font-size: var(--fs-sm); color: var(--text); font-weight: 600; }
+@media (hover: hover) {
+  .rl-next-link:hover {
+    border-color: var(--primary-border);
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+  .rl-next-link:hover svg { color: var(--primary); }
+}
+.rl-next-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Loading and empty ────────────────────────────────────────────────────
+   The skeleton is the shape of the audit view, not four generic blocks: a
+   loading state that does not resemble what arrives is a layout shift with
+   extra steps. */
+.rl-skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.rl-skeleton { height: 46px; border-radius: 0; }
+
+.rl-empty { margin-bottom: var(--sp-6); }
+
+/* ── The phone shape ──────────────────────────────────────────────────────
+   Container queries, so a limiter list rendered into a narrow column on a wide
+   monitor gets the narrow treatment too. Note this is not "hide the columns
+   that do not fit": every control is still here, re-flowed, because hiding one
+   would silently delete the setting an operator came to change. */
+@container (max-width: 720px) {
+  .rl-rows .lrows-head { display: none; }
+
+  /* Four lines per record, not six stacked cells. Every cell is placed by
+     name — the cells carry `rl-cell-*` classes for exactly this — because
+     positional placement would silently re-order the whole list the first time
+     somebody inserts a column into the row.
+
+       name ............. state
+       budget bar (full width)
+       requests ........ window
+       counted per (full width)
+
+     That is the order the limiter is reasoned about: what it is, what it
+     currently costs, then the two numbers, then what they count. */
+  .rl-rows .rl-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+    align-items: start;
+  }
+  .rl-rows .rl-row-id { grid-area: 1 / 1; align-self: center; }
+  .rl-rows .rl-row-state { grid-area: 1 / 2; align-self: center; justify-self: end; }
+  .rl-rows .rl-row-budget { grid-area: 2 / 1 / auto / -1; }
+  .rl-rows .rl-cell-max { grid-area: 3 / 1; }
+  .rl-rows .rl-cell-window { grid-area: 3 / 2; }
+  .rl-rows .rl-cell-identity { grid-area: 4 / 1 / auto / -1; }
+  .rl-rows .rl-field-bare .glass-input { font-size: var(--fs-sm); }
+  /* The heading row is gone, so the three controls have nothing naming them.
+     This is the half of §5 that says the narrow view is not the wide one with
+     columns deleted: the label comes back rather than the field losing it. */
+  .rl-rows .rl-field-bare { gap: var(--sp-1); }
+  .rl-rows .rl-field-mini {
+    display: block;
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+  .rl-rowhint { padding-left: var(--sp-3); }
+}
+
+/* The detail card's three-up body, against its own box for the same reason. */
+.rl-cards { container-type: inline-size; }
+@container (max-width: 760px) {
+  .rl-limit-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .rl-summary { grid-column: 1 / -1; }
+}
+@container (max-width: 460px) {
+  .rl-limit-body { grid-template-columns: minmax(0, 1fr); }
+  .rl-limit-head { gap: var(--sp-2); }
+  .rl-limit-switch { width: 100%; justify-content: space-between; }
+}
+
+@media (max-width: 640px) {
+  .rl-toolbar-end { width: 100%; }
+  .rl-toolbar .admin-search { flex: 1 1 auto; }
+  .rl-unpaid-field { max-width: none; }
+
+  /* `Review` goes, leaving Discard and Save — the two with no other route —
+     on one row of the shared bar. It jumps to the Unsaved filter, which is a
+     pill in the sticky toolbar a thumb away, so nothing is lost. */
+  .rl-savebar-review { display: none; }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+   Every decorative motion above is opt-out. The bar keeps its end state (the
+   length is data, not decoration) — only the travel to it goes. */
+@media (prefers-reduced-motion: reduce) {
+  .rl-group,
+  .rl-unpaid,
+  .rl-rowhint {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .rl-bar-fill,
+  .rl-limit,
+  .rl-next-link,
+  .rl-disclose-chev { transition: none; }
+}
+
+/* --- products.css --- */
+
+/* ── What a limit has actually turned away ──────────────────────────────────
+ *
+ * Sits under the row's settings-key stem, and only when the count is above
+ * zero. Warning-toned because it is the thing on this page that wants
+ * attention — a limit refusing traffic is either working or set too tight, and
+ * either way it is the row an operator should look at first. DESIGN §3: the
+ * colour means "look here", never "something is broken".
+ */
+.rl-row-hits {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--warning);
+  white-space: nowrap;
+}

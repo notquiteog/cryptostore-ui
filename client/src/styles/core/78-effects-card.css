@@ -1,0 +1,289 @@
+/* ===============================
+   THE AMBIENT-EFFECT CARDS
+   ===============================
+   One card per scope in the theme editor — background and header — each owning
+   a single engine at a time.
+
+   The engine switch is the whole point of the shape. Before it, the canvas
+   effects were a stack of independent toggle rows and the shader was a
+   separate card underneath, which said nothing about the two being
+   alternatives: an operator could run two full-viewport canvases and a
+   fragment shader at once, three compositing layers none of which can be read
+   through. Making the choice a segmented control makes the exclusivity
+   structural rather than something a hint asks for politely.
+
+   The engine chips also carry a COUNT of what the inactive side is holding, so
+   the family you are not looking at is not invisible — switching back is an
+   informed move rather than a surprise. */
+
+.fx-card {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+
+/* ── Engine switch ─────────────────────────────────────────────────────── */
+
+.fx-engine-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  padding: var(--sp-1);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  border: 1px solid var(--border);
+}
+
+.fx-engine-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--control-h);
+  padding: 0 var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  /* Colour and shadow only. A segmented control whose selected half changes
+     size shifts the other half under the pointer — DESIGN §3's "selection
+     lights a shape, it does not thicken it", applied to a two-option switch. */
+  transition: color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out),
+              border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+}
+.fx-engine-opt:hover { color: var(--text); }
+.fx-engine-opt.is-on {
+  color: var(--primary);
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.13);
+  box-shadow: 0 0 14px var(--card-glow);
+}
+@media (hover: none) { .fx-engine-opt { min-height: 44px; } }
+
+/* What the side you are NOT on is holding. Mono because it is a count, and
+   quiet because it is a reminder rather than a control. */
+.fx-engine-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.14);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+.fx-engine-opt.is-on .fx-engine-count {
+  background: rgba(var(--primary-rgb), 0.2);
+  color: var(--primary);
+}
+
+/* ── Body ──────────────────────────────────────────────────────────────── */
+
+.fx-body {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.fx-note {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.fx-note-quiet { color: var(--text-muted); }
+.fx-note code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgba(var(--tint-rgb), 0.07);
+  color: var(--text-secondary);
+}
+
+/* ── Effect chips ──────────────────────────────────────────────────────── */
+
+/* Chips rather than a <select> for both families: the names are worth reading,
+   each carries a sentence in its title, and a select would hide all of it
+   behind a click with no way to compare. The canvas chips TOGGLE (they stack,
+   because they are sparse) and the shader chips SELECT (a shader fills every
+   pixel); `aria-pressed` versus `role="radio"` is what tells that apart to
+   anything not looking at the screen. */
+.fx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.fx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-3);
+  min-height: var(--control-h-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--pill, 999px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out),
+              background var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+}
+.fx-chip:hover { color: var(--text); border-color: var(--border-hover); }
+.fx-chip.is-on {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.12);
+  box-shadow: 0 0 12px var(--card-glow);
+}
+@media (hover: none) { .fx-chip { min-height: 44px; } }
+
+.fx-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ── The GLSL box ──────────────────────────────────────────────────────── */
+
+.fx-editor { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.fx-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.fx-editor-head label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.fx-code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  /* `wrap="off"` on the element plus this. GLSL is column-sensitive to read
+     even though it is not to parse, and a wrapped shader is unreadable. The
+     horizontal scroll is the one case DESIGN §5's "nothing scrolls without
+     saying so" is answered by the control itself rather than a label — a code
+     box that scrolls sideways is what every editor does. */
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
+  resize: vertical;
+  min-height: 180px;
+}
+
+/* ── Compile errors ────────────────────────────────────────────────────── */
+
+/* Verbatim from the driver, in the ledger face, scrollable. A GLSL error names
+   a line and a token and that is the whole value of it — summarising it to
+   "invalid shader" throws away the only part that helps. */
+.fx-error {
+  border: 1px solid rgba(var(--danger-rgb), 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--danger-rgb), 0.08);
+  padding: var(--sp-3);
+}
+.fx-error-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--danger);
+  margin-bottom: var(--sp-2);
+}
+.fx-error pre {
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Live preview ──────────────────────────────────────────────────────── */
+
+.fx-preview-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.fx-preview {
+  position: relative;
+  height: 190px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  /* The store's OWN ground, not the admin panel's surface — a low-alpha field
+     judged against the wrong background is judged wrong, which is the whole
+     reason the preview exists rather than trusting the pickers. */
+  background: var(--bg);
+  background-image: radial-gradient(circle at 30% 20%, var(--bg-glow-1), transparent 60%),
+                    radial-gradient(circle at 75% 80%, var(--bg-glow-2), transparent 55%);
+}
+
+.fx-preview-label {
+  position: absolute;
+  right: var(--sp-2);
+  bottom: var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* ── Engine label, worn by effect rows elsewhere ───────────────────────── */
+
+.fx-engine {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--sp-2);
+  padding: 1px var(--sp-2);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.05);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  text-transform: none;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.fx-engine-gl {
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.10);
+  color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-engine-opt, .fx-chip { transition: none; }
+}

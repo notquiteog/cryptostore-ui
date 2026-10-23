@@ -1,0 +1,134 @@
+/* Workflow surfaces share the operator's palette, type, spacing and material.
+   Dialogs and the payment dock use the page ground beneath the surface wash:
+   their content must stay legible over any animated storefront background. */
+.flow-stack { display: grid; gap: var(--sp-4); min-width: 0; }
+.flow-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap; }
+.flow-heading > div { min-width: 0; flex: 1 1 12rem; }
+.flow-heading :is(h2,h3,h4) { margin: var(--sp-1) 0; font-family: var(--font-display); color: var(--text); line-height: 1.25; overflow-wrap: anywhere; }
+.flow-heading h2 { font-size: clamp(1.15rem, 2vw, 1.5rem); }
+.flow-heading p, .flow-list p { margin: var(--sp-1) 0 0; color: var(--text-secondary); line-height: 1.55; font-size: var(--fs-sm); }
+.flow-eyebrow { display: flex; align-items: center; gap: var(--sp-2); color: var(--text-muted); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; }
+.flow-note { color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.6; margin: 0; }
+.flow-error { color: var(--danger); line-height: 1.5; overflow-wrap: anywhere; }
+.flow-warn { color: var(--warning); }
+.flow-good { color: var(--success); }
+.flow-wrap { overflow-wrap: anywhere; min-width: 0; }
+.flow-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.flow-actions p { flex: 1 1 14rem; margin: 0; font-size: var(--fs-sm); line-height: 1.5; }
+:is(.flow-actions,.flow-heading,.flow-stack,.flow-dialog,.checkout-dock) .glass-btn { min-height: 40px; white-space: normal; text-align: center; justify-content: center; }
+.flow-icon { min-width: 40px; padding: var(--sp-2); flex: 0 0 auto; }
+.flow-field { display: grid; gap: var(--sp-2); min-width: 0; font-size: var(--fs-sm); }
+.flow-field > span { font-weight: 600; }
+.flow-field :is(input,select) { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; }
+.flow-field select { text-overflow: ellipsis; }
+.flow-list { list-style: none; padding: 0; margin: var(--sp-3) 0; }
+.flow-list > li { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) 0; border-top: 1px solid var(--border); }
+.flow-list > li > div { flex: 1; min-width: 0; }
+.flow-list strong { display: block; color: var(--text); overflow-wrap: anywhere; font-size: var(--fs-sm); }
+.flow-list .glass-btn { flex-shrink: 0; }
+.flow-attention { margin: 0 0 var(--sp-6); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); }
+.page > .flow-attention { max-width: var(--shell-wide, 1440px); margin-inline: auto; }
+.flow-review { padding: var(--sp-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: var(--fs-sm); line-height: 1.6; }
+.flow-success { display: flex; align-items: center; gap: var(--sp-4); }
+.flow-success > svg { color: var(--success); flex-shrink: 0; }
+.flow-success h3 { margin: 0 0 var(--sp-1); }
+.flow-success p { margin: 0; color: var(--text-secondary); line-height: 1.5; }
+.flow-dialog { width: min(46rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); padding: var(--sp-6); margin: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg); color: var(--text); box-shadow: var(--shadow-lg); }
+.flow-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-4); }
+/* The scrim tier, not a literal `blur(5px)`: see the note on `.oswap-dialog
+   ::backdrop` in 66-order-line-actions.css. A number written here is frost the
+   operator's glass slider cannot turn off, including on a store that set it to
+   zero. `-webkit-` FIRST, standard LAST (client/test/backdropFilter.test.mjs). */
+.flow-dialog::backdrop { background: color-mix(in srgb, var(--bg) 70%, transparent); -webkit-backdrop-filter: var(--glass-scrim); backdrop-filter: var(--glass-scrim); }
+.flow-dialog-body { overflow: auto; overscroll-behavior: contain; min-height: 0; }
+.flow-dialog footer { border-top: 1px solid var(--border); padding-top: var(--sp-4); }
+.flow-dialog .flow-list > li { align-items: flex-start; }
+.flow-dialog .flow-list > li > span:first-child { padding-top: var(--sp-1); }
+.flow-queue-nav { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; margin-bottom: var(--sp-5); padding: var(--sp-3) var(--sp-4); }
+.flow-queue-nav > span { flex: 1; text-align: center; font-size: var(--fs-sm); }
+.flow-queue-nav small { display: block; margin-top: var(--sp-1); color: var(--text-muted); font-size: var(--fs-xs); }
+.flow-queue-nav .flow-error { flex-basis: 100%; margin: 0; }
+.flow-columns { margin: var(--sp-3) 0; color: var(--text-secondary); font-size: var(--fs-sm); }
+.flow-columns summary { cursor: pointer; padding: var(--sp-2) 0; }
+.flow-columns label { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2); min-height: 44px; }
+.flow-columns input { accent-color: var(--primary); width: 18px; height: 18px; }
+.queue-hide-total [data-queue-field="total"], .queue-hide-items [data-queue-field="items"], .queue-hide-payment [data-queue-field="payment"], .queue-hide-placed [data-queue-field="placed"] { display: none; }
+.cart-recovery { grid-column: 1 / -1; padding: var(--sp-4); border-top: 1px solid var(--border); background: var(--surface); border-radius: 0 0 var(--radius-sm) var(--radius-sm); min-width: 0; }
+.cart-recovery > p { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); line-height: 1.5; }
+.cart-recovery > .flow-stack { margin-top: var(--sp-4); }
+.cart-lines .lrow:has(.cart-recovery) { flex-wrap: wrap; }
+.cart-lines .cart-recovery { flex-basis: 100%; }
+.checkout-flow { min-width: 0; }
+.checkout-flow.is-complete { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(18rem, .85fr); gap: var(--sp-6); align-items: start; }
+.checkout-flow.is-complete .ck-main { display: none; }
+.checkout-flow.is-complete .ck-layout { display: block; margin: 0; min-width: 0; }
+.checkout-flow.is-complete .summary-panel { position: static; }
+.checkout-payment { min-width: 0; scroll-margin-top: 6rem; }
+.payment-embedded { min-width: 0; }
+.payment-embedded .od-panel { margin: 0; }
+.checkout-dock { display: none; }
+.ck-page #checkout-summary { scroll-margin-top: 6rem; }
+.support-order-tools { container-type: inline-size; }
+.support-order-tools h3 { margin: var(--sp-1) 0 var(--sp-2); }
+.support-order-tools .flow-actions > .glass-btn { flex: 1 1 8rem; }
+.flow-pool { container-type: inline-size; padding: var(--sp-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.flow-pool-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
+.flow-pool-stats strong { display: block; font-size: var(--fs-lg); color: var(--text); font-variant-numeric: tabular-nums; }
+.flow-pool-stats span { display: block; font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.4; margin-top: var(--sp-1); }
+.flow-table-wrap { overflow-x: auto; max-width: 100%; }
+.flow-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.flow-table :is(th,td) { text-align: left; padding: var(--sp-3) var(--sp-2); border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.flow-table th { font-weight: 600; }
+.flow-table thead { color: var(--text-muted); font-size: var(--fs-xs); }
+.flow-table small { display: block; color: var(--text-secondary); font-weight: 400; margin-top: var(--sp-1); }
+.orderx-sheet { background: var(--bg); }
+.orderx-sheet .flow-field { margin-bottom: var(--sp-4); }
+.orderx-sheet .ledger { margin-block: var(--sp-4); }
+@container (max-width: 520px) {
+  .flow-table thead { display: none; }
+  .flow-table, .flow-table tbody { display: block; }
+  .flow-table tr { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); border-bottom: 1px solid var(--border); padding: var(--sp-2) 0; }
+  .flow-table :is(th,td) { border: 0; padding: var(--sp-2); }
+  .flow-table th { grid-column: 1 / -1; }
+  .flow-table td::before { display: block; font-size: var(--fs-xs); color: var(--text-muted); margin-bottom: var(--sp-1); }
+  .flow-table td:nth-child(2)::before { content: 'Available'; }
+  .is-projecting .flow-table td:nth-child(2)::before { content: 'Available → after'; }
+  .flow-table td:nth-child(3)::before { content: 'Open orders'; }
+  .flow-table td:nth-child(4)::before { content: 'Watching'; }
+}
+@media (max-width: 850px) {
+  .checkout-flow.is-complete { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 900px) {
+  .stk-grid, .stk-grid:has(> .stk-list.is-quiet) { grid-template-columns: minmax(0, 1fr); }
+}
+@container (max-width: 250px) {
+  .flow-pool-stats { grid-template-columns: minmax(0, 1fr); }
+  .flow-table tr { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .ck-page:has(.checkout-dock) { padding-bottom: calc(7rem + env(safe-area-inset-bottom)); }
+  .checkout-dock { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); position: fixed; bottom: var(--tabbar-h, 0px); inset-inline: 0; z-index: 90; padding: var(--sp-3) max(var(--sp-4), env(safe-area-inset-left)); padding-bottom: max(var(--sp-3), env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--bg); box-shadow: var(--shadow-md); }
+  .checkout-dock > a { display: grid; gap: 2px; text-decoration: none; color: var(--text); min-width: 0; }
+  .checkout-dock span, .checkout-dock small { font-size: var(--fs-xs); color: var(--text-secondary); }
+  .checkout-dock strong { font-size: var(--fs-lg); font-variant-numeric: tabular-nums; }
+  .checkout-dock .glass-btn { min-height: 48px; flex: 0 1 12rem; }
+  .flow-list > li { align-items: flex-start; flex-wrap: wrap; }
+  .flow-attention .flow-list > li > div { flex-basis: calc(100% - 2rem); }
+  .flow-attention .flow-list .glass-btn { width: 100%; }
+  .flow-attention { padding: var(--sp-4); }
+  .page > .flow-attention { margin-inline: var(--sp-4); }
+  .flow-queue-nav { gap: var(--sp-3); }
+  .flow-queue-nav > .flow-actions { flex-basis: 100%; }
+  .flow-queue-nav > .flow-actions button { flex: 1; }
+  .flow-dialog { padding: var(--sp-4); width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); }
+  .flow-dialog footer .glass-btn { flex: 1 1 9rem; min-height: 44px; }
+  .cart-recovery .flow-actions > .glass-btn { flex: 1 1 9rem; min-height: 44px; }
+  .flow-field :is(input,select) { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .checkout-payment, .flow-attention, .flow-dialog { animation: none; scroll-behavior: auto; }
+}
+@media (forced-colors: active) {
+  .flow-dialog, .checkout-dock, .flow-pool, .flow-review, .cart-recovery { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; }
+}

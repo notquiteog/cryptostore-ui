@@ -1,0 +1,170 @@
+/* ===============================
+   ADMIN LAYOUT
+   =============================== */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* One number for the rail's width, because three things read it: the rail
+   itself, the main column's left margin, and the drawer that replaces it
+   below 900px. It rides the type unit rather than sitting at a flat 240px —
+   a 240px rail beside a 7440px content area is a sliver, and the nav labels
+   inside it grow with the rest of the interface, so a fixed rail would clip
+   them at the top of the scale. */
+:root { --admin-rail-w: clamp(216px, calc(var(--fs-unit) * 15), 320px); }
+
+.admin-sidebar {
+  width: var(--admin-rail-w);
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  border-right: 1px solid var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+/* The top bar's height is a token for the same reason `--tabbar-h` is: the
+   admin main column's top padding has to know it, and while both carried the
+   literal 56 they were free to drift apart. */
+:root { --admin-topbar-h: max(56px, calc(var(--fs-unit) * 3.5)); }
+
+/* `glass-plate` in AdminLayout.jsx, for the same reason as the storefront bar
+   in 08-navbar.css: a blur declared on the bar itself is the backdrop root for
+   everything in it, and this bar is where the admin's menu button lives and
+   where any panel hung off it would go. Blurring on a backing layer keeps the
+   document as the backdrop for its contents. */
+.admin-topbar {
+  display: none;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--admin-topbar-h);
+  padding: 0 var(--sp-4);
+  --plate-filter: var(--glass-lg);
+  background: var(--overlay-bg);
+  border-bottom: 1px solid var(--glass-border);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+}
+/* Over the hairline, as on `.navbar` — the plate stops at the padding box. */
+.admin-topbar::before { bottom: -1px; }
+
+.admin-drawer {
+  display: none;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 270px;
+  max-width: 82vw;
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-lg);
+  backdrop-filter: var(--glass-lg);
+  border-right: 1px solid var(--glass-border);
+  z-index: 300;
+  transform: translateX(-100%);
+  /* Settle curve: a 270px panel that visibly bounces feels like the page
+     wobbling, but the near-critical spring still gives the arrival weight. */
+  transition: transform 0.32s var(--ease-settle);
+  overflow-y: auto;
+}
+.admin-drawer-open { transform: translateX(0); }
+.admin-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  /* Blur only, no saturate: a dimming layer must push the page back, and the
+     tier keeps it on the admin's glass slider like every other frost. */
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+  z-index: 250;
+}
+
+.admin-main {
+  flex: 1;
+  margin-left: var(--admin-rail-w);
+  /* Same top offset as the storefront's `.page` — see the token in 07. */
+  padding: var(--page-top) var(--sp-10) var(--sp-12);
+  min-height: 100vh;
+  min-width: 0;
+}
+
+/* The console has the opposite problem from the storefront: it filled every
+   pixel. At 7680 that meant an orders table 7440px wide — eight columns with
+   900px of white space inside each cell, a row whose left end and right end
+   cannot be read in one eye movement, and a hover stripe that has to be
+   tracked across three feet of monitor. Capping the content at `--shell-wide`
+   and centring it keeps the console dense at every size; the rail stays
+   pinned to the edge, so the shell still reads as a shell rather than a
+   floating card. */
+.admin-main > * { max-width: var(--shell-wide); margin-inline: auto; }
+
+/* The support-ticket thread is one component on two shells: `/support/:id` in
+   the storefront and `/admin/support/:id` here. It wraps itself in
+   `.page.container` for the storefront's sake, and inside `.admin-main` that
+   stacked a second `--page-top` on the shell's own — the only admin screen
+   whose title sat 64px down instead of 32 — plus the container's gutter on top
+   of the shell's. The shell's padding is the page's padding; the wrapper
+   contributes nothing. */
+.admin-main > .page { padding: 0; min-height: 0; }
+
+.admin-menu-btn { padding: var(--sp-2) var(--sp-2) !important; }
+.admin-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar { display: none; }
+  .admin-topbar { display: flex; }
+  .admin-drawer { display: flex; }
+  .admin-main {
+    margin-left: 0 !important;
+    /* The fixed 56px topbar plus the same `--page-top` as everywhere else.
+       This was a flat 5rem, which put the title 24px under the bar on a phone
+       and 32px on a desktop. */
+    padding: calc(var(--admin-topbar-h) + var(--page-top)) var(--sp-4) var(--sp-8) !important;
+  }
+  .admin-table-scroll {
+    margin: 0 calc(var(--sp-4) * -1);
+    padding: 0 var(--sp-4);
+  }
+}
+
+/* Admin sidebar nav items (used with inline styles too) */
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  border-left: 3px solid transparent;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-base);
+  transition: background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition), transform var(--transition), opacity var(--transition);
+  text-decoration: none;
+}
+.admin-nav-link:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.admin-nav-link.active {
+  color: var(--primary);
+  background: var(--btn-bg);
+  border-left-color: var(--primary);
+  font-weight: 600;
+}
+

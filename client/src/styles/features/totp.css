@@ -1,0 +1,639 @@
+/* totp — feature styles.
+   Loaded after global.css, so every custom property defined there is in scope.
+   Colours must come from tokens (--primary, --surface, --text, --glow-md, …)
+   so both :root and :root[data-theme="light"] resolve correctly.
+
+   Two things in this file are worth knowing before editing it:
+
+   1. Every colour is a token or an rgba() built from a *-rgb triple. The theme
+      ships a dark palette on :root and a light one on :root[data-theme="light"],
+      so a literal hex here would be correct in one mode and wrong in the other.
+      Where a translucent surface needs more body against the light ground —
+      the light palette's --surface is a near-white at 20% alpha, which
+      disappears on a pale card — there is an explicit light override at the
+      bottom rather than a compromise value that suits neither.
+
+      Note what those overrides do NOT do: swap --glass-bg for --surface.
+      computeVars.js sets both from a single computed value in both modes
+      (`set('--glass-bg', surface); set('--surface', surface)`), so they are
+      aliases and an override written that way is a measurable no-op that
+      nonetheless ships a comment claiming a fix. The overrides at the bottom of
+      this file change the *material* instead — rgba(var(--text-rgb), α), an
+      ink tint that darkens a pale ground rather than adding more white to it.
+      Copy that shape, and measure the computed background afterwards.
+
+   2. Everything that moves is listed in the prefers-reduced-motion block at the
+      end. Motion here is feedback (a panel arriving, a factor going live), not
+      decoration, but that is exactly the argument people use to leave one
+      animation out of the opt-out, so the block is exhaustive on purpose. */
+
+/* ── The profile card ─────────────────────────────────────────────────────── */
+
+.totp-card {
+  /* The card is the boundary of one decision, so it gets a little more room
+     than the notification panels it sits between. */
+  padding-bottom: var(--sp-5);
+}
+
+.totp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+
+.totp-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+/* The badge states what is true right now, which is the one thing someone
+   opening this card wants before they read anything else. */
+.totp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-25);
+  border-radius: var(--pill, 999px);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+
+.totp-status-pgp,
+.totp-status-totp {
+  color: var(--success);
+  border-color: rgba(var(--success-rgb), 0.42);
+  background: rgba(var(--success-rgb), 0.10);
+  box-shadow: 0 0 14px rgba(var(--success-rgb), 0.20);
+}
+
+.totp-lede {
+  margin: 0 0 var(--sp-4);
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+}
+
+/* ── The three-way control ────────────────────────────────────────────────── */
+
+.totp-segmented {
+  display: flex;
+  width: 100%;
+  margin-bottom: var(--sp-4);
+}
+
+.totp-option {
+  position: relative;
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* The active option is the one being *looked at*; the dot marks the one that is
+   actually saved. Without that distinction, opening the authenticator panel
+   would look exactly like having turned the authenticator on. */
+.totp-option.active {
+  /* Three channels, because an operator can flatten the store completely and
+     this used to have only one. `--glow-md` resolves to a zero-alpha shadow at
+     `--glow-strength: 0` — which two shipped presets set outright — so at that
+     setting the segment being looked at became pixel-identical to the two
+     beside it, on a security control. DESIGN §3: if a state disappears when
+     glow goes to zero, the glow was carrying meaning that needed a second
+     channel as well. The border and the lit label are that. */
+  border-color: var(--primary-border);
+  color: var(--text);
+  box-shadow: var(--glow-md);
+}
+
+.totp-option-dot {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(var(--success-rgb), 0.85);
+}
+
+.totp-option:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Pickable, but not yet — the prerequisite is explained on click rather than
+   hidden behind a dead control. */
+.totp-option.is-unavailable {
+  opacity: 0.7;
+}
+
+.totp-option:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+/* ── Panels ───────────────────────────────────────────────────────────────── */
+
+/* Keyed on the selected method in JSX, so React remounts this and the entrance
+   runs again — the movement is what ties the panel to the segment that was just
+   pressed. */
+.totp-panel {
+  animation: totp-panel-in 0.28s var(--ease-panel) both;
+}
+
+@keyframes totp-panel-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* flex-start, not center: this line wraps to two or three lines on a phone, and
+   a vertically-centred status dot ends up level with the middle of the
+   paragraph, reading as a bullet for the wrong line. */
+.totp-panel-lede {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  color: var(--text);
+  font-size: var(--fs-base);
+  line-height: 1.55;
+}
+
+.totp-hint {
+  margin: var(--sp-15) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.totp-note,
+.totp-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-25) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.totp-note {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+/* The issuer-label warning. Amber rather than red: it is a privacy consequence
+   the user should read, not an error and not something they did wrong. */
+.totp-warn {
+  border: 1px solid rgba(var(--warning-rgb), 0.38);
+  background: rgba(var(--warning-rgb), 0.09);
+  color: var(--text);
+}
+
+.totp-note svg,
+.totp-warn svg {
+  flex: none;
+  margin-top: var(--sp-05);
+}
+
+.totp-warn svg { color: var(--warning); }
+.totp-note svg { color: var(--success); }
+
+/* A slow pulse on the one piece of genuinely live state in this card. It is the
+   only looping animation here and it is deliberately below the threshold that
+   pulls the eye from across a screen. */
+.totp-live {
+  flex: none;
+  margin-top: var(--sp-15);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 0 rgba(var(--success-rgb), 0.55);
+  animation: totp-live-pulse 2.4s var(--ease-panel) infinite;
+}
+
+@keyframes totp-live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--success-rgb), 0.50); }
+  70%  { box-shadow: 0 0 0 7px rgba(var(--success-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--success-rgb), 0); }
+}
+
+/* ── Enrollment ───────────────────────────────────────────────────────────── */
+
+.totp-enroll,
+.totp-confirm,
+.totp-codes {
+  margin-top: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-filter);
+  animation: totp-reveal 0.32s var(--ease-panel) both;
+}
+
+@keyframes totp-reveal {
+  from { opacity: 0; transform: translateY(10px) scale(0.994); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The QR plate.
+   `#fff` is the one literal colour in this file and it is not a theme miss: a
+   QR code is read by a camera looking for light and dark modules, and painting
+   it on a translucent dark surface produces an image that scans on nobody's
+   phone. The plate is white in both palettes for the same reason a printed
+   stamp is — it is not part of the interface's colour scheme, it is the
+   quiet-zone the format requires. Everything around it is tokenised. */
+.totp-qr-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+
+.totp-qr {
+  flex: none;
+  padding: var(--sp-25);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #fff;
+  line-height: 0;
+  box-shadow: var(--glow-sm);
+}
+
+.totp-qr-note {
+  flex: 1 1 12rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.totp-field { margin-bottom: var(--sp-4); }
+.totp-field:last-of-type { margin-bottom: var(--sp-25); }
+
+.totp-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-25);
+  margin-bottom: var(--sp-1);
+}
+
+.totp-field-head label,
+.totp-field-label {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+/* The secret is read off this screen and typed into a different device, so it
+   is grouped, spaced for the eye, and allowed to wrap. It is a block rather
+   than an <input> because thirty-two monospaced characters do not fit the width
+   this card gets on a phone, and a single-line input would scroll most of the
+   value out of sight — which is precisely the value being transcribed.
+   `user-select: all` makes one click take the whole thing on a browser with no
+   clipboard API, which is every insecure origin, which includes a plain-HTTP
+   .onion. */
+.totp-secret {
+  display: block;
+  padding: var(--sp-25) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  letter-spacing: 0.08em;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  user-select: all;
+  cursor: text;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.totp-secret:hover { border-color: var(--border-hover); }
+
+.totp-secret:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.totp-uri {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  resize: vertical;
+  word-break: break-all;
+}
+
+.totp-uri-link {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.totp-uri-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.totp-verify { margin: var(--sp-3) 0 0; }
+
+/* One code, six characters, typed under mild stress. Big and monospaced so a
+   transposed digit is visible before the button is pressed. */
+.totp-code-input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  letter-spacing: 0.32em;
+  text-align: center;
+}
+
+.totp-code-input::placeholder {
+  letter-spacing: 0.32em;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.totp-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--sp-3);
+}
+
+/* ── Copy affordance ──────────────────────────────────────────────────────── */
+
+.totp-copy {
+  transition: color var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+
+.totp-copy:hover:not(:disabled) {
+  box-shadow: var(--glow-sm);
+}
+
+/* Confirmation is the whole point of the control — a copy button that gives
+   none leaves people copying twice and pasting nothing. */
+.totp-copy.is-done {
+  color: var(--success);
+  border-color: rgba(var(--success-rgb), 0.5);
+  box-shadow: 0 0 14px rgba(var(--success-rgb), 0.24);
+}
+
+/* ── Recovery codes ───────────────────────────────────────────────────────── */
+
+.totp-recovery-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-25) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.totp-recovery-count {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Running out of recovery codes is a slow-motion lockout, so it changes colour
+   before it becomes one. */
+.totp-recovery-count.is-low { color: var(--warning); }
+.totp-recovery-count.is-empty { color: var(--danger); }
+
+.totp-codes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-25);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+
+.totp-codes-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.totp-codes-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--sp-15);
+  margin: 0;
+  padding: 0 0 0 var(--sp-5);
+  list-style: decimal;
+  color: var(--text-muted);
+}
+
+.totp-codes-list li {
+  padding: var(--sp-05) 0;
+}
+
+.totp-codes-list code {
+  display: inline-block;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.06em;
+  user-select: all;
+}
+
+/* ── Confirmation panel ───────────────────────────────────────────────────── */
+
+.totp-confirm {
+  border-color: rgba(var(--warning-rgb), 0.34);
+}
+
+.totp-confirm-lede {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.totp-confirm-lede svg {
+  flex: none;
+  margin-top: var(--sp-05);
+  color: var(--warning);
+}
+
+/* Two alternatives, not two fields to fill in. The divider says so without a
+   sentence. */
+.totp-or {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-25);
+  margin: var(--sp-05) 0 var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.totp-or::before,
+.totp-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── The sign-in step ─────────────────────────────────────────────────────── */
+
+.totp-login {
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-hover);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glow-sm);
+  animation: totp-reveal 0.32s var(--ease-panel) both;
+}
+
+.totp-login-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-25);
+  margin-bottom: var(--sp-2);
+}
+
+.totp-login-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* nowrap so "Second step" stays one line on a phone; without it the two words
+   stack and the header grows to four lines for no reason. */
+.totp-login-meta {
+  white-space: nowrap;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.totp-login-hint {
+  margin: 0 0 var(--sp-3);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+/* ── Light mode ───────────────────────────────────────────────────────────── */
+
+/* The light palette's --surface and --glass-bg are near-white at low alpha,
+   which vanishes on a pale card: these panels stop reading as panels and the
+   secret loses the frame that says "this is the value to copy". Tinting them
+   with the text colour instead of stacking more white restores the separation
+   without introducing a colour the theme does not own. */
+:root[data-theme="light"] .totp-enroll,
+:root[data-theme="light"] .totp-confirm,
+:root[data-theme="light"] .totp-codes,
+:root[data-theme="light"] .totp-login {
+  background: rgba(var(--text-rgb), 0.035);
+  border-color: var(--border-hover);
+}
+
+:root[data-theme="light"] .totp-note,
+:root[data-theme="light"] .totp-recovery-state,
+:root[data-theme="light"] .totp-codes-list code {
+  background: rgba(var(--text-rgb), 0.045);
+}
+
+:root[data-theme="light"] .totp-status {
+  background: rgba(var(--text-rgb), 0.04);
+}
+
+/* The success and warning tints need a little more presence on a light ground
+   for the same reason — at 9% they read as a printing artefact rather than a
+   deliberate colour. */
+:root[data-theme="light"] .totp-status-pgp,
+:root[data-theme="light"] .totp-status-totp {
+  background: rgba(var(--success-rgb), 0.13);
+}
+
+:root[data-theme="light"] .totp-warn {
+  background: rgba(var(--warning-rgb), 0.13);
+}
+
+/* ── The opt-out ──────────────────────────────────────────────────────────── */
+
+/* Exhaustive on purpose: a panel that still slides, or a dot that still pulses,
+   is the kind of thing that survives a reduced-motion audit because it "is not
+   really an animation". Both of these are. The spinner is left alone — it lives
+   in global.css and a frozen spinner tells the reader the page has hung. */
+@media (prefers-reduced-motion: reduce) {
+  .totp-panel,
+  .totp-enroll,
+  .totp-confirm,
+  .totp-codes,
+  .totp-login,
+  .totp-live {
+    animation: none !important;
+  }
+
+  .totp-status,
+  .totp-copy,
+  .totp-option {
+    transition: none !important;
+  }
+
+  .totp-card:hover,
+  .totp-card {
+    transform: none !important;
+  }
+}
+
+/* Three options on a 320px phone are wider than the card: the control is
+   already full width in equal thirds, but `.segmented-option` is `nowrap`, so
+   "Authenticator" ran 20px past its third and the card's clip took the end of
+   it. The label may wrap inside its third instead. */
+.totp-segmented .totp-option { white-space: normal; text-align: center; }
+/* "Authenticator" is one word, so wrapping alone cannot save it inside a
+   76px third on a 320px phone; the padding and one type step go first, and
+   breaking the word is the last resort rather than clipping it. */
+@media (max-width: 400px) {
+  .totp-segmented .totp-option { padding-inline: var(--sp-15); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+}

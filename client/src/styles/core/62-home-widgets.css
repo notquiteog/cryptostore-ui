@@ -1,0 +1,553 @@
+/* ===============================
+   HOME WIDGETS — live strip + shelf
+   ===============================
+   The featured carousel is the hero and takes the whole content width. Under
+   it run two widget rows on one shared column grid — the shelf's own readings
+   first (what is on it, what is newest, what rated best), then the visitor's
+   own two clocks (their order, and the drop about to lapse) — and then the
+   category tiles. Everything below the carousel is md-tier glass like every
+   other card: the carousel keeps visual primacy by size, not by the widgets
+   being quieter than they should be.
+
+   ── Why this is no longer a bento ────────────────────────────────────────
+   The rail used to hold a fixed 300px column beside the carousel, which cost
+   the shelf 316px of a 1136px container — about 44px off every card, and
+   enough to drop desktop from three cards to two. It was also the wrong trade
+   on its own terms: all three widgets self-hide, so on a signed-out visit to
+   a store with no live drop the column reserved a third of the shelf's width
+   to draw a single stats card. Full width for the goods, a strip for the
+   widgets underneath. */
+
+/* The widget rows under the carousel. One class, used by both, because they
+ * are the same grid and the only thing that differs is which widgets sit in
+ * which — the shelf's three readings on the first row, the visitor's own two
+ * clocks on the second. Two class names for one rule is how the pair drifts
+ * apart later and stops lining up column-for-column.
+ *
+ * ── `auto-fill`, NOT `auto-fit` ──────────────────────────────────────────
+ * The difference decides what a quiet store looks like. Every widget here
+ * self-hides, so a signed-out visit with no live drop leaves the second row
+ * holding nothing and the first holding one or two cards. `auto-fit` collapses
+ * the tracks nothing occupies, which stretched a lone card across the whole
+ * 1136px shelf — a four-cell stats block spread over a metre of page, reading
+ * as a layout bug rather than as one widget. `auto-fill` keeps the empty
+ * tracks, so a lone card stays a card (~368px) and the rest of the row is
+ * simply empty, which is the truth.
+ *
+ * It is also what keeps the two rows on ONE column grid: the second row holds
+ * two widgets against the first row's three, and with `auto-fill` those two
+ * land in tracks 1 and 2 at the same 368px, directly under their neighbours
+ * above. `auto-fit` would have widened them to half the row each and put the
+ * whole page half a column out of step with itself.
+ *
+ * 300px is chosen so the row lands on exactly three tracks at full container
+ * width: 3 × 300 + 2 × 16 = 932 fits inside 1136, and a fourth track would
+ * need 1248. Three is also the most widgets either row can hold.
+ *
+ * That arithmetic assumed a 1200px shell, which is no longer the shell — see
+ * the track rule below for what replaced the conclusion it reached. */
+.home-widget-row {
+  display: grid;
+  /* A bounded track and a centred row, not `1fr` and left-aligned.
+     `1fr` with `auto-fill` was right while the band could never be wider than
+     three tracks: the row always filled. On `--shell-wide` it cannot — at
+     3840 the band is ~3100px, `auto-fill` lays out ten 300px tracks, three of
+     them have a widget in and the other seven are empty, so the shop window
+     ended with three small cards huddled at the left edge under a five-card
+     carousel. Capping the track at 560 and centring the row keeps the widgets
+     the size they were designed to be and puts them under the middle of the
+     rail above them, which reads as a decision rather than as content that
+     ran out. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 560px));
+  justify-content: center;
+  gap: var(--sp-4);
+  /* Stretch, not `start`: cards in one row share a height, so the row reads as
+     a row instead of as three cards that happened to land near each other.
+     Their contents stay top-aligned, so a short widget gains trailing space
+     rather than centring itself against a tall neighbour. */
+  align-items: stretch;
+  margin-top: var(--sp-4);
+  min-width: 0;
+}
+
+.home-widget { padding: var(--sp-4); }
+
+.home-widget-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+  margin-bottom: var(--sp-3);
+}
+
+/* ── Drop clock ── */
+.drop-clock {
+  display: block;
+  text-decoration: none;
+  color: var(--text);
+}
+.drop-clock .home-widget-label { color: var(--warning); margin-bottom: var(--sp-2); }
+.drop-clock-body {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.drop-clock-ring {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+}
+.drop-ring-track,
+.drop-ring-fill {
+  fill: none;
+  stroke-width: 4;
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+.drop-ring-track { stroke: rgba(var(--tint-rgb), 0.1); }
+.drop-ring-fill {
+  stroke: var(--warning);
+  stroke-linecap: round;
+  /* The offset moves once a second with the clock; a transition would smear
+     one tick into the next and read as lag rather than time. */
+  filter: drop-shadow(0 0 6px rgba(var(--warning-rgb), calc(0.5 * var(--glow-strength))));
+}
+.drop-clock-ring.ending .drop-ring-fill { stroke: var(--danger); }
+.drop-clock-ring.ending .drop-clock-time { color: var(--danger); }
+.drop-clock-time {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+}
+.drop-clock-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.drop-clock-name {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.drop-clock:hover .drop-clock-name { color: var(--primary); }
+.drop-clock-prices {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+}
+.drop-clock-prices s { color: var(--text-muted); font-size: var(--fs-xs); }
+.drop-clock-prices strong { color: var(--warning); font-weight: 600; }
+.drop-clock-prices em {
+  font-style: normal;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--danger);
+}
+.drop-clock-more { color: var(--text-muted); font-size: var(--fs-2xs); }
+
+/* ── Store pulse ── */
+.pulse-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  margin: 0;
+}
+.pulse-cell {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.pulse-cell dt {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.pulse-cell dd {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.pulse-hot { color: var(--warning); }
+.pulse-star { color: var(--warning); }
+.pulse-rails {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+.pulse-rail {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.04);
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+/* Real rail colours: brand marks, so the hue is a deliberate literal rather
+   than a token — the same exception the payment badges take in 13-payments.css.
+   What that file also does, and this one had not, is give them light twins. A
+   brand hue chosen for a dark ground is not automatically legible on a light
+   one: these three measure 2.14:1, 2.74:1 and 1.77:1 on a light card, the last
+   of them grey-on-white. The comment here used to claim parity with the
+   payment badges while shipping only half of what they do.
+
+   Values below are lifted from 13-payments.css rather than re-solved, so the
+   same coin cannot end up two different colours on two surfaces. */
+.pulse-rail.is-btc { color: #f7931a; }
+.pulse-rail.is-xmr { color: #ff6600; }
+.pulse-rail.is-ltc { color: #bfbbbb; }
+:root[data-theme="light"] .pulse-rail.is-btc { color: #a35a00; }
+:root[data-theme="light"] .pulse-rail.is-xmr { color: #b34700; }
+:root[data-theme="light"] .pulse-rail.is-ltc { color: #6b6767; }
+.pulse-rail.is-cash { color: var(--success); }
+
+/* ── Latest order ── */
+.latest-order {
+  display: block;
+  text-decoration: none;
+  color: var(--text);
+}
+.latest-order-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.latest-order-id {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: var(--fs-md);
+}
+.latest-order-total {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.latest-order-track {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-3);
+}
+.latest-order-dot {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.1);
+}
+.latest-order-dot.on {
+  background: var(--primary);
+  box-shadow: 0 0 8px rgba(var(--primary-rgb), calc(0.4 * var(--glow-strength)));
+}
+
+/* ── Mini product lists (fresh drops, buyers' favourites) ── */
+.mini-prod-list {
+  display: flex;
+  flex-direction: column;
+}
+.mini-prod-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  min-height: 48px;
+}
+.mini-prod-row:last-child { border-bottom: none; }
+.mini-prod-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.mini-prod-thumb-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--well);
+}
+.mini-prod-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mini-prod-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-prod-row:hover .mini-prod-name { color: var(--primary); }
+.mini-prod-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+}
+.mini-prod-price {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  flex-shrink: 0;
+}
+
+/* ── Category shelf ── */
+.category-shelf { margin-top: var(--sp-5); }
+.shelf-label { margin-bottom: var(--sp-3); }
+.shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+.shelf-tile {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  text-decoration: none;
+  color: var(--text);
+  min-height: 54px;
+}
+.shelf-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.shelf-thumb-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--well);
+}
+.shelf-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.shelf-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform var(--dur-1) var(--ease-out), color var(--transition);
+}
+.shelf-tile:hover .shelf-arrow {
+  color: var(--primary);
+  transform: translateX(2px);
+}
+.shelf-tile:hover .shelf-name { color: var(--primary); }
+.shelf-tile-all { justify-content: space-between; border-style: dashed; }
+
+/* Entrance: tiles rise 6px with a small stagger, transform+opacity only. */
+@media (prefers-reduced-motion: no-preference) {
+  .shelf-tile {
+    animation: shelf-rise var(--dur-3) var(--ease-settle) both;
+    animation-delay: calc(var(--stagger) * var(--stagger-i, 0));
+  }
+  @keyframes shelf-rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ── The "For you" rail ──────────────────────────────────────────────────────
+ *
+ * `components/home/ForYouRail.jsx`. Built from one buyer's own orders, behind
+ * their own consent, and absent entirely for everybody else — so most visitors
+ * never see any of this and the page must not reserve space for it.
+ *
+ * ── Why a scroll rail and not a grid or a carousel (§6) ─────────────────────
+ *
+ * A grid would compete with the Featured carousel above it, and two full-width
+ * shelves on one page is a page with no hierarchy. A carousel needs arrows,
+ * dots and an index for eight cards nobody has to see all of. A snap-scrolled
+ * rail is the honest shape: secondary, finite, and on a phone it is the gesture
+ * people already use — with the edge of the next card visible, which is the
+ * only thing that makes a horizontal scroll discoverable at all.
+ *
+ * ── Why the cards are text ─────────────────────────────────────────────────
+ *
+ * No photograph. The Featured carousel a few hundred pixels up is images, and a
+ * second row of product photos reads as the same shelf twice. This one is name,
+ * brand and price at a smaller weight — a list of suggestions rather than a
+ * second shop window, which is also what keeps it from outranking the
+ * catalogue it is recommending from.
+ */
+
+.fyr {
+  margin: var(--sp-8) 0 0;
+}
+
+.fyr-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.fyr-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.fyr-title svg { color: var(--primary); }
+
+/*
+ * The sentence that makes this a shop rather than surveillance. Muted and
+ * small, but never hidden behind a tooltip: it is the one line explaining where
+ * the shelf came from, and it is unusually true — nothing is stored, so it says
+ * so rather than promising a cipher.
+ */
+.fyr-why {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.fyr-why a { color: var(--primary); text-decoration: none; }
+.fyr-why a:hover { text-decoration: underline; }
+
+.fyr-rail {
+  display: flex;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0 0 var(--sp-2);
+  list-style: none;
+  overflow-x: auto;
+  /* Snap, so a flick lands on a card rather than between two. `proximity` and
+     not `mandatory`: mandatory fights a slow drag and makes the rail feel like
+     it is pulling away from the finger. */
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  /* §5's rule that nothing scrolls horizontally without saying so. The rail
+     says so by showing the edge of the next card — the flex basis below is set
+     so a card and a sliver always fit, at every width. */
+  scrollbar-width: thin;
+}
+
+.fyr-item {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  width: min(13rem, 62vw);
+}
+
+.fyr-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  height: 100%;
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--tint-rgb), 0.04);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+}
+
+/* Hover is not an opacity change (§1): the card takes the brand edge and lifts
+   its ground, so the affordance is the same one the catalogue cards use. */
+.fyr-card:hover,
+.fyr-card:focus-visible {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.07);
+}
+
+.fyr-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  /* Two lines: a product name at this width is routinely three words and
+     occasionally ninety characters, and a rail of cards at different heights
+     is a rail that looks broken. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fyr-brand {
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fyr-foot {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: auto;
+  padding-top: var(--sp-2);
+}
+
+.fyr-price {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.fyr-options,
+.fyr-gone {
+  font-size: var(--fs-3xs);
+  color: var(--text-muted);
+}
+
+/* Stated, not hidden. The server only offers groups with something buyable, but
+   a variant can sell out between that query and this render — and a card
+   quoting a price for nothing is worse than one that admits it. */
+.fyr-gone { color: var(--warning); font-weight: 600; }

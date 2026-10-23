@@ -1,0 +1,972 @@
+/* ===============================
+   ADMIN REVIEWS
+   ===============================
+   The moderation grid. Every custom property here is `--arv-` prefixed: a name
+   like `--accent` or `--danger` would shadow the theme for every descendant of
+   the card, and any whose value is itself a theme token would resolve to a
+   cyclic reference and silently drop.
+
+   Anything that overrides a `.glass-card` declaration is written as
+   `.glass-card.arv-card` so it wins on specificity rather than on source
+   order — this block is merged into global.css and must not depend on landing
+   after the glass primitives.
+
+   Colour rules followed here: `--tint-rgb` is a SURFACE tint that inverts
+   between modes and is never used as a foreground; `--border` is never used as
+   a glyph colour; a loud plate takes `color: var(--bg)` so the contrast is
+   symmetric and inherits the palette's own solved ratio in both modes; every
+   soft plate is built from a `--*-rgb` triple so it re-hues with the palette
+   instead of freezing at the legacy channels. */
+
+/* ── Second toolbar row: rating facets left, sort right ── */
+.arv-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+.arv-subbar .status-filter-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.arv-sort {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 1 220px;
+  min-width: 0;
+}
+.arv-sort > svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.arv-sort select {
+  min-width: 0;
+  font-size: var(--fs-base);
+  padding-top: var(--sp-2);
+  padding-bottom: var(--sp-2);
+}
+
+/* A rating pill keeps its star inline with the count so the pill reads as
+   "3 stars, 7 of them" rather than as a bare number. */
+.arv-rating-pill svg {
+  vertical-align: -1px;
+  margin-right: var(--sp-05);
+}
+
+/* ── The "these are invisible to customers" notice ── */
+.arv-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-25) var(--sp-4);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--danger-rgb), 0.07);
+  border: 1px solid rgba(var(--danger-rgb), 0.24);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  animation: arv-rise 0.3s var(--ease-panel) both;
+}
+.arv-note svg {
+  flex-shrink: 0;
+  color: var(--danger);
+}
+
+/* ── Grid ──
+   min() keeps a single column from demanding 330px on a 320px phone. The
+   stagger is defined here rather than reusing the global ladder, because that
+   ladder is bound to four hard-coded parent selectors and `.arv-grid` is not
+   one of them. */
+.arv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
+  gap: var(--sp-5);
+  align-items: start;
+}
+.arv-grid > * {
+  animation: arv-rise 0.42s var(--ease-panel) both;
+  /* `--i` is the house stagger index, always read as calc(var(--i) * Nms). The
+     ladder is capped in JS at 9, the same way admin/Orders.jsx caps at 14:
+     past that the last card would wait most of a second to appear. */
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+.arv-skel { min-height: 232px; }
+
+/* ── Card ── */
+.glass-card.arv-card {
+  --arv-tone: var(--primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4) var(--sp-5);
+}
+
+/* A real element rather than `inset 3px 0 0` in box-shadow: overriding
+   box-shadow would have to restate --rim-inset and --glass-shadow, and the
+   hover glow appends to that same list. `.glass-card` is already
+   position: relative + overflow: hidden, so the rail clips to the corner. */
+.arv-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 3px;
+  background: var(--arv-tone, var(--primary));
+  transition: width var(--transition), opacity var(--transition);
+  pointer-events: none;
+}
+.arv-card:hover .arv-rail { width: 4px; }
+
+/* The lift is gated behind a real pointer: on touch, :hover latches after a
+   tap and the card stays visibly raised until something else is tapped. */
+@media (hover: hover) and (pointer: fine) {
+  .glass-card.arv-card:hover { transform: translateY(-2px); }
+}
+
+/* Hidden reviews read as switched off without going unreadable — the actions
+   stay at full contrast so they are still operable. */
+.glass-card.arv-card.is-hidden {
+  background: rgba(var(--danger-rgb), 0.05);
+  border-color: rgba(var(--danger-rgb), 0.22);
+}
+.arv-card.is-hidden .arv-head,
+.arv-card.is-hidden .arv-body,
+.arv-card.is-hidden .arv-meta { opacity: 0.68; }
+
+/* In-flight state. No looping decoration — the button carries the spinner,
+   which is the sanctioned progress indicator. */
+.arv-card.is-busy {
+  opacity: 0.62;
+  pointer-events: none;
+}
+.arv-card.is-removing {
+  animation: arv-fall 0.24s var(--ease-panel) both;
+  pointer-events: none;
+}
+
+/* ── Head: thumbnail, product, rating ── */
+.arv-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  min-width: 0;
+  transition: opacity var(--transition);
+}
+
+.arv-thumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.05);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: transform 0.24s var(--ease-panel), border-color var(--transition);
+}
+.arv-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.arv-card:hover .arv-thumb {
+  transform: scale(1.05);
+  border-color: var(--primary-border);
+}
+
+.arv-titles {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.arv-product {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.arv-product span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.arv-product svg {
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(-2px);
+  transition: opacity var(--transition), transform var(--transition);
+}
+.arv-product:hover { color: var(--primary); }
+.arv-product:hover svg { opacity: 1; transform: none; }
+
+.arv-variant {
+  margin-top: var(--sp-05);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arv-rating {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+}
+.arv-stars {
+  display: inline-flex;
+  gap: 0.06rem;
+  line-height: 1;
+}
+/* The empty star reads off `--text-rgb`, not `--border`: at the light palette's
+   13% border alpha the unfilled stars vanish and a 2-star rating looks like a
+   2-star-wide gap. */
+.arv-star { color: rgba(var(--text-rgb), 0.25); }
+.arv-star.is-on { color: var(--warning); }
+.arv-score {
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--arv-tone, var(--primary));
+}
+
+/* ── Meta line: who and when ── */
+.arv-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-25);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  transition: opacity var(--transition);
+}
+.arv-who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+.arv-who svg { flex-shrink: 0; color: var(--text-muted); }
+.arv-who b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.arv-anon { font-style: italic; font-weight: 500; color: var(--text-muted); }
+.arv-when {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.arv-when svg { flex-shrink: 0; }
+.arv-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Body ── */
+.arv-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  transition: opacity var(--transition);
+}
+/* The clamp is only ever applied together with the toggle below it, so no text
+   can be hidden without a way to reach it. */
+.arv-body.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+.arv-body-empty {
+  font-size: var(--fs-base);
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.arv-more {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: calc(var(--sp-2) * -1);
+  padding: var(--sp-05) 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  transition: color var(--transition), opacity var(--transition);
+}
+.arv-more:hover { opacity: 0.78; }
+/* `.arv-more` is not one of the seven selector families in the central focus
+   group, so it would otherwise fall back to the browser default — invisible on
+   the dark glass ground. Same ring, restated. */
+.arv-more:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+/* ── Tags ── */
+.arv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-15);
+}
+.arv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-05) var(--sp-2);
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: rgba(var(--text-rgb), 0.06);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.arv-tag svg { flex-shrink: 0; }
+
+/* Plate alpha is 0.09, not the 0.12-0.14 the older badges use. Measured on the
+   default palette: at 0.13 the light-mode pairs land at 4.37-4.46:1, just under
+   AA for 0.66rem/700 text, because the tint darkens the ground the coloured ink
+   is sitting on. 0.09 keeps all three at 4.6-4.8:1 in light and 8.4-9.1:1 in
+   dark. The border carries the rest of the emphasis — it is not text. */
+.arv-tag.is-verified {
+  background: rgba(var(--success-rgb), 0.09);
+  border-color: rgba(var(--success-rgb), 0.32);
+  color: var(--success);
+}
+.arv-tag.is-signed {
+  background: rgba(var(--primary-rgb), 0.09);
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+.arv-tag.is-banned {
+  background: rgba(var(--warning-rgb), 0.09);
+  border-color: rgba(var(--warning-rgb), 0.32);
+  color: var(--warning);
+}
+/* The loud one. Ink on a saturated plate: contrast is symmetric, so the pair
+   inherits whatever ratio the palette already solved for --bg in both modes. */
+.arv-tag.is-hidden-flag {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--bg);
+}
+
+/* ── Order linkage ── */
+.arv-order {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-2);
+  padding: var(--sp-2) var(--sp-25);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.035);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  transition: border-color var(--transition), background var(--transition);
+}
+.arv-card:hover .arv-order { border-color: var(--border-hover); }
+.arv-order svg { flex-shrink: 0; }
+.arv-order code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.arv-order-status {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+/* ── Actions ── */
+.arv-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: auto;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+.arv-actions .glass-btn { flex: 0 0 auto; }
+.arv-actions-spacer { flex: 1 1 auto; }
+
+/* ── Pager ── */
+.arv-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--sp-15);
+  margin-top: var(--sp-6);
+}
+.arv-pager-num {
+  min-width: 2.1rem;
+  padding: var(--sp-15) var(--sp-2);
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.arv-pager-gap {
+  padding: 0 var(--sp-05);
+  color: var(--text-muted);
+  user-select: none;
+}
+.arv-pager-total {
+  flex-basis: 100%;
+  margin-top: var(--sp-15);
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* ── Motion ── */
+@keyframes arv-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes arv-fall {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(6px) scale(0.97); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .arv-subbar { gap: var(--sp-25); }
+  /* The sort select and the view switch travel together onto their own line:
+     splitting them puts a 38px control alone on a row, which is the shape that
+     makes a toolbar look assembled rather than designed. */
+  .arv-subbar-tools { flex: 1 1 100%; }
+  .arv-sort { flex: 1 1 auto; }
+  .arv-grid { gap: var(--sp-4); }
+}
+
+@media (max-width: 480px) {
+  .glass-card.arv-card {
+    padding: var(--sp-4) var(--sp-4) var(--sp-3) var(--sp-4);
+    gap: var(--sp-3);
+  }
+  .arv-thumb { width: 42px; height: 42px; }
+  .arv-product { font-size: var(--fs-base); }
+  .arv-head { gap: var(--sp-25); }
+  .arv-rating { gap: var(--sp-1); }
+  .arv-stars { gap: 0; }
+  .arv-actions .glass-btn { flex: 1 1 auto; justify-content: center; }
+  .arv-actions-spacer { display: none; }
+  .arv-skel { min-height: 210px; }
+}
+
+/* The one opt-out. `arv-rise` fills `both`, so killing the animation also has
+   to restore the end state or the cards hold the `from` frame at opacity 0 and
+   disappear for exactly the users who asked for less motion. The spinner is
+   deliberately absent: a frozen loader reads as a hung page. */
+@media (prefers-reduced-motion: reduce) {
+  .arv-grid > *,
+  .arv-note {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .arv-card.is-removing {
+    animation: none;
+    opacity: 0.4;
+  }
+  .glass-card.arv-card:hover { transform: none; }
+  .arv-card:hover .arv-thumb { transform: none; }
+  .arv-rail,
+  .arv-thumb,
+  .arv-head,
+  .arv-body,
+  .arv-meta,
+  .arv-order,
+  .arv-product svg { transition: none; }
+}
+
+/* --- support.css --- */
+
+/* ===============================
+   THE MODERATION QUEUE — the second view
+   ===============================
+   DESIGN §6 offers three answers for a list: one responsive table, two
+   purpose-built views, or a toggle over one shape. This surface is the second
+   of those, and `pages/admin/Reviews.jsx` carries the argument at the top of
+   the file: the card is evidence (media, five stars, prose that runs to
+   paragraphs) and the queue is a work list (forty reviews, one line each,
+   cleared down the rating column). Neither is the other at a different
+   density, so the row below is drawn rather than derived.
+
+   Everything structural — the hairline rhythm, the hover rail, the reserved
+   space for row actions, the phone shape — comes from 74-list-views.css. What
+   is here is only what a *review* row needs on top of it.
+
+   Two mechanical notes, because both have already cost time:
+
+   - **74 loads after this file.** Anything that overrides a `.lrow*`
+     declaration has to win on specificity, not source order, which is why the
+     rules below are written `.lrow.arv-row` rather than `.arv-row`. Same
+     reason `.glass-card.arv-card` is spelled out at the top of this file.
+
+   - **An element cannot answer its own container query.** `.lrows` is the
+     container, so `--lrow-cols` is declared on its children. Written on
+     `.lrows` itself inside an `@container` block the rule silently never
+     matches, and the queue keeps the wide tracks all the way down. */
+
+/* ── Toolbar: sort and the view switch travel as one group ── */
+.arv-subbar-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* ── Column tracks ──
+   Seven, in the order a moderator works: what was reviewed, the score that
+   made them look, what was said, who said it, whether it is attached to a real
+   purchase, the badges, and the two moves. Declared on the children — see the
+   container-query note above. */
+.arv-rows > .lrows-head,
+.arv-rows > .lrow {
+  --lrow-cols:
+    minmax(0, 1.25fr)   /* product + variant */
+    104px               /* stars + score    */
+    minmax(0, 2.3fr)    /* the body, widest by a long way */
+    minmax(0, 0.95fr)   /* reviewer + when  */
+    108px               /* order + status   */
+    116px               /* badges           */
+    auto;               /* hide / delete    */
+}
+
+.arv-head-actions { text-align: right; }
+
+/* The shimmer primitive brings its own radius and a border on all four sides,
+   which inside the flush `.lrows` frame loads as a stack of little rounded
+   boxes instead of a list filling in. Only the hairline between rows survives. */
+.arv-rows .lrow-skel {
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+.arv-rows .lrow-skel:last-child { border-bottom: none; }
+
+/* ── The row ── */
+
+/* An opened body is a second grid line, so the cells on the first one have to
+   stop centring or they drift into the middle of a row that is suddenly four
+   times its own height and stop lining up with their column headings. Only
+   when it is open: the closed row keeps 74's centred rhythm.
+
+   Written as `:has()` and not as a class on the row, because the state already
+   lives in one place (the expander's own `aria-expanded`) and a second copy on
+   the parent is the copy that goes stale. Nothing depends on it — without
+   `:has()` the row simply stays centred. */
+.lrow.arv-row:has(.arv-row-full) { align-items: start; }
+
+/* A hidden review reads as switched off, the same danger wash the card wears,
+   so the two views do not disagree about what "hidden" looks like. It is a
+   fill AND a badge, never the fill alone: at `--glow-strength: 0` and on a
+   flattened preset the tint is the only thing left, and one channel carrying a
+   moderation decision is one channel too few.
+
+   Deliberately not the shared `.lrow.is-urgent`. That class means "this row is
+   waiting for somebody", and in a moderation queue every row is — a marker
+   that lights all four hundred lines says nothing. */
+.lrow.arv-row.is-off { background: rgba(var(--danger-rgb), 0.06); }
+@media (hover: hover) {
+  .lrow.arv-row.is-off:hover {
+    background: color-mix(in srgb, var(--danger) 9%, var(--surface-hover));
+  }
+}
+/* Both, always — DESIGN §4. A hover-only answer makes the row keyboard-blind. */
+.lrow.arv-row.is-off:focus-within {
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface-hover));
+}
+
+/* Leaving. Reuses the card's `arv-fall` so a delete looks the same in either
+   view; `.lrow.is-busy` from 74 is what stops the second click. */
+.arv-row.is-going { animation: arv-fall var(--dur-3) var(--ease-panel) both; }
+
+/* ── Product ── */
+.arv-row-product {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.arv-row-product:hover { color: var(--primary); }
+
+/* ── Rating ── */
+.arv-row-rating {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+/* `.lrow-num` puts the numeral in the mono face so the score column lines up
+   down the list — §6. The colour is the row's own tone, which is the rating,
+   so a wall of red twos is visible before any of them is read. */
+.arv-row-score {
+  font-weight: 700;
+  color: var(--lrow-tone, var(--primary));
+}
+
+/* ── The body ──
+   A button, not a cell: the full text is in the DOM and the clipping is CSS, so
+   the accessible name is the whole review and a click opens it in place. A row
+   that printed the first forty characters with no way to reach the rest would
+   be asking somebody to moderate text they cannot read. */
+.arv-row-body {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.arv-row-body > span { flex: 1 1 auto; min-width: 0; }
+/* The chevron is dimmed, never absent. Hidden until hover it would be missing
+   on every touch device, and the click target would have no affordance at all. */
+.arv-row-body > svg {
+  flex-shrink: 0;
+  opacity: 0.45;
+  color: var(--primary);
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+.arv-row-body:hover { color: var(--text); }
+.arv-row:hover .arv-row-body > svg,
+.arv-row-body:focus-visible > svg,
+.arv-row-body[aria-expanded='true'] > svg { opacity: 1; }
+/* `.arv-row-body` is not one of the selector families the central focus group
+   covers, so without this it falls back to the browser default — invisible on
+   dark glass. Same ring as `.arv-more`, restated. */
+.arv-row-body:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.arv-row-body-empty {
+  font-size: var(--fs-sm);
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* The opened body. Left rule in the row's tone so a long review still reads as
+   belonging to the line above it once it has pushed the next row down. */
+.arv-row-full {
+  grid-column: 1 / -1;
+  margin: var(--sp-1) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--lrow-tone, var(--primary));
+  background: rgba(var(--tint-rgb), 0.05);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  animation: arv-rise var(--dur-2) var(--ease-panel) both;
+}
+
+/* ── Reviewer ── */
+.arv-row-user {
+  color: var(--text);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.arv-row-user:hover { color: var(--primary); }
+
+/* ── Order linkage ── */
+.arv-row-order .lrow-id {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.arv-row-order a.lrow-id:hover { color: var(--primary); }
+.arv-row-noorder { color: var(--text-muted); font-style: italic; }
+
+.arv-row-ostatus {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* No surviving order row: the colour has to come from somewhere, and the
+   `status-*` families all mean a real lifecycle state this review is not in. */
+.arv-row-ostatus.is-none { color: var(--text-muted); }
+
+/* ── Badges, at chip size ──
+   The card's five tags with their words taken off the screen and left in the
+   markup for a reader. The plate alphas are the card's, for the reason written
+   against `.arv-tag`: above ~0.09 the tint darkens the ground under the
+   coloured ink and the light-mode pairs drop under AA. */
+.arv-row-flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.arv-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--sp-1);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--text-rgb), 0.06);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+.arv-flag svg { flex-shrink: 0; }
+.arv-flag.is-verified {
+  background: rgba(var(--success-rgb), 0.09);
+  border-color: rgba(var(--success-rgb), 0.32);
+  color: var(--success);
+}
+/* `.is-unlinked` keeps the neutral plate on purpose. The card draws the same
+   state with a plain `.arv-tag`, and a badge that is loud in one view and
+   quiet in the other teaches two different meanings for one fact. */
+.arv-flag.is-signed {
+  background: rgba(var(--primary-rgb), 0.09);
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+.arv-flag.is-banned {
+  background: rgba(var(--warning-rgb), 0.09);
+  border-color: rgba(var(--warning-rgb), 0.32);
+  color: var(--warning);
+}
+.arv-flag.is-hidden-flag {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--bg);
+}
+.arv-flag-role {
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Actions ── */
+/* The delete button is a square: the icon carries it, `aria-label` carries the
+   meaning, and the word would double the width of a column that is reserved on
+   every one of four hundred rows whether or not it is hovered. */
+.arv-row .arv-row-delete {
+  min-width: var(--control-h-sm);
+  padding-inline: var(--sp-2);
+  justify-content: center;
+}
+
+/* ── The middle width ──
+   Between the seven-track line and the phone shape there is a band where the
+   prose column is the first thing to stop being readable — ninety pixels of a
+   paragraph is not a preview. The body and the badges leave the track grid for
+   full-width lines of their own; no column is removed, because §5 is explicit
+   that the narrow view is not the wide one with data deleted.
+
+   Bounded below at 561px so it cannot fight 74's phone shape, which takes over
+   at 560 and already re-flows every cell. */
+@container (min-width: 561px) and (max-width: 980px) {
+  .arv-rows > .lrows-head,
+  .arv-rows > .lrow {
+    --lrow-cols:
+      minmax(0, 1.6fr)   /* product + variant */
+      100px              /* stars + score     */
+      minmax(0, 1.1fr)   /* reviewer + when   */
+      104px              /* order + status    */
+      auto;              /* hide / delete     */
+  }
+
+  /* Grid auto-placement follows order-modified document order, so `order` is
+     what moves these two below the line instead of a pile of explicit
+     grid-row declarations. */
+  .arv-row .arv-row-flags { order: 1; grid-column: 1 / -1; }
+  .arv-row .arv-row-body,
+  .arv-row .arv-row-body-empty { order: 2; grid-column: 1 / -1; }
+  .arv-row .arv-row-full { order: 3; }
+
+  /* Only the two column HEADINGS go, and only because the cells they name have
+     left the column grid: a heading printed above a full-width line is a third
+     and fourth row of chrome in the header. The data is untouched, and each
+     cell carries its own title and label. */
+  .arv-head-body,
+  .arv-head-flags { display: none; }
+}
+
+/* ── The phone shape ──
+   74 collapses the row to `1fr auto` below 560 and every cell re-flows into
+   it: product and score share the top line, the body takes the next, reviewer
+   and order share the third, badges the fourth, actions the fifth. The classes
+   that do it (`.lrow-wrap`) are on the cells in the markup; what is left here
+   is the two things a review row needs that a generic row does not. */
+@container (max-width: 560px) {
+  /* The prose stops being one ellipsised line and becomes three, still
+     truncated — a phone has the height for a real preview and the full text is
+     one tap away. */
+  .arv-row .arv-row-body > span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    white-space: normal;
+  }
+  .arv-row-body { align-items: flex-start; }
+  .arv-row-body > svg { margin-top: 2px; }
+  /* §5: 44px on a coarse pointer, and the delete square has to grow with it or
+     it becomes the one control on the row a thumb cannot reliably hit. */
+  .arv-row .arv-row-delete { min-width: 44px; }
+}
+
+/* ── Motion opt-out ──
+   `arv-rise` and `arv-fall` both fill `both`, so cancelling them has to restore
+   the end state or the content holds the `from` frame at opacity 0 and vanishes
+   for exactly the people who asked for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  .arv-row-full {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .arv-row.is-going {
+    animation: none;
+    opacity: 0.4;
+  }
+  .arv-row-body,
+  .arv-row-body > svg,
+  .arv-row-product,
+  .arv-row-user,
+  .arv-row-order .lrow-id,
+  .arv-who-link { transition: none; }
+}
+
+/* ── Card-side additions ── */
+
+/* §9 made the reviewer a link. It inherits the meta line's weight and colour so
+   the card does not sprout a second accent — the affordance is the hover. */
+.arv-who-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.arv-who-link:hover { color: var(--primary); }
+
+/* The empty state's outbound paths. `.empty-state` gives every button its own
+   1.25rem top margin, which in a row of three stacks three margins into one
+   gap; the row owns the spacing instead. */
+.empty-state .arv-empty-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+.empty-state .arv-empty-links .glass-btn,
+.empty-state .arv-empty-links a.glass-btn { margin-top: 0; }
+
+/* A review carrying something a moderator should read first — a link, a
+   handle, a phone number, an address — found by rule in
+   server/services/reviewFlags.js. Danger-toned because it is the one chip on
+   the card that asks for a decision; the title carries what tripped it. */
+.arv-tag.is-leak,
+.arv-flag.is-leak {
+  background: rgba(var(--danger-rgb), 0.09);
+  border-color: rgba(var(--danger-rgb), 0.32);
+  color: var(--danger);
+}
+
+/* The digest panel above the queue: one product, one paragraph, read-only. */
+.arv-digest {
+  margin-bottom: var(--sp-4);
+}
+.arv-digest-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.arv-digest-row .glass-input { max-width: 28rem; }
+.arv-digest-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.arv-digest .aidraft-prose { white-space: pre-line; }

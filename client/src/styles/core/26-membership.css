@@ -1,0 +1,378 @@
+/* ===============================
+   MEMBERSHIP
+   ===============================
+   The customer's own view of their tier. The tier's own colour drives the
+   accents here via --tier, set inline from the tier record, so Gold reads as
+   gold rather than as the store's brand colour. */
+.member-hero {
+  position: relative;
+  overflow: hidden;
+  padding: var(--sp-6);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  box-shadow: var(--glass-shadow);
+}
+/* Tier-coloured wash, kept behind the content. */
+.member-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 12% 0%, color-mix(in srgb, var(--tier) 22%, transparent) 0%, transparent 60%),
+    radial-gradient(ellipse at 100% 100%, color-mix(in srgb, var(--tier) 12%, transparent) 0%, transparent 55%);
+  pointer-events: none;
+}
+.member-hero > * { position: relative; }
+
+.member-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
+}
+.member-tier-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xl);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--tier);
+  text-shadow: 0 0 28px color-mix(in srgb, var(--tier) 40%, transparent);
+}
+.member-tier-sub {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-top: var(--sp-05);
+}
+.member-discount {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--pill);
+  border: 1px solid color-mix(in srgb, var(--tier) 45%, transparent);
+  background: color-mix(in srgb, var(--tier) 14%, transparent);
+  color: var(--tier);
+  font-family: var(--font-display);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.member-discount-num { font-size: var(--fs-2xl); letter-spacing: -0.02em; }
+.member-discount-lbl { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.85; }
+
+/* Progress toward the next tier. */
+.member-progress { margin-top: var(--sp-6); }
+.member-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+/* The rolling window as a queue — see WindowQueue in Membership.jsx. The
+   track is the progress bar it replaced: filled length = spend / next
+   threshold; each segment is one counted order, newest at the left (the
+   entry), oldest at the right (the exit). */
+.member-queue { display: grid; gap: var(--sp-15); }
+.member-queue-track {
+  position: relative;
+  display: flex;
+  height: 14px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.10);
+  overflow: hidden;
+  /* A hairline at the exit end so "the edge" is a drawn thing, not the end
+     of the paint. */
+  box-shadow: inset -2px 0 0 rgba(var(--tint-rgb), 0.22);
+}
+.member-queue-seg {
+  flex: 0 0 var(--w);
+  width: var(--w);
+  height: 100%;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tier) 55%, transparent), var(--tier));
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.35);
+  /* Entering: every segment slides in from the entry side, later ones a
+     beat after earlier ones, so the first paint shows the mechanism once. */
+  animation: member-queue-enter var(--dur-3, 0.32s) var(--ease-settle, ease-out) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+.member-queue-seg:first-child { border-radius: var(--pill) 0 0 var(--pill); }
+@keyframes member-queue-enter {
+  from { transform: translateX(-120%); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+/* Leaving within the week: hatched so it reads without colour or glow, warm
+   so it reads with them, and breathing slowly because it is about to move. */
+.member-queue-seg.is-leaving {
+  background:
+    repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0 3px, transparent 3px 7px),
+    linear-gradient(90deg, color-mix(in srgb, var(--warning) 70%, var(--tier)), var(--warning));
+  box-shadow:
+    inset -1px 0 0 rgba(0, 0, 0, 0.35),
+    0 0 calc(12px * var(--glow-strength, 1)) rgba(var(--warning-rgb), 0.45);
+  animation:
+    member-queue-enter var(--dur-3, 0.32s) var(--ease-settle, ease-out) both,
+    member-queue-breathe 2.4s ease-in-out calc(var(--dur-3, 0.32s) + var(--i, 0) * 45ms) infinite;
+}
+@keyframes member-queue-breathe {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.22); }
+}
+.member-queue-seg.is-locked {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tier) 55%, transparent), var(--tier));
+  animation: none;
+}
+.member-queue-full {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tier) 60%, transparent);
+  border-radius: inherit;
+}
+.member-queue-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.member-queue-axis span:nth-child(2) { color: var(--text-secondary); text-align: center; }
+.member-queue-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-05) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.member-queue-key {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 9px;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0 3px, transparent 3px 7px),
+    var(--warning);
+}
+@media (max-width: 560px) {
+  .member-queue-axis span:nth-child(2) { display: none; }
+}
+
+.member-stats {
+  display: grid;
+  /* `min(150px, 100%)` so a track can never be wider than the hero itself. */
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: var(--sp-3);
+  margin-top: var(--sp-6);
+}
+.member-stat {
+  min-width: 0;
+  padding: var(--sp-4) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+}
+.member-stat-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.member-stat-value {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-feature-settings: "tnum";
+  margin-top: var(--sp-05);
+}
+.member-stat-note { font-size: var(--fs-xs); color: var(--text-muted); margin-top: var(--sp-05); }
+
+/* The ladder of all tiers, current one marked. */
+.tier-ladder { display: grid; gap: var(--sp-25); }
+.tier-rung {
+  --tier: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.02);
+  transition: border-color var(--transition), background var(--transition);
+}
+.tier-rung.reached { border-color: color-mix(in srgb, var(--tier) 35%, transparent); }
+.tier-rung.current {
+  border-color: var(--tier);
+  background: color-mix(in srgb, var(--tier) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--tier) 18%, transparent);
+}
+.tier-rung.locked-out { opacity: 0.6; }
+.tier-rung-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--tier);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--tier) 55%, transparent);
+}
+.tier-rung-dot.pending {
+  background: transparent;
+  border: 2px solid var(--border-hover);
+  box-shadow: none;
+}
+.tier-rung-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-md);
+  color: var(--tier);
+}
+/* The perks line reads as the row's second fact, the operator's description as
+   a quieter third — the facts carry the row, the label follows them. */
+.tier-rung-meta { font-size: var(--fs-xs); color: var(--text-secondary); }
+.tier-rung-desc { font-size: var(--fs-xs); color: var(--text-muted); margin-top: var(--sp-05); }
+.tier-rung-req {
+  margin-left: auto;
+  text-align: right;
+  font-size: var(--fs-sm);
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+}
+
+/* ── The ledger tables ────────────────────────────────────────────────────
+   `.member-orders` is the cell skin for the orders behind a tier here, and the
+   store-credit ledger on the sub-user panel wears it too (see
+   27-referral-panel.css, which adds only what is specific to that surface).
+   The phone shape comes from `.admin-rtable` in
+   38-responsive-admin-tables.css, which every one of these tables now carries:
+   below 720px each row becomes its own card and each cell prints the heading
+   from its `data-label`. Before that they were plain tables inside an
+   `overflow-x: auto` wrapper, which on a 375px phone hid the money column off
+   the right edge with nothing on screen to say it existed. */
+.member-orders { width: 100%; border-collapse: collapse; }
+.member-orders th {
+  text-align: left;
+  padding: var(--sp-2) var(--sp-25);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.member-orders td {
+  padding: var(--sp-25);
+  font-size: var(--fs-base);
+  border-bottom: 1px solid var(--border);
+}
+.member-orders tr:last-child td { border-bottom: none; }
+/* DESIGN §6: numerals in the mono face, so a column of money actually lines
+   up. `font-feature-settings: "tnum"` alone left the digits in the working
+   face, where a 1 is narrower than a 7 and a column of totals reads as ragged
+   — the exact thing a ledger column exists to prevent. */
+.member-orders .num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+/* The heading over a money column sits over its digits, but must NOT inherit
+   the mono face from `.num` — the figures are the ledger, the heading is a
+   label, and one word set in mono among five display-face headings looks like
+   a mistake. */
+.member-orders th.num {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+/* An order id is an identifier, not a quantity: mono for the same reason, but
+   at label size and without the right alignment. */
+.member-orders-id {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+/* "in 12d" is context for the amount beside it, so it is dimmed and set at
+   normal weight — the class outranks `.num`'s 600, which an inline style used
+   to do. Inline styles also outrank media queries, which is how a desktop rule
+   survives into a phone layout that meant to replace it. */
+.member-orders td.member-orders-drop {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* The wrapper scrolls sideways only while the table is still a table. Below
+   720px `.admin-rtable-wrap` (38-responsive-admin-tables.css, loaded after
+   this file) turns the overflow back to `visible`, because the row-cards
+   supply their own frame and a leftover scroll container just adds a stray
+   horizontal scrollbar under them. This lives in CSS rather than as an inline
+   `overflowX: 'auto'` for exactly that reason: an inline style outranks the
+   media query and the wrapper would never let go. */
+.member-orders-wrap { overflow-x: auto; }
+
+/* The total row. Weight and a rule above it carry the meaning, not colour, so
+   it still reads as a sum at `--glow-strength: 0` and in a flattened preset. */
+.member-orders tfoot td {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+}
+.member-orders tfoot .num { font-size: var(--fs-md); }
+
+@media (max-width: 720px) {
+  /* 38-responsive-admin-tables.css blockifies table, tbody, tr and td — but
+     not `<tfoot>`, which is left as a `table-footer-group` wrapping block rows
+     and gets handed to the browser's anonymous-table fixup. The total then
+     lands as a stray full-width strip that does not read as belonging to the
+     cards above it. It is the number the whole table exists to justify, so it
+     becomes a lit summary card instead: label on the left, figure on the
+     right, one line. */
+  .member-orders tfoot { display: block; }
+  .member-orders tfoot tr {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    border-color: var(--primary-border);
+    background: rgba(var(--primary-rgb), 0.06);
+  }
+  /* The `[colspan]` variant is spelled out because
+     38-responsive-admin-tables.css centres colspan cells (an empty-state row
+     spanning the card), and that rule would otherwise outrank this one. */
+  .member-orders tfoot td,
+  .member-orders tfoot td[colspan] {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: none;
+    text-align: left;
+  }
+  .member-orders tfoot .num { text-align: right; }
+  /* The desktop spacer under "Leaves window" has nothing to say on a phone. */
+  .member-orders .member-orders-pad { display: none; }
+}
+
+@media (max-width: 600px) {
+  .member-hero { padding: var(--sp-5); }
+  .member-tier-name { font-size: var(--fs-2xl); }
+  /* `minmax(0, 1fr)`, not `1fr`: a bare `1fr` track refuses to shrink below
+     its content, so "LIFETIME SPEND" pushed the pair past the hero on the
+     narrowest phones. */
+  .member-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-25); }
+  .tier-rung { flex-wrap: wrap; }
+  .tier-rung-req { margin-left: 0; width: 100%; text-align: left; }
+}
+
+/* Folding-phone cover screens (280px): two stats side by side leave ~110px
+   each, and a dollar figure does not fit that. One column, in order. */
+@media (max-width: 340px) {
+  .member-stats { grid-template-columns: minmax(0, 1fr); }
+}

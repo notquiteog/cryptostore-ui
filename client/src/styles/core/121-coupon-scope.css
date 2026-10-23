@@ -1,0 +1,235 @@
+/*
+ * The coupon scope fieldset: what a coupon covers and who may use it.
+ *
+ * ── Why this is a bordered group and not more rows in the form grid ─────────
+ *
+ * Because the three controls inside it COMPOUND, and the admin form grid is a
+ * flat list of independent fields. A scope, a tier floor and first-order-only
+ * can between them describe a coupon nobody qualifies for, and the only way an
+ * operator notices is by seeing the conditions as one statement — which is what
+ * the summary line at the bottom is for. Putting them in the grid beside "Total
+ * redemptions" would have made three compounding rules look like three
+ * independent ones.
+ *
+ * ── Density (§7) ───────────────────────────────────────────────────────────
+ *
+ * The product list is the dense part on purpose: a store has hundreds of
+ * products and an operator is picking six. One line per product, scrollable,
+ * with the chosen ones sorted to the top — more rows per screen than feels
+ * comfortable in a mockup, because the mockup has eight products and reality
+ * has four hundred.
+ */
+
+.cscope {
+  margin: var(--sp-5) 0 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  /* One step off the panel it sits in rather than a second card: DESIGN §1 —
+     a card is a claim that something is a discrete object, and this is part of
+     the coupon being created, not a thing of its own. */
+  background: rgba(var(--tint-rgb), 0.03);
+}
+
+.cscope-legend {
+  padding: 0 var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.cscope-row {
+  display: grid;
+  /* Container-relative (§5): this fieldset sits in a panel that is a full-width
+     console column on a monitor and a phone's width on a phone, and the three
+     controls want to be side by side in the first case and stacked in the
+     second. `auto-fit` answers that without a viewport query getting it
+     backwards. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--sp-3);
+  align-items: end;
+}
+
+/* ── The pickers ────────────────────────────────────────────────────────── */
+
+.cscope-pick {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+
+.cscope-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  color: var(--text-muted);
+}
+
+.cscope-search input { flex: 1; }
+
+/* The tally is the answer to "have I actually picked anything", which is easy
+   to lose while filtering a long list. Mono so it does not shift width. */
+.cscope-tally {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-3xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.cscope-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  /* Bounded and scrolled rather than growing: a four-hundred-product catalogue
+     would otherwise push the Create button below three screens of checkboxes. */
+  max-height: 15rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.cscope-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-15) var(--sp-25);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+
+.cscope-list li:last-child .cscope-item { border-bottom: 0; }
+
+.cscope-item:hover { background: rgba(var(--tint-rgb), 0.05); color: var(--text); }
+
+/* Chosen lights up; it does not change size. §3 — growing a row's stroke on
+   select moves its edges and makes a scrolling list shudder under the cursor. */
+.cscope-item[data-on='yes'] {
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cscope-item input { flex: none; accent-color: var(--primary); }
+
+.cscope-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The category a product is filed under, so picking by product and picking by
+   category are visibly the same catalogue seen two ways. */
+.cscope-cat {
+  flex: none;
+  padding: 0 var(--sp-15);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: var(--fs-3xs);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ── Category chips ─────────────────────────────────────────────────────── */
+
+.cscope-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/*
+ * Chips here and a list above, which looks inconsistent and is not: there are
+ * a handful of categories and hundreds of products. A chip row of eight reads
+ * at a glance; a chip row of four hundred is a wall. Shape follows cardinality.
+ */
+.cscope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-25);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out),
+              background var(--dur-1) var(--ease-out);
+}
+
+.cscope-chip:hover { color: var(--text); border-color: var(--text-muted); }
+
+.cscope-chip[data-on='yes'] {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.12);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* The native box is redundant once the chip itself carries the state, and a
+   checkbox inside a pill is two affordances for one decision. Hidden visually,
+   kept for the keyboard and for screen readers. */
+.cscope-chip input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cscope-chip:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  /* §5's 44px floor — on a phone these chips are the only way to scope a
+     coupon, so they are drawn at a thumb size. */
+  .cscope-chip { min-height: 44px; }
+  .cscope-item { min-height: 44px; }
+}
+
+/* ── States, and the sentence ───────────────────────────────────────────── */
+
+.cscope-state {
+  margin: 0;
+  padding: var(--sp-3) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/*
+ * What the coupon will actually do, in one sentence.
+ *
+ * Lit, because it is the one line on this panel that is worth reading before
+ * pressing Create — and glow here means "live", per §3, which is exactly what
+ * this is: a live reading of the configuration above it rather than a label.
+ * It survives `--glow-strength: 0` as a bordered, tinted line.
+ */
+.cscope-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--primary-rgb), 0.06);
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
+.cscope-summary svg { flex: none; color: var(--primary); }

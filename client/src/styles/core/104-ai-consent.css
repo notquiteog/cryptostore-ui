@@ -1,0 +1,138 @@
+/* ===============================
+   AI CONSENT CARD
+   ===============================
+   The account page's "what may read my data" card. Rows of switches with a
+   destructive second step folded inside them.
+
+   Its own file rather than more rules in 76-profile.css because it is the one
+   card on that page whose rows can GROW — a withdrawal that would erase
+   something opens a confirmation inside the row it belongs to — and the rules
+   that make that not shove the rest of the card around belong beside each
+   other. */
+
+.aic-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-15);
+}
+
+.aic-row {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.02);
+  transition: border-color var(--transition), background var(--transition);
+  min-width: 0;
+}
+.aic-row.is-on {
+  border-color: var(--primary-border);
+  background: rgba(var(--primary-rgb), 0.05);
+}
+
+.aic-row-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-3);
+  align-items: center;
+  /* The row is the switch's label and therefore the target; on a coarse
+     pointer the target has to be thumb-sized whatever the text does. */
+  min-height: 44px;
+  padding: var(--sp-25) var(--sp-3);
+}
+.aic-row-text {
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-05);
+}
+.aic-row-title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+.aic-row-what {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+/* What it is holding right now, from the server's own count. Lit rather than
+   muted: it is the sentence that makes the switch beside it consequential. */
+.aic-row-holds {
+  font-size: var(--fs-2xs);
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+.aic-switch { align-self: center; }
+
+/*
+ * The confirmation, inside the row.
+ *
+ * Inside rather than in a modal because the thing being confirmed is one row's
+ * business and a dialog would hide the switch it is about. It opens downward,
+ * so nothing above it moves and the pointer is still over the row it started
+ * on — a confirmation that shifts the list is a confirmation that gets
+ * mis-clicked.
+ */
+.aic-confirm {
+  padding: 0 var(--sp-3) var(--sp-3);
+  animation: aic-confirm-in var(--dur-2) var(--ease-spring) both;
+}
+@keyframes aic-confirm-in {
+  from { opacity: 0; transform: translate3d(0, -4px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+.aic-confirm p {
+  display: flex;
+  gap: var(--sp-15);
+  align-items: flex-start;
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-25);
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+.aic-confirm p svg { flex-shrink: 0; margin-top: 2px; color: var(--danger); }
+.aic-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.aic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.aic-foot {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  margin: var(--sp-3) 0 0;
+  padding-top: var(--sp-25);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1.55;
+}
+.aic-foot svg { flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+
+/* Narrow: the switch drops under the text rather than squeezing a 46px track
+   against a label that has run out of room.
+
+   Named, against the `profile` container `.prof-page` declares. An unnamed
+   query would still match it today — the nearest container ancestor wins
+   whether or not it is named — but silently against whatever container is
+   nearest tomorrow, and this card is meant to be movable. */
+@container profile (max-width: 24rem) {
+  .aic-row-main {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--sp-2);
+  }
+  .aic-switch { justify-self: start; }
+}

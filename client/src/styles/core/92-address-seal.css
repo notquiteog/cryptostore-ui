@@ -1,0 +1,157 @@
+/* ── The address folds into a sealed block ───────────────────────────────────
+ *
+ * DESIGN §2: motion should explain the mechanism, and the mechanism here is
+ * literally what happens — the plaintext the buyer typed becomes ciphertext
+ * on their own machine, and a seal carrying the store key's fingerprint lands
+ * on it. It is the only moment a buyer can SEE that encryption happened here
+ * rather than being promised by a checkbox, which is why the flourish exists.
+ *
+ * Three stages, each on a token pair:
+ *   1. the typed lines collapse (grid-template-rows 1fr → 0fr, --ease-panel):
+ *      the receipt's own trick, natural height with no measurement;
+ *   2. the armored lines rise in, top-anchored, on a short stagger;
+ *   3. the seal scales in with --ease-spring — one overshoot, rings once.
+ * Under reduced motion every stage renders at its end state. Nothing loops.
+ * Colour is never the only channel: the seal carries the fingerprint in type
+ * and the block is mono, so it reads at --glow-strength: 0. */
+
+.ck-seal-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(var(--tint-rgb), 0.03);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ck-seal-opt input { margin-top: 3px; }
+.ck-seal-opt strong { color: var(--text); }
+.ck-seal-opt.is-on { border-color: rgba(var(--success-rgb), 0.45); }
+.ck-seal-opt .ck-seal-where { display: block; margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--text-muted); }
+.ck-seal-opt code { font-family: var(--font-mono); font-size: var(--fs-2xs); }
+
+/* ── The fold ── */
+
+.ck-seal {
+  margin-top: var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--success-rgb), 0.45);
+  background: var(--well);
+  overflow: hidden;
+}
+
+.ck-seal-plain {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-3) var(--ease-panel), opacity var(--dur-2) var(--ease-panel);
+}
+.ck-seal-plain > div { min-height: 0; overflow: hidden; }
+.ck-seal.is-sealing .ck-seal-plain,
+.ck-seal.is-sealed .ck-seal-plain { grid-template-rows: 0fr; opacity: 0; }
+.ck-seal-plain pre {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.ck-seal-cipher {
+  position: relative;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+}
+.ck-seal-lines {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+  color: var(--text-secondary);
+  white-space: pre;
+  overflow: hidden;
+  /* Twelve lines then a fade: the block is proof, not reading matter. */
+  max-height: calc(12 * 1.45em);
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+.ck-seal-lines span {
+  display: block;
+  opacity: 0;
+  transform: translateY(-4px);
+  animation: ck-seal-line var(--dur-2) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 28ms);
+}
+@keyframes ck-seal-line {
+  to { opacity: 1; transform: none; }
+}
+
+/* The seal: a stamp carrying the fingerprints. Scales in with the spring. */
+.ck-seal-stamp {
+  position: absolute;
+  right: var(--sp-4);
+  bottom: var(--sp-4);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--success);
+  background: color-mix(in srgb, var(--success) 14%, var(--bg));
+  color: var(--success);
+  box-shadow: var(--glow-sm);
+  font-size: var(--fs-2xs);
+  animation: ck-seal-stamp 0.5s var(--ease-spring) both;
+  animation-delay: 0.32s;
+  transform-origin: 70% 70%;
+}
+@keyframes ck-seal-stamp {
+  from { opacity: 0; transform: scale(1.6) rotate(-6deg); }
+  to   { opacity: 1; transform: none; }
+}
+.ck-seal-stamp svg { flex-shrink: 0; }
+.ck-seal-stamp b { display: block; font-family: var(--font-mono); letter-spacing: 0.06em; color: var(--text); }
+.ck-seal-stamp small { display: block; color: var(--text-muted); }
+
+.ck-seal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px dashed var(--glass-border);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.ck-seal-foot button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* Sealing in progress: the block area breathes once while the chunk loads
+   and the maths runs — not a spinner, because the work is a second or two
+   and a spinner promises longer. */
+.ck-seal-working {
+  padding: var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-seal-plain { transition: none; }
+  .ck-seal-lines span,
+  .ck-seal-stamp { animation: none; opacity: 1; transform: none; }
+}

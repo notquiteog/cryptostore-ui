@@ -1,0 +1,19 @@
+/* ===============================
+   TOAST OVERRIDE (react-hot-toast)
+   =============================== */
+/* Toasts float above everything, so they take the deepest tier: lg blur, lg
+   shadow, and the same lit rim as a card — a flat grey slab hovering over a
+   glass UI is the one place the illusion would visibly break. `!important`
+   because react-hot-toast writes its own inline styles. */
+.glass-toast {
+  background: var(--surface-raised) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius) !important;
+  -webkit-backdrop-filter: var(--glass-lg) !important;
+  backdrop-filter: var(--glass-lg) !important;
+  box-shadow: var(--rim-inset), var(--shadow-lg) !important;
+  font-family: var(--font) !important;
+  font-size: var(--fs-sm) !important;
+}
+

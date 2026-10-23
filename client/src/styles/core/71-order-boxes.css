@@ -1,0 +1,388 @@
+/* ── The boxes card on the order page ───────────────────────────────────────
+ *
+ * Buyer-facing first: this card is most often read on a phone by the person
+ * whose parcels these are. Collapsed rows carry a thumbnail strip and the
+ * dispatch state; the itemised list is one tap away. Theme tokens only. */
+
+.obox-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: var(--sp-5);
+  margin-top: var(--sp-6);
+}
+
+.obox-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  margin: 0 0 var(--sp-3);
+}
+
+.obox-title svg {
+  color: var(--primary);
+  align-self: center;
+}
+
+.obox-title-sub {
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.obox-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-25);
+}
+
+.obox {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  overflow: hidden;
+}
+
+.obox.is-shipped {
+  border-color: rgba(var(--success-rgb), 0.25);
+}
+
+/* ── The head: one big tap target ── */
+
+.obox-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-25) var(--sp-3);
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.obox-head:disabled {
+  cursor: default;
+}
+
+.obox-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 700;
+  font-size: var(--fs-base);
+  white-space: nowrap;
+}
+
+.obox-chip {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: var(--sp-05) var(--sp-2);
+  white-space: nowrap;
+}
+
+.obox-chip.is-untracked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+/* ── The collapsed preview: thumbnails + count ── */
+
+.obox-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.obox-strip.is-unknown {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.obox-strip-thumbs {
+  display: inline-flex;
+  align-items: center;
+}
+
+.obox-strip-thumbs .obox-thumb {
+  margin-right: calc(var(--sp-2) * -1);
+  border: 2px solid var(--well);
+  box-shadow: 0 0 0 1px var(--glass-border);
+}
+
+/* The overlap pull belongs BETWEEN bubbles. Left on the last one, it drags
+ * whatever follows the stack — the "+N" or the unit count — into the final
+ * bubble, exactly cancelling the strip's gap. */
+.obox-strip-thumbs .obox-thumb:last-child {
+  margin-right: 0;
+}
+
+.obox-strip-more {
+  margin-left: var(--sp-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.obox-strip-count {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.obox-thumb {
+  width: 2rem;
+  height: 2rem;
+  /* Pinned square from every direction: flex must not shrink it, a global
+   * img rule must not stretch it, and the ratio holds even if one of the
+   * dimensions loses a specificity fight — an oval product shot reads as a
+   * rendering bug, because it is one. */
+  min-width: 2rem;
+  min-height: 2rem;
+  max-width: 2rem;
+  max-height: 2rem;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  background: var(--glass-bg);
+}
+
+.obox-thumb.is-md {
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  max-width: 2.5rem;
+  max-height: 2.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.obox-thumb.is-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--glass-border);
+}
+
+/* ── Dispatch state ── */
+
+.obox-state {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.obox-state > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.obox-state.is-shipped {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.obox-state em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.obox-chev {
+  flex: none;
+  color: var(--text-muted);
+  transition: transform 0.18s ease;
+}
+
+.obox-chev.is-open {
+  transform: rotate(180deg);
+}
+
+/* ── Tracking + note line ── */
+
+.obox-track {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-15) var(--sp-3);
+  padding: 0 var(--sp-3) var(--sp-25);
+}
+
+.obox-track code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--info);
+  word-break: break-all;
+}
+
+.obox-note {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+
+/* ── The expanded item list ── */
+
+.obox-items {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-1) var(--sp-3) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  border-top: 1px dashed var(--glass-border);
+  padding-top: var(--sp-25);
+}
+
+.obox-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.obox-item-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.obox-item-variant {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.obox-item-qty {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Small screens: the head wraps into two calm rows ── */
+
+@media (max-width: 560px) {
+  .obox-head {
+    flex-wrap: wrap;
+    gap: var(--sp-15) var(--sp-3);
+  }
+
+  .obox-name {
+    flex: 1;
+  }
+
+  .obox-chev {
+    order: 2;
+  }
+
+  .obox-strip {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .obox-state {
+    order: 4;
+    flex-basis: 100%;
+  }
+}
+
+
+/* ── The carton ─────────────────────────────────────────────────────────────
+   components/fulfilment/Carton.jsx. One drawing, three sizes: 22px in a box
+   row's head, 34px on a queue card, 58px at the bench. `--level` (0–1) is
+   the fill; it scales a rect from the floor of the well, so the rise is a
+   transform the browser tweens rather than geometry React redraws. These
+   are the file's first keyframes; DESIGN §10 asked for the box to fill, and
+   `.pkq-bar-fill` was a percentage bar until it did. */
+.carton {
+  display: inline-flex;
+  width: var(--size, 44px);
+  height: var(--size, 44px);
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  --carton-fill: var(--primary);
+}
+.carton svg { display: block; overflow: visible; }
+.carton-body {
+  fill: rgba(var(--tint-rgb), 0.05);
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+.carton-well { fill: rgba(var(--tint-rgb), 0.06); }
+.carton-fill {
+  fill: var(--carton-fill);
+  opacity: 0.85;
+  transform: scaleY(var(--level, 0));
+  transform-origin: 50% 100%;
+  transform-box: fill-box;
+  transition: transform var(--dur-4, 0.45s) var(--ease-settle, ease-out);
+}
+.carton-flap {
+  fill: rgba(var(--tint-rgb), 0.10);
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.carton-flap-back { fill: rgba(var(--tint-rgb), 0.04); }
+.carton-lid { opacity: 0; transition: opacity var(--dur-3, 0.3s) var(--ease-settle, ease-out); }
+.carton-lid rect { fill: rgba(var(--tint-rgb), 0.14); stroke: currentColor; stroke-width: 1.4; }
+.carton-lid .carton-tape { fill: var(--warning); stroke: none; }
+
+/* Full: the fill goes to the success colour and the walls follow. */
+.carton.is-full { color: var(--success); --carton-fill: var(--success); }
+/* Sealed or shipped: flaps down, tape on. The front flaps swing up to meet
+   the lid rather than vanishing. */
+.carton.is-sealed .carton-lid { opacity: 1; }
+.carton.is-sealed .carton-flap-front { opacity: 0; }
+.carton.is-sealed .carton-flap-back { opacity: 0; }
+/* On somebody else's bench: warm walls. The level still shows — that is the
+   whole point of drawing a held box. */
+.carton.is-held { color: var(--warning); --carton-fill: color-mix(in srgb, var(--warning) 70%, var(--primary)); }
+
+/* A unit falling in. Keyed in the component, so each rise re-runs it. */
+.carton-unit {
+  fill: var(--carton-fill);
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 0.8;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: carton-drop 0.55s var(--ease-settle, ease-out) both;
+}
+@keyframes carton-drop {
+  0%   { transform: translateY(-14px) rotate(-8deg); opacity: 0; }
+  35%  { opacity: 1; }
+  80%  { transform: translateY(calc(23px * (1 - var(--level, 0)) + 2px)) rotate(4deg); opacity: 1; }
+  100% { transform: translateY(calc(23px * (1 - var(--level, 0)) + 4px)) rotate(0deg); opacity: 0; }
+}
+
+/* A chip that just arrived in a box: it travelled from the tray. */
+.boxp-chip.is-arriving { animation: boxp-arrive 0.4s var(--ease-settle, ease-out) both; }
+@keyframes boxp-arrive {
+  from { transform: translateY(-10px) scale(0.92); opacity: 0; }
+  60%  { transform: translateY(1px) scale(1.01); opacity: 1; }
+  to   { transform: none; opacity: 1; }
+}
+.boxp-carton { margin-right: var(--sp-05); vertical-align: middle; }

@@ -1,0 +1,1930 @@
+/* ── Warehouse map: the floor editor, the isometric view, the mini-chips ────
+ * Theme tokens only, like every fulfilment sheet before it. SVG shapes take
+ * their ink from CSS classes so the same geometry follows every palette and
+ * both color modes for free. */
+
+/* ── Floor tabs (the editor) ────────────────────────────────────────────────
+
+   The editor works one floor at a time, so the tab bar is the only place in
+   the whole feature that had to know floors exist — everything below it is
+   handed a layout containing exactly one floor's rooms and shelves.
+
+   The active tab grows a rename field and a delete, rather than the map
+   sprouting a floor-properties panel: a floor has a name and nothing else, and
+   a panel for one field is a panel that has to be opened. */
+
+.wh-floors {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.wh-floor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  background: var(--surface);
+  transition: border-color var(--transition), background var(--transition);
+}
+.wh-floor.is-on {
+  border-color: var(--primary-border);
+  background: var(--btn-bg);
+  box-shadow: 0 0 14px var(--primary-glow);
+}
+
+.wh-floor-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: calc(var(--control-h-sm) - 4px);
+  padding: 0 var(--sp-3);
+  border: none;
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.wh-floor-tab:hover { color: var(--text); }
+.wh-floor.is-on .wh-floor-tab { color: var(--text); }
+/* The shelf count, so an operator can tell an empty floor from a full one
+   before switching to it — which is also the count `removeFloor` refuses on. */
+.wh-floor-n {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  padding: 0 5px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.1);
+}
+
+/* The active tab IS the field. An inactive floor's name is a label; turning
+   every one of them into a text box would make the bar look like a form. */
+.wh-floor-tab.is-editing { cursor: default; }
+.wh-floor-name {
+  width: 11ch;
+  min-width: 0;
+  height: calc(var(--control-h-sm) - 8px);
+  padding: 0 var(--sp-1);
+  border: none;
+  border-bottom: 1px dashed var(--border-hover);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.wh-floor-name:hover { border-bottom-color: var(--primary); }
+.wh-floor-name:focus-visible { outline: none; border-bottom-color: var(--primary); }
+
+.wh-floor-del,
+.wh-floor-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: calc(var(--control-h-sm) - 4px);
+  padding: 0 var(--sp-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+.wh-floor-del:hover { color: var(--danger); background: rgba(var(--danger-rgb), 0.1); }
+
+.wh-floor-add {
+  padding: 0 var(--sp-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--pill);
+  height: var(--control-h-sm);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.wh-floor-add:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface-hover); }
+
+.wh-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16rem;
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .wh-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wh-canvas-wrap {
+  padding: var(--sp-25);
+}
+
+.wh-canvas {
+  display: block;
+  width: 100%;
+  max-height: 72vh;
+  touch-action: none; /* pointer events do the panning-free drag work */
+}
+
+.wh-canvas.is-tool-room,
+.wh-canvas.is-tool-shelf,
+.wh-canvas.is-tool-room-add {
+  cursor: crosshair;
+}
+
+/* Cutting takes area away, so it gets its own cursor — the one gesture on
+   this canvas that destroys rather than draws should not look like the two
+   that create. */
+.wh-canvas.is-tool-room-cut {
+  cursor: cell;
+}
+
+/* The plan's floor: the well the grid pattern is painted onto.
+   `wh-plan-floor`, not `wh-floor` — that name already belongs to the floor
+   TAB above (a pill with a border, a background and an `.is-on` state), and
+   one class for both meant this rect quietly inherited a flex box's styling
+   while any future rule written for the tabs would land on the drawing too. */
+.wh-plan-floor {
+  fill: var(--well);
+}
+
+.wh-gridline {
+  fill: none;
+  stroke: var(--glass-border);
+  stroke-width: 0.03;
+}
+
+/* A room is filled by its parts and outlined by one path over the lot. The
+   parts carry NO stroke on purpose: stroking each would draw the seam across
+   an L's elbow, and a room with a line through it reads as two rooms. */
+.wh-room-part {
+  fill: rgba(var(--primary-rgb), 0.05);
+  stroke: none;
+  cursor: move;
+}
+
+.wh-room-part.is-selected {
+  fill: rgba(var(--primary-rgb), 0.12);
+}
+
+.wh-room-edge {
+  fill: none;
+  stroke: rgba(var(--primary-rgb), 0.45);
+  stroke-width: 0.12;
+  stroke-linecap: square;
+  pointer-events: none;
+}
+
+/* Same rule as the shelf below: the outline lights, it does not fatten. A
+   room's edge sits on the boundary between two rooms, so half of any extra
+   width is drawn inside the neighbour — the wall appears to move when you
+   select one side of it. */
+.wh-room-edge.is-selected {
+  stroke: var(--primary);
+  filter: drop-shadow(0 0 0.2px var(--primary-glow)) drop-shadow(0 0 0.5px var(--primary-glow));
+}
+
+.wh-room-name {
+  font-size: 0.9px;
+  fill: var(--text-muted);
+  pointer-events: none;
+  user-select: none;
+}
+
+.wh-shelf {
+  fill: rgba(var(--secondary-rgb), 0.28);
+  stroke: var(--secondary);
+  stroke-width: 0.1;
+  cursor: move;
+}
+
+/* Selected shelves GLOW; they do not grow a ring.
+   The stroke used to jump from 0.1 to 0.18 user units on a shelf one unit
+   tall — a fifth of its height, drawn half outside and half in, so the
+   selected shelf both bloated and swallowed its own label. The fill and the
+   stroke colour carry the state, and the bloom is drawn in `--primary-glow`,
+   whose alpha already rides the operator's glow slider: at
+   --glow-strength: 0 it vanishes and the colour change is still doing the
+   work (DESIGN §3). */
+.wh-shelf.is-selected {
+  fill: rgba(var(--secondary-rgb), 0.5);
+  stroke: var(--primary);
+  filter: drop-shadow(0 0 0.18px var(--primary-glow)) drop-shadow(0 0 0.45px var(--primary-glow));
+}
+
+.wh-shelf-name {
+  font-size: 1px;
+  font-weight: 700;
+  fill: var(--text);
+  pointer-events: none;
+  user-select: none;
+}
+
+.wh-shelf-rank {
+  font-size: 0.6px;
+  fill: var(--text-muted);
+  pointer-events: none;
+  user-select: none;
+}
+
+.wh-handle {
+  fill: var(--primary);
+  cursor: nwse-resize;
+}
+
+.wh-preview {
+  fill: rgba(var(--primary-rgb), 0.12);
+  stroke: var(--primary);
+  stroke-width: 0.08;
+  stroke-dasharray: 0.3 0.2;
+  pointer-events: none;
+}
+
+/* ── Isometric view ── */
+
+.wh-iso {
+  display: block;
+  width: 100%;
+  max-height: 72vh;
+}
+
+.wh-iso-room {
+  fill: rgba(var(--primary-rgb), 0.07);
+  /* No stroke. The parts of one room share edges, and stroking each of them
+     drew a line through the middle of every L, U and T — see the markup for
+     the split. The outline below is the only thing that draws a boundary. */
+}
+
+.wh-iso-room-edge {
+  stroke: rgba(var(--primary-rgb), 0.4);
+  stroke-width: 0.08;
+  fill: none;
+  stroke-linecap: square;
+}
+
+.wh-iso-top {
+  fill: rgba(var(--secondary-rgb), 0.55);
+  stroke: var(--secondary);
+  stroke-width: 0.05;
+}
+
+.wh-iso-left {
+  fill: rgba(var(--secondary-rgb), 0.30);
+  stroke: var(--secondary);
+  stroke-width: 0.05;
+}
+
+.wh-iso-right {
+  fill: rgba(var(--secondary-rgb), 0.18);
+  stroke: var(--secondary);
+  stroke-width: 0.05;
+}
+
+.wh-iso-name {
+  font-size: 0.8px;
+  font-weight: 700;
+  fill: var(--text);
+  user-select: none;
+}
+
+/* ── Side panel ── */
+
+.wh-panel {
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  position: sticky;
+  top: 1rem;
+}
+
+.wh-panel-title {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  margin: 0;
+}
+
+.wh-panel-empty p,
+.wh-hint {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.wh-room-stats {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.wh-room-stats-note {
+  opacity: 0.75;
+}
+
+.wh-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.wh-field .glass-input {
+  padding: var(--sp-15) var(--sp-2);
+  font-size: var(--fs-base);
+}
+
+.wh-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-25);
+}
+
+.wh-grid-size {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.wh-grid-size .glass-input {
+  width: 4.2rem;
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+/* ── Slot grid dialog ── */
+
+/* ── The slot grid ──────────────────────────────────────────────────────────
+
+   Levels × slots for one shelf, beside a drawing of the shelf itself.
+
+   What this replaced was a single column: a grid whose cells each restated
+   their own slot number, and an assign panel that appeared UNDER it and pushed
+   the grid up the screen every time somebody pressed a cell. The numbers moved
+   to one ruler along the top, which gave the cells their width back to spend
+   on what is actually in them, and the panel moved into a fixed side column so
+   the grid stays where your hand left it. */
+
+.slotg {
+  width: min(96vw, 62rem);
+  max-height: 88vh;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.slotg::backdrop {
+  background: rgba(var(--scrim-rgb), 0.6);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  backdrop-filter: blur(var(--glass-blur-sm));
+}
+
+.slotg-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--well);
+}
+.slotg-head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+.slotg-head h3 svg { color: var(--primary); }
+.slotg-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.slotg-close {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.slotg-close:hover { background: var(--surface-hover); color: var(--text); }
+
+/*
+ * The GRID COLUMN alone decides how big this dialog is.
+ *
+ * The side column reports what is in the slot being pointed at, so its content
+ * changes on every hover — one line for an empty slot, a list for a shared
+ * one, a search box and results once something is open. While it contributed
+ * to the row height, every one of those changes resized the dialog, which
+ * moved the cell out from under the cursor mid-hover and made the whole panel
+ * feel broken. DESIGN §4 says a reveal must not reflow; this is that rule
+ * applied to a panel rather than to a row.
+ *
+ * The fix is that `.slotg-side-inner` is absolutely positioned inside its grid
+ * area: it fills the cell, scrolls its own overflow, and contributes exactly
+ * nothing to the height. The grid of slots is stable — it depends only on the
+ * shelf's levels and slots — so the dialog is too.
+ */
+.slotg-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 0;
+  overflow: hidden;
+  /* A floor at a sensible dialog size, so a one-level shelf does not produce a
+     side column two inches tall. */
+  min-height: 22rem;
+  max-height: calc(88vh - 3.5rem);
+}
+
+.slotg-gridcol { padding: var(--sp-4); min-width: 0; }
+
+/* ── The grid ──────────────────────────────────────────────────────────── */
+
+/* The ruler and the rows share one template, so a slot number sits over its
+   column at any shelf width. `--slots` comes from the shelf. */
+.slotg-ruler,
+.slotg-row {
+  display: grid;
+  grid-template-columns: 2.2rem repeat(var(--slots), minmax(0, 1fr));
+  gap: 3px;
+  align-items: center;
+}
+.slotg-ruler { margin-bottom: var(--sp-1); }
+.slotg-ruler-n {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.slotg-grid { display: grid; gap: 3px; }
+
+.slotg-level {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: var(--sp-1);
+}
+
+.slotg-cell {
+  position: relative;
+  min-width: 0;
+  height: 2.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--sp-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  color: var(--text-secondary);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+.slotg-cell:disabled { cursor: not-allowed; opacity: 0.5; }
+.slotg-cell:hover:not(:disabled) { border-color: var(--border-hover); background: var(--surface-hover); }
+.slotg-cell:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+
+/* An empty slot is drawn as an absence — a faint dashed well — rather than as
+   a box with the word "empty" in it. On a twenty-four cell shelf the empties
+   are the majority and they should read as background. */
+.slotg-cell-empty {
+  width: 60%;
+  height: 2px;
+  border-radius: var(--pill);
+  background: rgba(var(--tint-rgb), 0.14);
+}
+
+.slotg-cell.is-filled {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  border-color: var(--primary-border);
+  color: var(--text);
+}
+.slotg-cell-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+/* Pointed at. Deliberately louder than "filled" and quieter than "open":
+   three states that have to be told apart at a glance across two panels. */
+.slotg-cell.is-hot {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.slotg-cell.is-open {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--bg);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+.slotg-cell.is-open .slotg-cell-empty { background: rgba(var(--tint-rgb), 0.4); }
+
+.slotg-lede {
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.slotg-lede code {
+  font-family: var(--font-mono);
+  color: var(--primary);
+}
+
+/* ── The side column ───────────────────────────────────────────────────── */
+
+.slotg-side {
+  position: relative;
+  border-left: 1px solid var(--border);
+  background: var(--well);
+  min-width: 0;
+}
+.slotg-side-inner {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Reserved, so the panel below it does not walk up and down the column as the
+   pointer crosses slots holding different numbers of things. Two entries fit;
+   beyond that the list scrolls inside its own box. */
+.slotg-here {
+  min-height: 4.5rem;
+  /* Two entries fit whole. The cap used to fall mid-way through the second,
+     which reads as a rendering fault rather than as "there is more" — and a
+     shared slot, the case that has two, is exactly the one worth reading. */
+  max-height: 7.6rem;
+  overflow-y: auto;
+}
+
+.slotg-solid { min-width: 0; }
+.shelfsolid {
+  display: block;
+  width: 100%;
+  max-height: 11rem;
+}
+.slotg-solid-cap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+.slotg-solid-cap code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ── The shelf drawing ─────────────────────────────────────────────────── */
+
+.shelfsolid-cell { cursor: pointer; }
+.shelfsolid-top { fill: var(--surface-hover); }
+.shelfsolid-left { fill: color-mix(in srgb, var(--well) 70%, black); }
+.shelfsolid-right { fill: color-mix(in srgb, var(--well) 85%, black); }
+.shelfsolid-cell polygon {
+  stroke: var(--bg);
+  stroke-width: 0.012;
+  stroke-linejoin: round;
+  transition: fill var(--transition);
+}
+
+.shelfsolid-cell.is-filled .shelfsolid-top { fill: color-mix(in srgb, var(--primary) 55%, var(--surface)); }
+.shelfsolid-cell.is-filled .shelfsolid-right { fill: color-mix(in srgb, var(--primary) 38%, var(--well)); }
+.shelfsolid-cell.is-filled .shelfsolid-left { fill: color-mix(in srgb, var(--primary) 24%, var(--well)); }
+
+/* The lit box — the whole reason the drawing is here. Bright enough to find
+   instantly among twenty-four, and it survives --glow-strength: 0 because the
+   fill is doing the work, not the shadow. */
+.shelfsolid-cell.is-active .shelfsolid-top { fill: var(--accent); }
+.shelfsolid-cell.is-active .shelfsolid-right { fill: color-mix(in srgb, var(--accent) 76%, black); }
+.shelfsolid-cell.is-active .shelfsolid-left { fill: color-mix(in srgb, var(--accent) 56%, black); }
+
+.shelfsolid-rail {
+  fill: none;
+  stroke: var(--border-hover);
+  stroke-width: 0.02;
+}
+
+/* Sized in user units, so it scales with the drawing rather than staying a
+   fixed pixel size that is enormous on a two-level shelf and illegible on a
+   ten-level one. */
+.shelfsolid-lvl {
+  font-family: var(--font-mono);
+  font-size: 0.3px;
+  font-weight: 700;
+  fill: var(--text-muted);
+  dominant-baseline: middle;
+}
+
+/* ── What is in the pointed-at slot ────────────────────────────────────── */
+
+.slotg-here-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.slotg-here-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-1);
+}
+.slotg-here-list li {
+  display: grid;
+  gap: 1px;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  min-width: 0;
+}
+.slotg-here-g {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slotg-here-v { font-size: var(--fs-2xs); color: var(--text-muted); }
+
+/* ── Filing ────────────────────────────────────────────────────────────── */
+
+.slotg-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.slotg-assign {
+  display: grid;
+  gap: var(--sp-2);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+.slotg-assign-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+}
+.slotg-assign-title code {
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--primary);
+}
+
+.slotg-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  min-width: 0;
+}
+.slotg-current > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slotg-search .glass-input { width: 100%; }
+
+.slotg-matches {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 14rem;
+  overflow-y: auto;
+  display: grid;
+  gap: 2px;
+}
+.slotg-matches button {
+  width: 100%;
+  display: grid;
+  gap: 1px;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  transition: border-color var(--transition), background var(--transition);
+}
+.slotg-matches button:hover {
+  border-color: var(--primary-border);
+  background: var(--surface-hover);
+}
+.slotg-match-g {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slotg-match-v { font-size: var(--fs-2xs); color: var(--text-muted); }
+.slotg-match-b {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* One column below this: the drawing goes ABOVE the grid rather than beside
+   it, because on a phone the picture is the orienting thing and the table is
+   what you scroll through afterwards. */
+@media (max-width: 860px) {
+  .slotg { width: 96vw; }
+  .slotg-body {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .slotg-side {
+    border-left: none;
+    border-bottom: 1px solid var(--border);
+    order: -1;
+  }
+  /* One column: the side column is a normal block again, because there is no
+     second column whose height it could disturb. */
+  .slotg-side-inner {
+    position: static;
+    inset: auto;
+    overflow: visible;
+  }
+  .shelfsolid { max-height: 8rem; }
+  /* ≥44px targets on a coarse pointer. */
+  .slotg-cell { height: 44px; }
+}
+
+/* ── Mini-map chips (pull list + bench) ── */
+
+.binchip {
+  width: 5.4rem;
+  height: 3.6rem;
+  flex: none;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+/* Inside a pack line's tag row the chip shrinks to tag scale. */
+.pkl-tags .binchip {
+  width: 3.4rem;
+  height: 2.3rem;
+}
+
+/* Room parts fill; the union outline strokes. Same split as the editor, for
+   the same reason: a stroke per part draws the seam across an L's elbow. */
+.binchip-room {
+  fill: var(--text-muted);
+  opacity: 0.08;
+}
+
+.binchip-room-edge {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 0.35;
+  opacity: 0.5;
+}
+
+/* ── The chip is a button now, and carries a hover preview ── */
+
+.binchip-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.binchip-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+}
+
+.binchip-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.binchip-btn:hover .binchip,
+.binchip-btn:focus-visible .binchip {
+  border-color: var(--primary);
+}
+
+/* Fixed to the viewport from a measured button rect — see BinChip.jsx for why
+   an absolutely positioned card could not work here. `translateY(-100%)` puts
+   the card above its anchor; `.is-below` cancels it when there is no room. */
+.binchip-peek {
+  position: fixed;
+  transform: translateY(-100%);
+  z-index: 200;
+  min-width: 15rem;
+  max-width: 22rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+  padding: var(--sp-2) var(--sp-25) var(--sp-25);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  /* OPAQUE, unlike the glass panels around it. `--surface` is an alias for
+     `--glass-bg` and is translucent by design — right for a modal sitting on a
+     blurred ::backdrop, wrong for a dense little card floating over a list,
+     where the rows underneath showed straight through the text. Mixed from the
+     theme's own tokens so it still follows the palette and both colour modes. */
+  background: color-mix(in srgb, var(--bg) 88%, var(--text) 12%);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none; /* the card must never eat the pointer that opened it */
+}
+
+.binchip-peek.is-below { transform: none; }
+
+.binchip-peek-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.binchip-peek-head em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.binchip-peek-loading {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.binchip-peek-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.binchip-peek-list > span {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--sp-15);
+  align-items: baseline;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.binchip-peek-list > span.is-here {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.binchip-peek-list code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--primary);
+}
+
+.binchip-peek-list > span > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.binchip-peek-list em {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.binchip-peek-more {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+/* ── The full viewer ── */
+
+.whv-dialog {
+  width: min(72rem, 94vw);
+  max-height: 90vh;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg, var(--radius));
+  /* Opaque for the same reason the peek card is: the shelf list is dense text
+     and the floor plan behind it is busy. */
+  background: color-mix(in srgb, var(--bg) 92%, var(--text) 8%);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.whv-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.whv-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-3);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.whv-head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: 0;
+  font-size: var(--fs-md);
+}
+
+.whv-head-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.whv-route-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.whv-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  min-height: 0;
+}
+
+@media (max-width: 860px) {
+  .whv-body { grid-template-columns: 1fr; }
+}
+
+.whv-stage {
+  padding: var(--sp-25);
+  min-width: 0;
+}
+
+.whv-canvas {
+  display: block;
+  width: 100%;
+  max-height: 62vh;
+}
+
+/* ── Zoom and pan ───────────────────────────────────────────────────────────
+
+   The canvas is positioned so the zoom cluster can sit on it, and
+   `touch-action: none` is set by `useMapView` on the element itself — the page
+   around it still scrolls, but the second finger has to reach this element
+   instead of being taken by the browser's own pinch-zoom.
+
+   The grab cursor is the only affordance a mouse user gets for "you can drag
+   this", so it is worth the two rules. */
+
+.whv-canvas-wrap {
+  position: relative;
+  min-width: 0;
+  /* The zoom cluster's footprint, reserved by anything sharing its corner. */
+  --mapzoom-w: 7.5rem;
+}
+@media (hover: none) {
+  .whv-canvas-wrap { --mapzoom-w: 10.5rem; }
+}
+
+.whv-canvas.is-panning { cursor: grabbing; }
+
+.mapzoom {
+  position: absolute;
+  right: var(--sp-2);
+  bottom: var(--sp-2);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--pill);
+  background: var(--overlay-bg);
+  -webkit-backdrop-filter: var(--glass-sm);
+  backdrop-filter: var(--glass-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.mapzoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.mapzoom-btn:hover { background: var(--surface-hover); color: var(--text); }
+.mapzoom-btn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+.mapzoom-btn.is-fit { color: var(--primary); }
+
+/* Mono and tabular: the readout changes on every wheel notch, and a
+   proportional 100% is two pixels wider than 90%, so the buttons either side
+   of it would shuffle as you zoom. */
+.mapzoom-level {
+  min-width: 4ch;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  user-select: none;
+}
+
+/* ≥44px targets on a coarse pointer — this cluster sits over a plan somebody
+   is dragging with the same thumb. */
+@media (hover: none) {
+  .mapzoom-btn { width: 44px; height: 44px; }
+}
+
+.whv-floor { fill: var(--well); }
+
+.whv-gridline {
+  fill: none;
+  stroke: var(--glass-border);
+  stroke-width: 0.03;
+}
+
+.whv-room {
+  fill: rgba(var(--primary-rgb), 0.05);
+  stroke: none;
+}
+
+.whv-room-edge {
+  fill: none;
+  stroke: rgba(var(--primary-rgb), 0.4);
+  stroke-width: 0.12;
+}
+
+.whv-room-name {
+  font-size: 0.9px;
+  fill: var(--text-muted);
+  pointer-events: none;
+  user-select: none;
+}
+
+.whv-shelf-g,
+.whv-iso-shelf { cursor: pointer; }
+
+/* Refuse the browser's own focus ring on BOTH focus states, not just
+   `:focus-visible`.
+
+   Pressing a shelf focuses its `<g tabindex="0">` WITHOUT matching
+   `:focus-visible` — that selector is for keyboard focus — so a rule written
+   only for `:focus-visible` left Chrome's `outline: auto` ring painted around
+   the group's bounding box on every click: a five-pixel platform-coloured
+   rectangle (orange on Pop!_OS, black elsewhere) sitting over whatever shelf
+   was drawn next to it. That is the ring this map is not allowed to grow —
+   selection here glows (DESIGN §3) — and it survived the last pass because
+   the ring is the user agent's, not ours, so nothing in this file mentioned
+   it. Keyboard focus is answered below, with light. */
+.whv-shelf-g:focus,
+.whv-iso-shelf:focus { outline: none; }
+
+.whv-shelf {
+  fill: rgba(var(--secondary-rgb), 0.3);
+  stroke: var(--secondary);
+  stroke-width: 0.08;
+}
+
+.whv-shelf-g.is-hovered .whv-shelf {
+  fill: rgba(var(--secondary-rgb), 0.55);
+  filter: drop-shadow(0 0 0.3px var(--secondary-glow));
+}
+
+/* Keyboard focus, in light rather than in outline.
+   Focusing a shelf also marks it hovered (the group's `onFocus` is the same
+   handler the pointer uses), so this has to sit AFTER the hover rule or the
+   two cancel out at equal specificity and tabbing looks exactly like
+   pointing. Primary rather than secondary for the same reason `.is-hit` is:
+   "where the keyboard is" and "what is under your finger" are different
+   questions. `.is-hit` still wins — it is declared after — because the shelf
+   the caller asked for outranks the one being tabbed past. */
+.whv-shelf-g:focus-visible .whv-shelf {
+  fill: rgba(var(--primary-rgb), 0.45);
+  stroke: var(--primary);
+  filter: drop-shadow(0 0 0.35px var(--primary-glow));
+}
+
+/* The shelf the caller asked about. Deliberately the primary accent while
+   hover is the secondary, so "the one you asked for" and "the one under your
+   finger" never look the same. */
+.whv-shelf-g.is-hit .whv-shelf {
+  fill: rgba(var(--primary-rgb), 0.75);
+  stroke: var(--primary);
+  filter: drop-shadow(0 0 0.2px var(--primary-glow)) drop-shadow(0 0 0.5px var(--primary-glow));
+}
+
+/* ── The exact section of the shelf ─────────────────────────────────────────
+
+   A highlighted shelf says "it is on A1". A highlighted SECTION says which
+   part of A1 — which, on a six-foot run of shelving, is the difference between
+   walking to it and searching it. Drawn over the shelf rather than instead of
+   it, so the shelf's own outline still reads as one object. */
+.whv-shelf-section {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 0.06;
+  /* The lit thing on the plan (DESIGN §3: glow means focused). The fill and
+     the stroke carry it on their own at --glow-strength: 0, so a flattened
+     store still sees which section it is. */
+  filter: drop-shadow(0 0 0.35px var(--accent));
+}
+
+/* ── The patch a numbered stop stands on ────────────────────────────────────
+
+   The stop you are walking to is the accent section above. These are the ones
+   after it: the same idea, one notch quieter, so a walk reads as a sequence of
+   places rather than as one lit shelf and a row of numbers floating over runs
+   of shelving that are eight feet long. No glow — only the next stop is
+   "focused" (DESIGN §3), and lighting every stop would flatten the difference
+   between where you are going and where you will end up. */
+.whv-stop-slot {
+  fill: rgba(var(--primary-rgb), 0.28);
+  stroke: rgba(var(--primary-rgb), 0.55);
+  stroke-width: 0.05;
+}
+
+.whv-iso-stop-slot {
+  fill: rgba(var(--primary-rgb), 0.45);
+  stroke: rgba(var(--primary-rgb), 0.7);
+  stroke-width: 0.04;
+  stroke-linejoin: round;
+}
+
+.whv-shelf-name {
+  font-size: 0.95px;
+  font-weight: 700;
+  fill: var(--text);
+  pointer-events: none;
+  user-select: none;
+}
+
+.whv-route {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 0.18;
+  stroke-dasharray: 0.5 0.35;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+/* A stop's badge is drawn at the size of the patch it marks — a slot on one
+   plan is a sixth of a run, on another it is the whole shelf — so the markup
+   hands the radius down as `--stop-r` (user units) and the number follows it.
+   A fixed font size here made the digit larger than its own circle the moment
+   the badge moved from a shelf corner onto a slot. */
+.whv-stop {
+  --stop-r: 0.62;
+}
+
+.whv-stop circle {
+  fill: var(--primary);
+  /* The badge sits ON the plan, over shelves and the route alike. A hairline
+     of background around it keeps the digit legible where the dashed route
+     runs underneath. */
+  stroke: var(--bg);
+  stroke-width: 0.05;
+}
+
+/* "There is more than one stop standing here." A flat plan cannot separate two
+   boxes on the same slot column by height, so the ring says the badge is
+   speaking for a second one and the tooltip names it. */
+.whv-stop-stack {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 0.07;
+  opacity: 0.85;
+}
+
+.whv-stop text {
+  font-size: calc(var(--stop-r) * 1.15px);
+  font-weight: 700;
+  /* Ink on a brand fill is `--bg`, never white. `--primary-contrast` was never
+     declared anywhere in the app, so the `#fff` fallback was not a fallback —
+     it was the value, always. On the shipped dark primary that is 2.94:1, and
+     worse on the paler preset primaries (Material's lavender, Phosphor's
+     green, Bullion's gold). Contrast is symmetric and every brand colour is
+     solved to clear AA against the page ground, so painting the ground back
+     onto the brand inherits that exact ratio in both modes. */
+  fill: var(--bg);
+  pointer-events: none;
+  user-select: none;
+}
+
+.whv-iso-room {
+  fill: rgba(var(--primary-rgb), 0.07);
+  /* No stroke. The parts of one room share edges, and stroking each of them
+     drew a line through the middle of every L, U and T — see the markup for
+     the split. The outline below is the only thing that draws a boundary. */
+}
+
+.whv-iso-room-edge {
+  stroke: rgba(var(--primary-rgb), 0.35);
+  stroke-width: 0.1;
+  fill: none;
+  stroke-linecap: square;
+}
+
+.whv-iso-left { fill: rgba(var(--secondary-rgb), 0.5); }
+.whv-iso-right { fill: rgba(var(--secondary-rgb), 0.35); }
+.whv-iso-top { fill: rgba(var(--secondary-rgb), 0.7); }
+
+.whv-iso-shelf.is-hovered .whv-iso-top { fill: rgba(var(--secondary-rgb), 0.9); }
+.whv-iso-shelf.is-hit .whv-iso-top { fill: var(--primary); }
+.whv-iso-shelf.is-hit .whv-iso-left,
+.whv-iso-shelf.is-hit .whv-iso-right { fill: rgba(var(--primary-rgb), 0.6); }
+/* The same bloom the flat plan gets, on the solid. Applied to the group so
+   the three faces glow as one object rather than each casting its own edge
+   into its neighbour. */
+.whv-iso-shelf.is-hit {
+  filter: drop-shadow(0 0 0.25px var(--primary-glow)) drop-shadow(0 0 0.6px var(--primary-glow));
+}
+.whv-iso-shelf.is-hovered { filter: drop-shadow(0 0 0.35px var(--secondary-glow)); }
+/* After the hover bloom for the same reason as the flat plan: focusing a
+   shelf marks it hovered, and at equal specificity the last rule is the one
+   that paints. On the hit shelf this changes nothing — both are the primary
+   bloom — so the ordering only ever decides hover versus keyboard. */
+.whv-iso-shelf:focus-visible { filter: drop-shadow(0 0 0.45px var(--primary-glow)); }
+
+/* ── The level, as the slice of the box it actually is ──────────────────────
+
+   This is the reason the 2.5D projection is here at all. Top-down can point at
+   the section of a shelf but has no height to say WHICH SHELF UP — so a picker
+   told "A1, section 3" still has to look at four levels of it. The band spans
+   the level's share of the shelf's height and the section's share of its
+   length: what lights up is the box you reach for.
+
+   Three faces, lit progressively so the solid reads as a solid rather than as
+   a flat patch stuck on the front. */
+.whv-iso-band-top { fill: var(--accent); }
+.whv-iso-band-right { fill: color-mix(in srgb, var(--accent) 78%, black); }
+.whv-iso-band-left { fill: color-mix(in srgb, var(--accent) 58%, black); }
+.whv-iso-band polygon {
+  stroke: var(--bg);
+  stroke-width: 0.04;
+  stroke-linejoin: round;
+}
+.whv-iso-band-label {
+  font-family: var(--font-mono);
+  font-size: 0.42px;
+  font-weight: 700;
+  fill: var(--bg);
+  paint-order: stroke;
+  pointer-events: none;
+}
+
+/* ── Floors ────────────────────────────────────────────────────────────────
+
+   Only ever rendered when a store has more than one, so a single-level
+   warehouse never learns the feature exists. */
+.whv-floors,
+.whc-floors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-4) var(--sp-2);
+}
+.whc-floors { padding: 0 0 var(--sp-2); }
+
+.whc-floor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.whc-floor:hover { color: var(--text); border-color: var(--border-hover); }
+.whc-floor.is-on {
+  background: var(--btn-bg);
+  border-color: var(--primary-border);
+  color: var(--text);
+}
+.whc-floor:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+/* A dot on the floor the highlighted shelf is actually on, so switching away
+   from it and back does not mean hunting for which one had the answer. */
+.whc-floor.is-target::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* The flat plan cannot draw a height, so the sentence beside it offers the
+   projection that can rather than naming something the picture omits. */
+.whv-target-hint {
+  margin-left: var(--sp-2);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.whv-target-hint:hover { color: var(--text); }
+
+.whv-iso-name {
+  font-size: 0.8px;
+  font-weight: 700;
+  fill: var(--text);
+  pointer-events: none;
+}
+
+.whv-panel {
+  border-left: 1px solid var(--glass-border);
+  padding: var(--sp-3) var(--sp-3);
+  overflow-y: auto;
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+@media (max-width: 860px) {
+  .whv-panel {
+    border-left: 0;
+    border-top: 1px solid var(--glass-border);
+    max-height: 22rem;
+  }
+}
+
+.whv-target {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-15);
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.whv-target code { color: var(--primary); font-family: var(--font-mono, monospace); }
+.whv-target.is-missing { color: var(--warning, var(--text-muted)); }
+
+.whv-panel-empty,
+.whv-panel-none,
+.whv-panel-loading {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.whv-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-15);
+  text-align: center;
+  padding: var(--sp-8) var(--sp-2);
+}
+
+.whv-panel-empty p { margin: 0; }
+
+.whv-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: var(--sp-15);
+}
+
+.whv-panel-head h4 { margin: 0; font-size: var(--fs-base); }
+
+.whv-panel-counts {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.whv-contents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.whv-contents li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--sp-2);
+  align-items: baseline;
+  padding: var(--sp-1) var(--sp-15);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+}
+
+.whv-contents li.is-here {
+  background: rgba(var(--primary-rgb), 0.12);
+  outline: 1px solid rgba(var(--primary-rgb), 0.35);
+}
+
+.whv-bin {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--primary);
+}
+
+.whv-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.whv-group {
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whv-variant {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whv-qty {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* A shelf figure that disagrees with the variant's on-hand total is the
+   reconciliation gap made visible at the point somebody can act on it. */
+.whv-qty em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--warning, var(--text-muted));
+}
+
+.binchip-shelf {
+  fill: var(--text-muted);
+  opacity: 0.28;
+}
+
+.binchip-shelf.is-here {
+  fill: var(--primary);
+  opacity: 1;
+}
+
+/* ── Print: the top-down plan, black on white ── */
+
+@media print {
+  body:has(.wh-page) .admin-sidebar,
+  body:has(.wh-page) .admin-topbar,
+  body:has(.wh-page) .admin-drawer {
+    display: none !important;
+  }
+
+  body:has(.wh-page) .admin-main {
+    margin-left: 0;
+    padding: 0;
+  }
+
+  .wh-page .admin-page-actions,
+  .wh-page .wh-toolbar,
+  .wh-page .wh-panel {
+    display: none !important;
+  }
+
+  .wh-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .wh-canvas-wrap {
+    border: none;
+    background: #fff;
+  }
+
+  .wh-plan-floor { fill: #fff; }
+  .wh-gridline { stroke: #ddd; }
+  .wh-room-part { fill: none; }
+  .wh-room-edge { stroke: #000; }
+  .wh-room-name { fill: #000; }
+  .wh-shelf { fill: #eee; stroke: #000; }
+  .wh-shelf-name, .wh-shelf-rank { fill: #000; }
+  .wh-handle, .wh-preview { display: none; }
+
+  /* The chips stay on screen; the printed sheets keep the bin text. */
+  .binchip { display: none !important; }
+}
+
+/* ── Variant location editor (product edit) ─────────────────────────────────
+ * Lives inside a variant card, so it reads as a sub-panel rather than a card
+ * of its own: a hairline top rule and a recessed ground. */
+
+/* ── The variant's shelf readout (components/admin/VariantShelf.jsx) ────────
+
+   Was a multi-row editor — a list of bins, a star for the pick face, a
+   quantity box each and a move panel. It is a readout now: one variant, one
+   shelf, and whether that shelf agrees with the on-hand figure. The rules for
+   the rows, the star, the delete button and the move form went with it. */
+
+.vloc {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.vloc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.vloc-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+  color: var(--text-muted);
+}
+.vloc-bin-code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--primary);
+}
+
+.vloc-gap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+}
+.vloc-gap.is-off { color: var(--warning); }
+.vloc-gap em {
+  font-style: normal;
+  font-weight: 700;
+  margin-left: var(--sp-1);
+}
+
+.vloc-loading,
+.vloc-empty,
+.vloc-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.vloc-empty svg,
+.vloc-note svg { flex-shrink: 0; margin-top: 2px; }
+
+/* The gap is a thing to go and settle, so it links to the screen that settles
+   it (DESIGN §9) rather than ending the sentence. */
+.vloc-count-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.vloc-count-link:hover { text-decoration: underline; }
+
+.whc {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.whc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.whc-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-15);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.whc-seg { flex: none; }
+
+.whc-stage {
+  padding: var(--sp-2);
+  min-height: 0;
+}
+
+/* Capped so the map never pushes the sheet it is serving off the screen. */
+.whc-stage .whv-canvas { max-height: 20rem; }
+
+.whc-stage.is-clickable .whv-shelf-g,
+.whc-stage.is-clickable .whv-iso-shelf { cursor: pointer; }
+
+.whc-empty {
+  margin: 0;
+  padding: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* The line the picker is walking to. Reads as a caption under the map. */
+.whc-next {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--glass-border);
+  font-size: var(--fs-sm);
+}
+
+.whc-next.is-done { color: var(--success); }
+
+.whc-next-bin {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--fs-xs);
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
+  border: 1px solid rgba(var(--primary-rgb), 0.3);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-05) var(--sp-2);
+  white-space: nowrap;
+}
+
+.whc-next-item { min-width: 0; }
+.whc-next-item em { font-style: normal; color: var(--text-muted); }
+
+/* ── The walk's finish line ── */
+
+.pull-ready {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid rgba(var(--success-rgb), 0.45);
+  border-radius: var(--radius);
+  background: rgba(var(--success-rgb), 0.08);
+  animation: fulfil-rise 0.35s var(--ease-settle) both;
+}
+
+.pull-ready-text {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  color: var(--success);
+}
+
+.pull-ready-text strong { font-size: var(--fs-lg); }
+
+.pull-ready-text em {
+  font-style: normal;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+@media print {
+  .whc, .pull-ready { display: none !important; }
+}
+
+/* Map + detail, side by side once there is room to bother. */
+.whc-body.has-aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 15rem;
+  align-items: stretch;
+}
+
+.whc-body.has-aside .whc-stage .whv-canvas { max-height: 18rem; }
+
+.whc-aside {
+  border-left: 1px solid var(--glass-border);
+  padding: var(--sp-3);
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 780px) {
+  .whc-body.has-aside { grid-template-columns: 1fr; }
+  .whc-aside { border-left: 0; border-top: 1px solid var(--glass-border); }
+}
+
+.whc-next {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+  align-items: flex-start;
+  margin: 0;
+  font-size: var(--fs-base);
+}
+
+.whc-next-label {
+  font-size: var(--fs-3xs);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.whc-next-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  min-width: 0;
+}
+
+.whc-next-item strong { font-size: var(--fs-lg); color: var(--primary); }
+.whc-next-item em { font-style: normal; font-size: var(--fs-sm); color: var(--text-muted); }
+
+.whc-next-rest {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  padding-top: var(--sp-1);
+  border-top: 1px solid var(--glass-border);
+  width: 100%;
+}
+
+/* ── Shelf picker panel (Shelves page) ── */
+
+.shelf-pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-15);
+  align-items: flex-start;
+}
+
+.shelf-pick-label {
+  font-size: var(--fs-3xs);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shelf-pick-name {
+  font-size: var(--fs-xl);
+  font-family: var(--font-mono, monospace);
+  color: var(--primary);
+  line-height: 1;
+}
+
+.shelf-pick-meta { font-size: var(--fs-xs); color: var(--text-muted); }
+
+.shelf-pick-hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* The shared-slot marks and the collision warning moved up into the `.slotg`
+   block with the rest of the slot grid when it was rebuilt — they were the
+   only three rules of that component living down here, which is how a
+   component ends up with two stylesheets and two paddings. */
+
+/* ── Walk-mode menu ── */
+
+.wh-walkmenu { position: relative; display: inline-flex; }
+
+.wh-walkmenu-list {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 30;
+  min-width: 18rem;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg) 92%, var(--text) 8%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+}
+
+.wh-walkmenu-list button {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  padding: var(--sp-2) var(--sp-25);
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.wh-walkmenu-list button:hover { background: var(--surface-hover); }
+.wh-walkmenu-list strong { font-size: var(--fs-sm); }
+.wh-walkmenu-list em { font-style: normal; font-size: var(--fs-2xs); color: var(--text-muted); }

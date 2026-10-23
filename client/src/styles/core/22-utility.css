@@ -1,0 +1,13 @@
+/* ===============================
+   UTILITY
+   =============================== */
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.font-mono { font-family: var(--font-mono); }
+.font-display { font-family: var(--font-display); }
+.tabular { font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
+
